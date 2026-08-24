@@ -8,10 +8,17 @@ from typing import Any
 
 import deepseek_reviewer_budgeted as budgeted
 
-# Quality non-regression requires enough exploration capacity to reach an explicit
-# evidence-complete stop. Keep the hard evidence/context/token guards unchanged;
-# only raise the round ceiling above the initial seven-round pilot.
-budgeted.MAX_EXPLORER_ROUNDS = max(budgeted.MAX_EXPLORER_ROUNDS, 12)
+# Five evidence-gathering rounds plus one explicit closure round are enough for
+# surrounding/reused definitions while the quality guard injects the complete
+# changed-file surface into the final pass. Never allow an environment override
+# to silently expand this optimized ceiling.
+budgeted.MAX_EXPLORER_ROUNDS = max(2, min(budgeted.MAX_EXPLORER_ROUNDS, 6))
+_EXPLORER_CLOSURE_ROUND = budgeted.MAX_EXPLORER_ROUNDS
+
+# The previous 7k final cap was repeatedly consumed entirely by reasoning,
+# producing no visible review and forcing a second full-prompt fallback. Give the
+# reasoned pass enough answer headroom so the fallback becomes exceptional.
+budgeted.FINAL_MAX_TOKENS = max(budgeted.FINAL_MAX_TOKENS, 10000)
 
 _EXPLORER_REDUNDANT_INSTRUCTION = (
     "First verify repo_state once. Then inspect every changed file completely using "
@@ -24,14 +31,24 @@ _EXPLORER_OPTIMIZED_INSTRUCTION = (
     "modified files. Do NOT spend explorer calls rereading changed-file content. "
     "Use explorer tools only for surrounding/reused definitions and usages, exact "
     "binding/CI evidence, and other evidence outside the mandatory changed-file bundle "
-    "needed to falsify the requested invariants. Once those external dependencies are "
-    "sufficient, stop calling tools and return EVIDENCE_COMPLETE with the strongest "
-    "candidate finding or 'no material candidate found'."
+    "needed to falsify the requested invariants. Batch independent reads/searches. "
+    "Once those external dependencies are sufficient, stop calling tools and return "
+    "EVIDENCE_COMPLETE with the strongest candidate finding or 'no material candidate "
+    "found'."
+)
+_EXPLORER_CLOSURE_INSTRUCTION = (
+    "EXPLORATION CLOSURE. Do not call tools. Based only on evidence already collected, "
+    "return a compact note beginning exactly with EVIDENCE_COMPLETE if the surrounding "
+    "evidence needed by the requested invariants is sufficient, otherwise begin exactly "
+    "with EVIDENCE_INCOMPLETE and name the specific missing definition/evidence. Do not "
+    "infer unseen facts. The complete changed files and exact modified-file patches are "
+    "injected separately by the quality guard into the final pass."
 )
 
 
 def _optimized_explorer_messages(
     stage: str,
+    round_number: int,
     messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     if stage != "explore" or not messages:
@@ -50,6 +67,9 @@ def _optimized_explorer_messages(
         1,
     )
     optimized[0] = first
+
+    if round_number >= _EXPLORER_CLOSURE_ROUND:
+        optimized.append({"role": "user", "content": _EXPLORER_CLOSURE_INSTRUCTION})
     return optimized
 
 
@@ -63,18 +83,22 @@ def compat_send_request(
     max_tokens: int,
     model: str,
 ) -> dict[str, Any]:
-    """Preserve API compatibility and remove redundant explorer changed-file reads."""
+    """Preserve API compatibility while bounding redundant review-token use."""
+
+    closure_round = stage == "explore" and round_number >= _EXPLORER_CLOSURE_ROUND
+    effective_tools = tools and not closure_round
+    effective_max_tokens = 700 if closure_round else max_tokens
 
     payload: dict[str, Any] = {
         "model": model,
-        "messages": _optimized_explorer_messages(stage, messages),
+        "messages": _optimized_explorer_messages(stage, round_number, messages),
         "stream": False,
-        "max_tokens": max_tokens,
+        "max_tokens": effective_max_tokens,
         "thinking": {"type": "enabled" if thinking else "disabled"},
     }
     if thinking:
         payload["reasoning_effort"] = "high"
-    if tools:
+    if effective_tools:
         payload["tools"] = budgeted.TOOLS
         payload["tool_choice"] = "auto"
 
@@ -120,6 +144,13 @@ def compat_send_request(
 budgeted.send_request = compat_send_request
 
 import deepseek_reviewer_quality_guarded as quality_guarded  # noqa: E402
+
+# Explicit incomplete closure must fail closed just like context/token exhaustion.
+if "EVIDENCE_INCOMPLETE" not in quality_guarded.BUDGET_INCOMPLETE_MARKERS:
+    quality_guarded.BUDGET_INCOMPLETE_MARKERS = (
+        *quality_guarded.BUDGET_INCOMPLETE_MARKERS,
+        "EVIDENCE_INCOMPLETE",
+    )
 
 
 if __name__ == "__main__":
