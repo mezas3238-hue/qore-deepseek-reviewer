@@ -27,22 +27,23 @@ _EXPLORER_REDUNDANT_INSTRUCTION = (
 )
 _EXPLORER_OPTIMIZED_INSTRUCTION = (
     "First verify repo_state once. The quality guard injects every changed file "
-    "completely into the FINAL pass and also injects the exact BASE..HEAD patch for "
-    "modified files. Do NOT spend explorer calls rereading changed-file content. "
-    "Use explorer tools only for surrounding/reused definitions and usages, exact "
-    "binding/CI evidence, and other evidence outside the mandatory changed-file bundle "
-    "needed to falsify the requested invariants. Batch independent reads/searches. "
-    "Once those external dependencies are sufficient, stop calling tools and return "
-    "EVIDENCE_COMPLETE with the strongest candidate finding or 'no material candidate "
-    "found'."
+    "completely into the FINAL pass, injects the exact BASE..HEAD patch for modified "
+    "files, and deterministically injects complete local qore.infrastructure modules "
+    "imported by changed Python files. Do NOT spend explorer calls rereading changed "
+    "files or those imported local dependency modules. Use explorer tools only for "
+    "binding/CI evidence and additional surrounding definitions/usages not already in "
+    "that mandatory bundle. Batch independent reads/searches. Once that extra evidence "
+    "is sufficient, stop calling tools and return EVIDENCE_COMPLETE with the strongest "
+    "candidate finding or 'no material candidate found'."
 )
 _EXPLORER_CLOSURE_INSTRUCTION = (
-    "EXPLORATION CLOSURE. Do not call tools. Based only on evidence already collected, "
-    "return a compact note beginning exactly with EVIDENCE_COMPLETE if the surrounding "
-    "evidence needed by the requested invariants is sufficient, otherwise begin exactly "
-    "with EVIDENCE_INCOMPLETE and name the specific missing definition/evidence. Do not "
-    "infer unseen facts. The complete changed files and exact modified-file patches are "
-    "injected separately by the quality guard into the final pass."
+    "EXPLORATION CLOSURE. Do not call tools. The FINAL pass will deterministically receive "
+    "all complete changed files, exact modified-file patches, and complete local "
+    "qore.infrastructure modules imported by changed Python files. Based on those "
+    "guarantees plus evidence already collected, return a compact note beginning exactly "
+    "with EVIDENCE_COMPLETE if no additional surrounding evidence is missing; otherwise "
+    "begin exactly with EVIDENCE_INCOMPLETE and name only evidence outside that mandatory "
+    "bundle. Do not infer unseen facts."
 )
 
 
