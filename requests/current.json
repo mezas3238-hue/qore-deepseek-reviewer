@@ -1,9 +1,9 @@
 {
   "pr_number": 437,
-  "package_id": "UNR013-ETAPAC-R8-DS-EXPERT-01",
+  "package_id": "UNR013-ETAPAC-R8-DS-CODER-01",
   "expected_base": "db83b106f3a5e7f30a788567dfa970a38b7a379a",
   "expected_head": "1c99f1987e78b3be3d8bb6a0d1ecf98c5f3675dc",
   "expected_synthetic": "cd97ad3dbd6edb68855d06aba475d636be983bd9",
-  "review_mode": "expert",
-  "prompt_path": "prompts/unr013-r8-expert.md"
+  "review_mode": "coder",
+  "prompt_path": "prompts/unr013-r8-coder.md"
 }
