@@ -1,10 +1,10 @@
 {
-  "pr_number": 401,
-  "package_id": "UNR016-ETAPAC-R2-DS-CODER-01",
-  "expected_base": "40280e0574ae0e7ac6c9ff37afb7bbe314c6368a",
-  "expected_head": "3e2939a0ff489695200af11c2c47042d9da1bcf9",
-  "expected_synthetic": "222e3b8cef3a52c214343958fc10dc11e9a88887",
-  "review_mode": "coder",
-  "prompt_path": "prompts/unr016-r2-coder.md",
-  "dispatch_nonce": "2026-08-24T09:54:00Z"
+  "pr_number": 439,
+  "package_id": "UNR017-ETAPAC-R1-DS-EXPERT-01",
+  "expected_base": "72716234db4638fd4293dcaf4c66e36e28cf8541",
+  "expected_head": "eb98fed1c91df96b64032d592197f02599385573",
+  "expected_synthetic": "899e0258b601eb92afcedd956df00a10f6810376",
+  "review_mode": "expert",
+  "prompt_path": "prompts/unr017-r1-expert.md",
+  "dispatch_nonce": "2026-08-24T10:32:00Z"
 }
