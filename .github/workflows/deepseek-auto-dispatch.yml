@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - requests/current.json
+      - benchmarks/current.json
 
 permissions:
   actions: write
@@ -25,7 +26,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          REQUEST=requests/current.json
+          CHANGED="$(jq -r '((.head_commit.added // []) + (.head_commit.modified // []) + (.head_commit.removed // []))[]' "$GITHUB_EVENT_PATH")"
+          REQUEST_CHANGED=false
+          BENCHMARK_CHANGED=false
+          grep -qx 'requests/current.json' <<<"$CHANGED" && REQUEST_CHANGED=true || true
+          grep -qx 'benchmarks/current.json' <<<"$CHANGED" && BENCHMARK_CHANGED=true || true
+
+          if $REQUEST_CHANGED && $BENCHMARK_CHANGED; then
+            echo "Refusing ambiguous push: review and benchmark requests changed together." >&2
+            exit 1
+          fi
+
+          if $BENCHMARK_CHANGED; then
+            REQUEST=benchmarks/current.json
+            BENCHMARK_ONLY=true
+          elif $REQUEST_CHANGED; then
+            REQUEST=requests/current.json
+            BENCHMARK_ONLY=false
+          else
+            echo "No dispatch request file changed." >&2
+            exit 1
+          fi
+
           jq -e '
             (.pr_number | type == "number") and
             (.package_id | type == "string" and length > 0) and
@@ -44,7 +66,21 @@ jobs:
           REVIEW_MODE="$(jq -r '.review_mode' "$REQUEST")"
           PROMPT_PATH="$(jq -r '.prompt_path' "$REQUEST")"
 
-          echo "Dispatching ${PACKAGE_ID} for qore-core PR #${PR_NUMBER}."
+          test -f "$PROMPT_PATH"
+
+          if $BENCHMARK_ONLY; then
+            case "$PACKAGE_ID" in
+              BENCHMARK-*) ;;
+              *) echo "Benchmark package_id must start with BENCHMARK-." >&2; exit 1 ;;
+            esac
+            echo "Dispatching isolated benchmark ${PACKAGE_ID} for qore-core PR #${PR_NUMBER}."
+          else
+            case "$PACKAGE_ID" in
+              BENCHMARK-*) echo "Production review request cannot use BENCHMARK- package_id." >&2; exit 1 ;;
+              *) ;;
+            esac
+            echo "Dispatching ${PACKAGE_ID} for qore-core PR #${PR_NUMBER}."
+          fi
 
           gh workflow run deepseek-qore-review.yml \
             --ref main \
@@ -54,6 +90,7 @@ jobs:
             -f "expected_head=${EXPECTED_HEAD}" \
             -f "expected_synthetic=${EXPECTED_SYNTHETIC}" \
             -f "review_mode=${REVIEW_MODE}" \
-            -f "prompt_path=${PROMPT_PATH}"
+            -f "prompt_path=${PROMPT_PATH}" \
+            -f "benchmark_only=${BENCHMARK_ONLY}"
 
-          echo "DeepSeek QORE review dispatch accepted."
+          echo "DeepSeek workflow dispatch accepted; benchmark_only=${BENCHMARK_ONLY}."
