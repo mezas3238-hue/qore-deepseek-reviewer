@@ -8,6 +8,11 @@ from typing import Any
 
 import deepseek_reviewer_budgeted as budgeted
 
+# Quality non-regression requires enough exploration capacity to reach an explicit
+# evidence-complete stop. Keep the hard evidence/context/token guards unchanged;
+# only raise the round ceiling above the initial seven-round pilot.
+budgeted.MAX_EXPLORER_ROUNDS = max(budgeted.MAX_EXPLORER_ROUNDS, 12)
+
 
 def compat_send_request(
     *,
