@@ -3,8 +3,8 @@
   "package_id": "UNR017-ETAPAC-R1-DS-EXPERT-01",
   "expected_base": "72716234db4638fd4293dcaf4c66e36e28cf8541",
   "expected_head": "eb98fed1c91df96b64032d592197f02599385573",
-  "expected_synthetic": "899e0258b601eb92afcedd956df00a10f6810376",
+  "expected_synthetic": "1f85bcda91dba7c7c1d372a5583eba697444dea3",
   "review_mode": "expert",
   "prompt_path": "prompts/unr017-r1-expert.md",
-  "dispatch_nonce": "2026-08-24T10:32:00Z"
+  "dispatch_nonce": "2026-08-24T10:37:00Z"
 }
