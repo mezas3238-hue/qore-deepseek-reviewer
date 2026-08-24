@@ -79,9 +79,15 @@ v13._normalize_planned_args = normalize_planned_args
 
 
 def planner_system() -> str:
-    return _original_planner_system() + """
-Planner tool syntax is strict but normalized for harmless common forms. Prefer repository-relative paths such as `src/qore/...` and GitHub API endpoints beginning `/repos/mezas3238-hue/qore-core/...`. Do not use `github_get` for external web URLs or any repository other than qore-core. If external evidence is genuinely required and not already supplied by TARGET REVIEW, state EVIDENCE_INCOMPLETE instead of manufacturing an unsupported tool request.
-"""
+    return _original_planner_system() + (
+        "\nPlanner tool syntax is strict but normalized for harmless common forms. "
+        "Prefer repository-relative paths such as `src/qore/...` and GitHub API "
+        "endpoints beginning `/repos/mezas3238-hue/qore-core/...`. Do not use "
+        "`github_get` for external web URLs or any repository other than qore-core. "
+        "If external evidence is genuinely required and not already supplied by "
+        "TARGET REVIEW, state EVIDENCE_INCOMPLETE instead of manufacturing an "
+        "unsupported tool request.\n"
+    )
 
 
 v13._planner_system = planner_system
@@ -113,7 +119,7 @@ def _merge_diagnostic(**updates: object) -> None:
     diagnostic = json.loads(v14._DIAGNOSTIC_PATH.read_text(encoding="utf-8"))
     diagnostic.update(updates)
     v14._DIAGNOSTIC_PATH.write_text(
-        json.dumps(diagnostic, sort_keys=True, separators=(",", ",")) + "\n",
+        json.dumps(diagnostic, sort_keys=True, separators=(",", ":")) + "\n",
         encoding="utf-8",
     )
 
