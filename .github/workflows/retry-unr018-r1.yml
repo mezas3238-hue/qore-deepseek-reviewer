@@ -1,4 +1,3 @@
-# trigger: recovery-attempt-2
 name: Retry UNR018 R1 DeepSeek Expert
 
 on:
@@ -6,10 +5,14 @@ on:
     branches:
       - main
     paths:
-      - .github/workflows/retry-unr018-r1.yml
+      - recovery-triggers/unr018-r1-attempt3.txt
 
 permissions:
   contents: write
+
+concurrency:
+  group: unr018-r1-recovery
+  cancel-in-progress: false
 
 jobs:
   retry:
@@ -19,6 +22,11 @@ jobs:
     steps:
       - name: Checkout reviewer infrastructure
         uses: actions/checkout@v4
+
+      - name: Record reviewer infrastructure SHA
+        run: |
+          set -euo pipefail
+          echo "REVIEWER_INFRA_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Create QORE Reviewer installation token
         id: app-token
@@ -66,6 +74,36 @@ jobs:
           test "$(git show -s --format=%P 87f8a704d19c43a1d6373794242a7b2fb76ad649)" = "470db7333ab08024c002bd0f057b34b0ae30e5e3 b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
           test "$(git show -s --format=%T b4fa5eda4117fedf9ca81a4eb7d0693d3165026b)" = "$(git show -s --format=%T 87f8a704d19c43a1d6373794242a7b2fb76ad649)"
 
+      - name: Preflight reviewer configuration without DeepSeek API
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
+          PR_NUMBER: "441"
+          PACKAGE_ID: UNR018-ETAPAC-R1-DS-EXPERT-01
+          EXPECTED_BASE: 470db7333ab08024c002bd0f057b34b0ae30e5e3
+          EXPECTED_HEAD: b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+          EXPECTED_SYNTHETIC: 87f8a704d19c43a1d6373794242a7b2fb76ad649
+          REVIEW_MODE: expert
+          PROMPT_PATH: ${{ github.workspace }}/prompts/unr018-r1-expert.md
+          REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
+          DEEPSEEK_MODEL: deepseek-v4-pro
+          DEEPSEEK_MAX_EXPLORER_ROUNDS: "12"
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python3 - <<'PY'
+          import deepseek_reviewer_compat_entrypoint as entry
+
+          print(f"budgeted max rounds={entry.budgeted.MAX_EXPLORER_ROUNDS}")
+          print(
+              "quality guard max rounds="
+              f"{entry.quality_guarded.budgeted.MAX_EXPLORER_ROUNDS}"
+          )
+          assert entry.budgeted.MAX_EXPLORER_ROUNDS == 12
+          assert entry.quality_guarded.budgeted.MAX_EXPLORER_ROUNDS == 12
+          PY
+          grep -n 'REVIEWER = .*deepseek_reviewer_compat_entrypoint.py' scripts/run_review_with_meter.py
+
       - name: Run recovered DeepSeek reviewer
         id: reviewer
         env:
@@ -81,6 +119,7 @@ jobs:
           PROMPT_PATH: ${{ github.workspace }}/prompts/unr018-r1-expert.md
           REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
           DEEPSEEK_MODEL: deepseek-v4-pro
+          DEEPSEEK_MAX_EXPLORER_ROUNDS: "12"
         run: |
           set +e
           python3 scripts/run_review_with_meter.py > reviewer-run.log 2>&1
@@ -88,28 +127,30 @@ jobs:
           set -e
           echo "rc=${RC}" >> "$GITHUB_OUTPUT"
           {
+            echo "reviewer_infra_sha=${REVIEWER_INFRA_SHA}"
             echo "package=UNR018-ETAPAC-R1-DS-EXPERT-01"
             echo "head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
+            echo "configured_max_explorer_rounds=12"
             echo "exit_code=${RC}"
             echo "--- sanitized reviewer log tail ---"
-            tail -n 260 reviewer-run.log
+            tail -n 300 reviewer-run.log
           } > reviewer-diagnostic.txt
           exit 0
 
-      - name: Persist sanitized diagnostic
+      - name: Persist attempt-3 sanitized diagnostic
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           CONTENT="$(base64 -w0 reviewer-diagnostic.txt)"
           jq -n \
-            --arg message "diagnostic: UNR-018 R1 DeepSeek recovery" \
+            --arg message "diagnostic: UNR-018 R1 recovery attempt 3" \
             --arg content "$CONTENT" \
             --arg branch "main" \
             '{message:$message,content:$content,branch:$branch}' > diagnostic-payload.json
           gh api \
             --method PUT \
-            repos/mezas3238-hue/qore-deepseek-reviewer/contents/diagnostics/unr018-r1-retry.txt \
+            repos/mezas3238-hue/qore-deepseek-reviewer/contents/diagnostics/unr018-r1-attempt3.txt \
             --input diagnostic-payload.json \
             --jq '{commit: .commit.sha, blob: .content.sha}'
 
@@ -157,5 +198,5 @@ jobs:
       - name: Fail if reviewer failed
         if: steps.reviewer.outputs.rc != '0'
         run: |
-          echo "Recovered reviewer failed; inspect diagnostics/unr018-r1-retry.txt"
+          echo "Recovered reviewer failed; inspect diagnostics/unr018-r1-attempt3.txt"
           exit 1
