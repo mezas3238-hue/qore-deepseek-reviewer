@@ -50,6 +50,84 @@ def fmt_money(value: Decimal) -> str:
     return f"{value:.6f}".rstrip("0").rstrip(".") or "0"
 
 
+def usage_log_path() -> Path:
+    configured = os.environ.get("DEEPSEEK_USAGE_LOG")
+    if configured:
+        return Path(configured).resolve()
+    workspace = Path(os.environ.get("GITHUB_WORKSPACE", ".")).resolve()
+    return workspace / "deepseek-usage.jsonl"
+
+
+def aggregate_token_usage() -> dict[str, int]:
+    totals = {
+        "api_calls": 0,
+        "prompt_tokens": 0,
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 0,
+        "completion_tokens": 0,
+        "reasoning_tokens": 0,
+    }
+    path = usage_log_path()
+    if not path.is_file():
+        return totals
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        if not raw_line.strip():
+            continue
+        row = json.loads(raw_line)
+        totals["api_calls"] += 1
+        for key in (
+            "prompt_tokens",
+            "prompt_cache_hit_tokens",
+            "prompt_cache_miss_tokens",
+            "completion_tokens",
+            "reasoning_tokens",
+        ):
+            value = row.get(key, 0)
+            totals[key] += int(value) if isinstance(value, (int, float)) else 0
+    return totals
+
+
+def spent_by_currency(
+    before_payload: dict[str, Any],
+    after_payload: dict[str, Any],
+) -> dict[str, str]:
+    before = balances_by_currency(before_payload)
+    after = balances_by_currency(after_payload)
+    result: dict[str, str] = {}
+    for currency in sorted(set(before) & set(after)):
+        result[currency] = fmt_money(before[currency] - after[currency])
+    return result
+
+
+def persist_usage_with_review(
+    before_payload: dict[str, Any],
+    after_payload: dict[str, Any],
+    returncode: int,
+) -> None:
+    if returncode != 0:
+        return
+    output_raw = os.environ.get("REVIEW_OUTPUT")
+    if not output_raw:
+        return
+    output = Path(output_raw).resolve()
+    if not output.is_file():
+        return
+
+    telemetry = {
+        **aggregate_token_usage(),
+        "spent_by_currency": spent_by_currency(before_payload, after_payload),
+    }
+    marker = (
+        "<!-- QORE-DEEPSEEK-USAGE "
+        + json.dumps(telemetry, sort_keys=True, separators=(",", ":"))
+        + " -->"
+    )
+    review = output.read_text(encoding="utf-8").rstrip()
+    output.write_text(review + "\n\n" + marker + "\n", encoding="utf-8")
+    print("DeepSeek token telemetry persisted with review output.")
+
+
 def write_summary(
     before_payload: dict[str, Any],
     after_payload: dict[str, Any],
@@ -122,6 +200,7 @@ def main() -> int:
     after = fetch_balance()
     print("DeepSeek balance captured after review.")
     write_summary(before, after, proc.returncode)
+    persist_usage_with_review(before, after, proc.returncode)
     return proc.returncode
 
 
