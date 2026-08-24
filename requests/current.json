@@ -5,5 +5,6 @@
   "expected_head": "4663af69a57812ff811bbe382efc6d787ae43506",
   "expected_synthetic": "954ecb4214f84498211af7cf4abce56311ebb564",
   "review_mode": "expert",
-  "prompt_path": "prompts/unr014-r1-expert.md"
+  "prompt_path": "prompts/unr014-r1-expert.md",
+  "dispatch_nonce": "2026-08-24T06:38:00Z"
 }
