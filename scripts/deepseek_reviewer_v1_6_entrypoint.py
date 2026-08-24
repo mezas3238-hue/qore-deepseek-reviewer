@@ -20,7 +20,8 @@ FINAL_ANALYSIS_MAX_TOKENS = 20000
 FINAL_SYNTHESIS_MAX_TOKENS = 6000
 v13.FINAL_MAX_TOKENS = FINAL_ANALYSIS_MAX_TOKENS
 
-_original_send_request = v13.budgeted.send_request
+_v15_send_request = v13.budgeted.send_request
+_base_send_request = v15._original_send_request
 _last_final_reasoning = ""
 _last_final_finish_reason = ""
 
@@ -90,7 +91,7 @@ def send_request(
             v1_6_analysis_finish_reason=_last_final_finish_reason,
             v1_6_retained_reasoning_chars=len(_last_final_reasoning),
         )
-        return _original_send_request(
+        return _v15_send_request(
             stage=stage,
             round_number=round_number,
             messages=_synthesis_messages(),
@@ -100,20 +101,16 @@ def send_request(
             model=model,
         )
 
-    effective_max_tokens = (
-        FINAL_ANALYSIS_MAX_TOKENS if stage == "final" and thinking else max_tokens
-    )
-    response = _original_send_request(
-        stage=stage,
-        round_number=round_number,
-        messages=messages,
-        thinking=thinking,
-        tools=tools,
-        max_tokens=effective_max_tokens,
-        model=model,
-    )
-
     if stage == "final" and thinking:
+        response = _base_send_request(
+            stage=stage,
+            round_number=round_number,
+            messages=messages,
+            thinking=thinking,
+            tools=tools,
+            max_tokens=FINAL_ANALYSIS_MAX_TOKENS,
+            model=model,
+        )
         choice = _choice(response)
         message = _message(response)
         _last_final_reasoning = str(message.get("reasoning_content") or "")
@@ -124,8 +121,20 @@ def send_request(
             v1_6_synthesis_max_tokens=FINAL_SYNTHESIS_MAX_TOKENS,
             v1_6_analysis_finish_reason=_last_final_finish_reason,
             v1_6_retained_reasoning_chars=len(_last_final_reasoning),
+            final_reasoning_chars=len(_last_final_reasoning),
+            final_visible_chars=len(str(message.get("content") or "")),
         )
-    return response
+        return response
+
+    return _v15_send_request(
+        stage=stage,
+        round_number=round_number,
+        messages=messages,
+        thinking=thinking,
+        tools=tools,
+        max_tokens=max_tokens,
+        model=model,
+    )
 
 
 v13.budgeted.send_request = send_request
