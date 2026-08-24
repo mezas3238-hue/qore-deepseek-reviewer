@@ -83,17 +83,11 @@ def _analysis_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _extract_messages(
     *,
-    original_messages: list[dict[str, Any]],
     reasoning: str,
     visible: str,
     finish_reason: str,
 ) -> list[dict[str, Any]]:
-    target = ""
-    if original_messages and isinstance(original_messages[-1], dict):
-        # Keep only the compact task header/prompt portion. The retained analysis already
-        # consumed the complete evidence; re-sending that bundle would recreate the V1.9
-        # amplification. Bound this reminder deterministically.
-        target = str(original_messages[-1].get("content") or "")[:12000]
+    target = v13.reviewer.PROMPT_PATH.read_text(encoding="utf-8")[:12000]
 
     system = (
         "You are the verdict extractor for a completed DeepSeek V4-Pro/high QORE review "
@@ -116,7 +110,7 @@ def _extract_messages(
         f"HEAD: {v13.reviewer.EXPECTED_HEAD}\n"
         f"SYNTHETIC: {v13.reviewer.EXPECTED_SYNTHETIC}\n"
         f"HIGH_ANALYSIS_FINISH_REASON: {finish_reason}\n\n"
-        "COMPACT TARGET REMINDER:\n"
+        "TARGET REVIEW PROMPT (bounded, no evidence bundle):\n"
         + target
         + "\n\nHIGH-REASONING VISIBLE CONTENT (may be empty/partial):\n"
         + (visible or "[none]")
@@ -181,7 +175,6 @@ def send_request(
             stage="verdict-extract",
             round_number=1,
             messages=_extract_messages(
-                original_messages=messages,
                 reasoning=reasoning,
                 visible=visible,
                 finish_reason=finish_reason,
