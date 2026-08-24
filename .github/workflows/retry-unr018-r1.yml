@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - recovery-triggers/unr018-r1-attempt3.txt
+      - recovery-triggers/unr018-r1-attempt4.txt
 
 permissions:
   contents: write
@@ -101,6 +101,9 @@ jobs:
           )
           assert entry.budgeted.MAX_EXPLORER_ROUNDS == 12
           assert entry.quality_guarded.budgeted.MAX_EXPLORER_ROUNDS == 12
+          assert "Do NOT spend explorer calls rereading changed-file content" in (
+              entry._EXPLORER_OPTIMIZED_INSTRUCTION
+          )
           PY
           grep -n 'REVIEWER = .*deepseek_reviewer_compat_entrypoint.py' scripts/run_review_with_meter.py
 
@@ -131,26 +134,27 @@ jobs:
             echo "package=UNR018-ETAPAC-R1-DS-EXPERT-01"
             echo "head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
             echo "configured_max_explorer_rounds=12"
+            echo "changed_file_explorer_policy=final-pass-mandatory-evidence"
             echo "exit_code=${RC}"
             echo "--- sanitized reviewer log tail ---"
             tail -n 300 reviewer-run.log
           } > reviewer-diagnostic.txt
           exit 0
 
-      - name: Persist attempt-3 sanitized diagnostic
+      - name: Persist attempt-4 sanitized diagnostic
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           CONTENT="$(base64 -w0 reviewer-diagnostic.txt)"
           jq -n \
-            --arg message "diagnostic: UNR-018 R1 recovery attempt 3" \
+            --arg message "diagnostic: UNR-018 R1 recovery attempt 4" \
             --arg content "$CONTENT" \
             --arg branch "main" \
             '{message:$message,content:$content,branch:$branch}' > diagnostic-payload.json
           gh api \
             --method PUT \
-            repos/mezas3238-hue/qore-deepseek-reviewer/contents/diagnostics/unr018-r1-attempt3.txt \
+            repos/mezas3238-hue/qore-deepseek-reviewer/contents/diagnostics/unr018-r1-attempt4.txt \
             --input diagnostic-payload.json \
             --jq '{commit: .commit.sha, blob: .content.sha}'
 
@@ -198,5 +202,5 @@ jobs:
       - name: Fail if reviewer failed
         if: steps.reviewer.outputs.rc != '0'
         run: |
-          echo "Recovered reviewer failed; inspect diagnostics/unr018-r1-attempt3.txt"
+          echo "Recovered reviewer failed; inspect diagnostics/unr018-r1-attempt4.txt"
           exit 1
