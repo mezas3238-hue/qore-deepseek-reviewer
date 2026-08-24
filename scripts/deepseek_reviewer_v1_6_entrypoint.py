@@ -113,17 +113,25 @@ def send_request(
         )
         choice = _choice(response)
         message = _message(response)
+        visible = str(message.get("content") or "")
         _last_final_reasoning = str(message.get("reasoning_content") or "")
         _last_final_finish_reason = str(choice.get("finish_reason") or "")
+        truncated = _last_final_finish_reason == "length"
         v15._merge_diagnostic(
             v1_6_reasoned_synthesis=True,
             v1_6_analysis_max_tokens=FINAL_ANALYSIS_MAX_TOKENS,
             v1_6_synthesis_max_tokens=FINAL_SYNTHESIS_MAX_TOKENS,
             v1_6_analysis_finish_reason=_last_final_finish_reason,
             v1_6_retained_reasoning_chars=len(_last_final_reasoning),
+            v1_6_truncated_visible_forced_to_synthesis=truncated and bool(visible),
             final_reasoning_chars=len(_last_final_reasoning),
-            final_visible_chars=len(str(message.get("content") or "")),
+            final_visible_chars=len(visible),
         )
+        if truncated:
+            # Never let V1.3 publish a partial length-truncated verdict. Clearing only
+            # the visible field routes the already-retained high-reasoning analysis to
+            # the bounded synthesis path; evidence and reasoning are not discarded.
+            message["content"] = ""
         return response
 
     return _v15_send_request(
