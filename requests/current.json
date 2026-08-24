@@ -1,10 +1,10 @@
 {
   "pr_number": 443,
-  "package_id": "UNR019-ETAPAC-R1E-DS-CODER-01",
+  "package_id": "UNR019-ETAPAC-R1F-DS-CODER-01",
   "expected_base": "25ed21be1ba427820be78dbb8958d441e5f27f9c",
   "expected_head": "b2fae639779bdf27c497929af1a545ae70a42649",
   "expected_synthetic": "db81e5268ee0abdc7cf07018d5daf7e9768d8604",
   "review_mode": "coder",
-  "prompt_path": "prompts/unr019-r1e-coder.md",
-  "dispatch_nonce": "2026-08-24T22:22:00Z"
+  "prompt_path": "prompts/unr019-r1f-coder.md",
+  "dispatch_nonce": "2026-08-24T22:41:00Z"
 }
