@@ -1,0 +1,43 @@
+name: Dispatch current DeepSeek review
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - requests/current.json
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reviewer request
+        uses: actions/checkout@v4
+
+      - name: Dispatch bound review workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          PR_NUMBER="$(jq -r '.pr_number' requests/current.json)"
+          PACKAGE_ID="$(jq -r '.package_id' requests/current.json)"
+          EXPECTED_BASE="$(jq -r '.expected_base' requests/current.json)"
+          EXPECTED_HEAD="$(jq -r '.expected_head' requests/current.json)"
+          EXPECTED_SYNTHETIC="$(jq -r '.expected_synthetic' requests/current.json)"
+          REVIEW_MODE="$(jq -r '.review_mode' requests/current.json)"
+          PROMPT_PATH="$(jq -r '.prompt_path' requests/current.json)"
+
+          gh workflow run deepseek-qore-review.yml \
+            --ref main \
+            -f "pr_number=${PR_NUMBER}" \
+            -f "package_id=${PACKAGE_ID}" \
+            -f "expected_base=${EXPECTED_BASE}" \
+            -f "expected_head=${EXPECTED_HEAD}" \
+            -f "expected_synthetic=${EXPECTED_SYNTHETIC}" \
+            -f "review_mode=${REVIEW_MODE}" \
+            -f "prompt_path=${PROMPT_PATH}"
