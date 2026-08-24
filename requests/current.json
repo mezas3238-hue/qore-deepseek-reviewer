@@ -1,10 +1,10 @@
 {
   "pr_number": 439,
-  "package_id": "UNR017-ETAPAC-R1-DS-EXPERT-01",
+  "package_id": "UNR017-ETAPAC-R2-DS-EXPERT-01",
   "expected_base": "72716234db4638fd4293dcaf4c66e36e28cf8541",
-  "expected_head": "eb98fed1c91df96b64032d592197f02599385573",
-  "expected_synthetic": "1f85bcda91dba7c7c1d372a5583eba697444dea3",
+  "expected_head": "ba11341c76b43436f3ef9f906a4cfe568614975c",
+  "expected_synthetic": "d8afcda7250cc6bcf96c1f94e494b4e4b5931461",
   "review_mode": "expert",
-  "prompt_path": "prompts/unr017-r1-expert.md",
-  "dispatch_nonce": "2026-08-24T10:37:00Z"
+  "prompt_path": "prompts/unr017-r2-expert.md",
+  "dispatch_nonce": "2026-08-24T11:11:15Z"
 }
