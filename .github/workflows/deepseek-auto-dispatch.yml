@@ -32,7 +32,7 @@ jobs:
             (.expected_base | type == "string" and length == 40) and
             (.expected_head | type == "string" and length == 40) and
             (.expected_synthetic | type == "string" and length == 40) and
-            (.review_mode | type == "string" and (. == "expert")) and
+            (.review_mode | type == "string" and (. == "expert" or . == "coder")) and
             (.prompt_path | type == "string" and length > 0)
           ' "$REQUEST" >/dev/null
 
