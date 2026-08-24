@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          CHANGED="$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA")"
+          CHANGED="$(jq -r '((.head_commit.added // []) + (.head_commit.modified // []) + (.head_commit.removed // []))[]' "$GITHUB_EVENT_PATH")"
           REQUEST_CHANGED=false
           BENCHMARK_CHANGED=false
           grep -qx 'requests/current.json' <<<"$CHANGED" && REQUEST_CHANGED=true || true
