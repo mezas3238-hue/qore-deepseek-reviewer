@@ -1,0 +1,49 @@
+reviewer_infra_sha=506a2b7c3f3c25417c52deb33fc4b7966b9fc124
+package=UNR018-ETAPAC-R1-DS-EXPERT-01
+head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+configured_max_explorer_rounds=12
+changed_file_explorer_policy=final-pass-mandatory-evidence
+exit_code=0
+--- sanitized reviewer log tail ---
+Quality guard prepared complete changed-file evidence: files=3, chars=46997.
+DeepSeek usage explore#1: prompt=2000 (hit=0, miss=2000), completion=41, reasoning=0
+DeepSeek usage explore#2: prompt=2521 (hit=1920, miss=601), completion=110, reasoning=0
+DeepSeek usage explore#3: prompt=6122 (hit=2560, miss=3562), completion=110, reasoning=0
+DeepSeek usage explore#4: prompt=8573 (hit=6144, miss=2429), completion=94, reasoning=0
+DeepSeek usage explore#5: prompt=10916 (hit=8576, miss=2340), completion=94, reasoning=0
+DeepSeek usage explore#6: prompt=11635 (hit=11008, miss=627), completion=194, reasoning=0
+DeepSeek usage explore#7: prompt=12322 (hit=11776, miss=546), completion=91, reasoning=0
+DeepSeek usage explore#8: prompt=14862 (hit=12288, miss=2574), completion=147, reasoning=0
+DeepSeek usage explore#9: prompt=15071 (hit=14976, miss=95), completion=126, reasoning=0
+DeepSeek usage explore#10: prompt=19372 (hit=15104, miss=4268), completion=101, reasoning=0
+DeepSeek usage explore#11: prompt=21154 (hit=19456, miss=1698), completion=91, reasoning=0
+DeepSeek usage explore#12: prompt=22365 (hit=21120, miss=1245), completion=198, reasoning=0
+DeepSeek usage final#1: prompt=34371 (hit=1664, miss=32707), completion=7000, reasoning=7000
+DeepSeek usage final-fallback#1: prompt=34301 (hit=1664, miss=32637), completion=1218, reasoning=0
+DeepSeek review written to /home/runner/work/qore-deepseek-reviewer/qore-deepseek-reviewer/deepseek-review.md
+## QORE DeepSeek token budget
+
+API calls: `14`
+
+| Metric | Tokens |
+|---|---:|
+| Prompt | 215585 |
+| Prompt cache hit | 128256 |
+| Prompt cache miss | 87329 |
+| Completion | 9615 |
+| Reasoning | 7000 |
+
+Exploration policy: max 12 rounds, max 8 tool calls/round, max 120000 serialized exploration chars, 9000 chars/tool result, 100000 chars final evidence bundle, 220000 cumulative exploration prompt tokens, 80000 cumulative exploration cache-miss tokens.
+
+DeepSeek balance captured before review.
+DeepSeek balance captured after review.
+## QORE DeepSeek usage
+
+Reviewer exit code: `0`
+
+| Currency | Balance before | Balance after | Spent this run |
+|---|---:|---:|---:|
+| USD | 5.61 | 5.61 | 0 |
+
+The balance delta is account-level actual billing observed around this run. Avoid concurrent DeepSeek API workloads if you want this delta to represent only this review.
+
