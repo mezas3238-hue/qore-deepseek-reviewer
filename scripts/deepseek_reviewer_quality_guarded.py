@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import ast
 import copy
 import json
 import os
@@ -12,6 +13,12 @@ import deepseek_reviewer_budgeted as budgeted
 reviewer = budgeted.reviewer
 MAX_MANDATORY_CHANGED_CHARS = int(
     os.environ.get("DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS", "140000")
+)
+MAX_MANDATORY_DEPENDENCY_CHARS = int(
+    os.environ.get("DEEPSEEK_MAX_MANDATORY_DEPENDENCY_CHARS", "140000")
+)
+MAX_MANDATORY_DEPENDENCY_FILES = int(
+    os.environ.get("DEEPSEEK_MAX_MANDATORY_DEPENDENCY_FILES", "4")
 )
 
 BUDGET_INCOMPLETE_MARKERS = (
@@ -34,7 +41,7 @@ def raw_git(*args: str) -> str:
     )
     if proc.returncode != 0:
         raise RuntimeError(
-            "git command failed while building mandatory changed-file evidence: "
+            "git command failed while building mandatory review evidence: "
             + " ".join(args)
             + "\n"
             + proc.stdout
@@ -49,7 +56,7 @@ def numbered_text(text: str) -> str:
     return "\n".join(f"{index}: {line}" for index, line in enumerate(lines, start=1))
 
 
-def build_mandatory_changed_evidence() -> tuple[str, int]:
+def changed_rows() -> list[tuple[str, str]]:
     status_text = raw_git(
         "diff",
         "--name-status",
@@ -61,13 +68,7 @@ def build_mandatory_changed_evidence() -> tuple[str, int]:
     if not rows:
         raise RuntimeError("frozen BASE..HEAD contains no changed files")
 
-    blocks = [
-        "# MANDATORY COMPLETE CHANGED-FILE EVIDENCE\n",
-        "These snapshots are injected by the harness, not selected by the model.\n",
-        "They must be inspected completely by the final reviewer.\n",
-    ]
-    changed_count = 0
-
+    parsed: list[tuple[str, str]] = []
     for row in rows:
         fields = row.split("\t")
         if len(fields) != 2:
@@ -79,7 +80,20 @@ def build_mandatory_changed_evidence() -> tuple[str, int]:
                 f"unsupported changed-file status {status!r} for {path!r}; "
                 "review must fail closed rather than omit evidence"
             )
+        parsed.append((status, path))
+    return parsed
 
+
+def build_mandatory_changed_evidence() -> tuple[str, int]:
+    blocks = [
+        "# MANDATORY COMPLETE CHANGED-FILE EVIDENCE\n",
+        "These snapshots are injected by the harness, not selected by the model.\n",
+        "They must be inspected completely by the final reviewer.\n",
+    ]
+    changed_count = 0
+
+    for status, path in changed_rows():
+        status_code = status[:1]
         ref = reviewer.EXPECTED_BASE if status_code == "D" else reviewer.EXPECTED_HEAD
         content = raw_git("show", f"{ref}:{path}")
         if "\x00" in content or "\ufffd" in content:
@@ -122,8 +136,86 @@ def build_mandatory_changed_evidence() -> tuple[str, int]:
                 "The harness will not truncate changed files to save tokens."
             )
 
-    evidence = "".join(blocks)
-    return evidence, changed_count
+    return "".join(blocks), changed_count
+
+
+def local_infrastructure_dependency_paths() -> tuple[str, ...]:
+    changed = {path for _, path in changed_rows()}
+    dependencies: set[str] = set()
+
+    for status, path in changed_rows():
+        if status[:1] == "D" or not path.endswith(".py"):
+            continue
+        content = raw_git("show", f"{reviewer.EXPECTED_HEAD}:{path}")
+        try:
+            tree = ast.parse(content, filename=path)
+        except SyntaxError as exc:
+            raise RuntimeError(
+                f"cannot parse changed Python file {path!r} for dependency evidence"
+            ) from exc
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom) or node.module is None:
+                continue
+            if not node.module.startswith("qore.infrastructure."):
+                continue
+            relative = node.module.removeprefix("qore.").replace(".", "/") + ".py"
+            dependency_path = f"src/qore/{relative}"
+            if dependency_path not in changed:
+                dependencies.add(dependency_path)
+
+    ordered = tuple(sorted(dependencies))
+    if len(ordered) > MAX_MANDATORY_DEPENDENCY_FILES:
+        raise RuntimeError(
+            "mandatory local dependency evidence requires "
+            f"{len(ordered)} files, exceeding "
+            f"DEEPSEEK_MAX_MANDATORY_DEPENDENCY_FILES={MAX_MANDATORY_DEPENDENCY_FILES}; "
+            "split the review surface or explicitly raise the quality budget"
+        )
+    return ordered
+
+
+def build_mandatory_dependency_evidence() -> tuple[str, int]:
+    paths = local_infrastructure_dependency_paths()
+    if not paths:
+        return "", 0
+
+    blocks = [
+        "\n# MANDATORY LOCAL DEPENDENCY EVIDENCE\n",
+        "These exact HEAD snapshots are imported by changed Python files and are injected "
+        "deterministically so composition/revalidation invariants never depend on the model "
+        "remembering to fetch local GitHub evidence.\n",
+    ]
+
+    for index, path in enumerate(paths, start=1):
+        try:
+            content = raw_git("show", f"{reviewer.EXPECTED_HEAD}:{path}")
+        except RuntimeError as exc:
+            raise RuntimeError(
+                f"required local dependency {path!r} is unavailable at frozen HEAD"
+            ) from exc
+        if "\x00" in content or "\ufffd" in content:
+            raise RuntimeError(
+                f"dependency file {path!r} is not safely representable as UTF-8 text"
+            )
+        blocks.append(
+            f"\n## LOCAL DEPENDENCY {index}\n"
+            f"PATH: {path}\n"
+            f"REF: {reviewer.EXPECTED_HEAD}\n"
+            f"LINES: {len(content.splitlines())}\n"
+            "CONTENT (complete):\n"
+            f"{numbered_text(content)}\n"
+        )
+        current_chars = sum(len(item) for item in blocks)
+        if current_chars > MAX_MANDATORY_DEPENDENCY_CHARS:
+            raise RuntimeError(
+                "mandatory local dependency evidence exceeds "
+                f"DEEPSEEK_MAX_MANDATORY_DEPENDENCY_CHARS="
+                f"{MAX_MANDATORY_DEPENDENCY_CHARS}; split the review surface or explicitly "
+                "raise the quality budget. Dependencies will not be truncated."
+            )
+
+    return "".join(blocks), len(paths)
 
 
 def clean_verdict_markers(final: str) -> set[str]:
@@ -135,10 +227,13 @@ def clean_verdict_markers(final: str) -> set[str]:
 
 
 def main() -> int:
-    mandatory_evidence, changed_count = build_mandatory_changed_evidence()
+    mandatory_changed, changed_count = build_mandatory_changed_evidence()
+    mandatory_dependencies, dependency_count = build_mandatory_dependency_evidence()
+    mandatory_evidence = mandatory_changed + mandatory_dependencies
     print(
-        "Quality guard prepared complete changed-file evidence: "
-        f"files={changed_count}, chars={len(mandatory_evidence)}."
+        "Quality guard prepared mandatory evidence: "
+        f"changed_files={changed_count}, dependencies={dependency_count}, "
+        f"chars={len(mandatory_evidence)}."
     )
 
     original_send_request = budgeted.send_request
@@ -198,12 +293,12 @@ def main() -> int:
                     str(guarded_messages[0].get("content") or "")
                     + "\n\nQUALITY NON-REGRESSION RULE:\n"
                     + "Token reduction may NEVER justify a weaker review. The mandatory "
-                    + "changed-file evidence appended to the user message is complete and "
-                    + "must be inspected in full. If any surrounding definition/evidence "
-                    + "required to certify a requested invariant is absent, do not infer it. "
-                    + "Return EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA rather than a "
-                    + "clean verdict. A token/context/evidence budget stop can never by itself "
-                    + "support HALLAZGOS: NINGUNO / VALIDACIÓN OK.\n"
+                    + "changed-file and local-dependency evidence appended to the user message "
+                    + "is complete and must be inspected in full. If any other surrounding "
+                    + "definition/evidence required to certify a requested invariant is absent, "
+                    + "do not infer it. Return EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA "
+                    + "rather than a clean verdict. A token/context/evidence budget stop can "
+                    + "never by itself support HALLAZGOS: NINGUNO / VALIDACIÓN OK.\n"
                 )
             if guarded_messages and isinstance(guarded_messages[-1], dict):
                 guarded_messages[-1]["content"] = (
@@ -227,13 +322,17 @@ def main() -> int:
         final = reviewer.OUTPUT.read_text(encoding="utf-8") if reviewer.OUTPUT.is_file() else ""
         markers = clean_verdict_markers(final)
         if "VALIDACIÓN OK" in markers or "HALLAZGOS: NINGUNO" in markers:
-            try:
-                reviewer.OUTPUT.unlink()
-            except FileNotFoundError:
-                pass
-            raise RuntimeError(
-                "quality guard rejected a clean verdict after exploration budget/context/"
-                "evidence exhaustion; increase evidence budget or narrow the review surface"
+            reviewer.OUTPUT.write_text(
+                "EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA\n\n"
+                "Quality guard rejected the model's clean verdict because exploration ended "
+                "without certified-complete surrounding evidence. No clean conclusion is "
+                "published from missing evidence; this is a deterministic fail-closed review "
+                "result, not an infrastructure failure.\n",
+                encoding="utf-8",
+            )
+            print(
+                "Quality guard replaced an unsupported clean verdict with deterministic "
+                "VALIDACIÓN BLOQUEADA output."
             )
 
     return returncode
