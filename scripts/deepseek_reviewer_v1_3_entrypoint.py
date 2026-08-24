@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import ast
 import copy
 import json
+from collections import deque
 from typing import Any
 
 import deepseek_reviewer_v2_entrypoint as v12
@@ -34,6 +36,16 @@ _CLIP_MARKERS = (
     "characters omitted by token budget",
     "[truncated at",
 )
+
+
+# Exact raw source is complete evidence. Prefixing every line with its line number
+# added repeated tokens without adding source semantics. File/definition headers
+# already retain paths and stable line spans.
+def _raw_exact_text(text: str) -> str:
+    return text
+
+
+quality_guarded.numbered_text = _raw_exact_text
 
 
 def _base_user(prompt: str) -> str:
@@ -83,17 +95,64 @@ def build_baseline_evidence() -> str:
     )
 
 
+def _selected_dependency_details() -> str:
+    details: list[str] = []
+    for module, imported_names in sorted(v12._changed_import_requirements().items()):
+        path = v12._module_path(module)
+        content = quality_guarded.raw_git("show", f"{reviewer.EXPECTED_HEAD}:{path}")
+        tree = ast.parse(content, filename=path)
+        definitions = v12._definition_nodes(tree)
+
+        selected: set[str] = set()
+        queue: deque[tuple[str, int]] = deque(
+            (name, 0) for name in sorted(imported_names)
+        )
+        while queue:
+            name, depth = queue.popleft()
+            if name in selected:
+                continue
+            node = definitions.get(name)
+            if node is None:
+                continue
+            selected.add(name)
+            if depth >= v12.MAX_TRANSITIVE_DEFINITION_DEPTH:
+                continue
+            for referenced in sorted(v12._loaded_names(node)):
+                if referenced in definitions and referenced not in selected:
+                    queue.append((referenced, depth + 1))
+
+        import_map: dict[str, str] = {}
+        for node in tree.body:
+            if not isinstance(node, ast.ImportFrom) or node.module is None:
+                continue
+            for alias in node.names:
+                local_name = alias.asname or alias.name
+                import_map[local_name] = f"{node.module}:{alias.name}"
+
+        external_refs: set[str] = set()
+        for name in selected:
+            node = definitions.get(name)
+            if node is None:
+                continue
+            for loaded in v12._loaded_names(node):
+                target = import_map.get(loaded)
+                if target and target.startswith("qore."):
+                    external_refs.add(target)
+
+        details.append(
+            f"{module}=>direct[{','.join(sorted(imported_names))}] "
+            f"local_defs[{','.join(sorted(selected))}] "
+            f"external_qore_refs[{','.join(sorted(external_refs)) or '-'}]"
+        )
+    return "; ".join(details) or "[none]"
+
+
 def _guaranteed_inventory() -> str:
     changed = quality_guarded.changed_rows()
-    dependencies = v12._changed_import_requirements()
     changed_text = ", ".join(f"{status}:{path}" for status, path in changed)
-    dependency_text = "; ".join(
-        f"{module}=>{','.join(sorted(names))}"
-        for module, names in sorted(dependencies.items())
-    )
     return (
         f"CHANGED_FILES_COMPLETE: {changed_text}\n"
-        f"LOCAL_DEPENDENCY_SLICES: {dependency_text or '[none]'}\n"
+        f"LOCAL_DEPENDENCY_SLICES: {_selected_dependency_details()}\n"
         "BASELINE_GUARANTEED: exact repo_state, PR metadata, HEAD check-runs, "
         "combined commit status.\n"
     )
@@ -103,7 +162,7 @@ def _planner_system() -> str:
     return f"""You are DeepSeek {reviewer.MODE.upper()} evidence planner for an independent QORE Core review.
 This is ONE non-thinking planning call. Do not write the final review.
 The final reviewer is guaranteed the COMPLETE exact content of every changed file, exact patches for modified files, deterministic exact semantic slices for direct local qore.infrastructure imports plus bounded referenced helpers, exact frozen repo state, PR metadata, and HEAD CI/check evidence.
-Do NOT request evidence already guaranteed above. Do NOT reread changed files or guaranteed dependency slices.
+Do NOT request evidence already guaranteed. A dependency module is only partially guaranteed by its listed slice: targeted reads of OTHER definitions/ranges in that same module are allowed when genuinely required.
 Use tools only for genuinely additional surrounding definitions/usages, historical/base material, or GitHub evidence required by the TARGET REVIEW to falsify an invariant.
 Request every additional item you need NOW, batching independent tool calls in this single response. Prefer targeted search_text/read_file/git_show ranges. Avoid broad repository listings and broad GitHub timelines unless directly required.
 If the guaranteed bundle alone is sufficient, make no tool calls and answer exactly EVIDENCE_COMPLETE.
@@ -131,11 +190,8 @@ def _normalize_planned_args(name: str, arguments: dict[str, Any]) -> dict[str, A
     return normalized
 
 
-def _guaranteed_paths() -> set[str]:
-    paths = {path for _, path in quality_guarded.changed_rows()}
-    for module in v12._changed_import_requirements():
-        paths.add(v12._module_path(module))
-    return paths
+def _complete_changed_paths() -> set[str]:
+    return {path for _, path in quality_guarded.changed_rows()}
 
 
 def execute_planned_tools(
@@ -147,7 +203,7 @@ def execute_planned_tools(
             True,
         )
 
-    guaranteed_paths = _guaranteed_paths()
+    complete_changed_paths = _complete_changed_paths()
     blocks: list[str] = []
     seen: set[tuple[str, str]] = set()
     incomplete = False
@@ -174,9 +230,10 @@ def execute_planned_tools(
             continue
 
         path = str(arguments.get("path") or "")
-        if name in {"read_file", "git_show"} and path in guaranteed_paths:
-            # The exact material is already in the mandatory final bundle; executing this
-            # would only duplicate context.
+        if name in {"read_file", "git_show"} and path in complete_changed_paths:
+            # Changed files are present completely in the mandatory final bundle.
+            # Dependency modules are only sliced, so other targeted ranges there remain
+            # legal and must not be suppressed.
             continue
 
         signature = (
@@ -365,9 +422,8 @@ Keep the review concise and self-contained.
             "conclusion is published from incomplete evidence."
         )
 
-    if len(final) > 45000:
-        final = final[:45000] + "\n\n[OUTPUT TRUNCATED BY TOKEN-BUDGET HARNESS]"
-
+    # The final response has already been paid for and is review evidence itself. Never
+    # truncate it to save tokens after generation.
     reviewer.OUTPUT.write_text(final + "\n", encoding="utf-8")
     print(f"DeepSeek V1.3 review written to {reviewer.OUTPUT}")
     budgeted.write_usage_summary()
