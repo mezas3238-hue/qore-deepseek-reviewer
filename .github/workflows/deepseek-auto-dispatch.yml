@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          CHANGED="$(jq -r '((.head_commit.added // []) + (.head_commit.modified // []) + (.head_commit.removed // []))[]' "$GITHUB_EVENT_PATH")"
+          CHANGED="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.files[].filename')"
           REQUEST_CHANGED=false
           BENCHMARK_CHANGED=false
           grep -qx 'requests/current.json' <<<"$CHANGED" && REQUEST_CHANGED=true || true
