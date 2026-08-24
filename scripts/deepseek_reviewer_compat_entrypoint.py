@@ -13,6 +13,45 @@ import deepseek_reviewer_budgeted as budgeted
 # only raise the round ceiling above the initial seven-round pilot.
 budgeted.MAX_EXPLORER_ROUNDS = max(budgeted.MAX_EXPLORER_ROUNDS, 12)
 
+_EXPLORER_REDUNDANT_INSTRUCTION = (
+    "First verify repo_state once. Then inspect every changed file completely using "
+    "targeted line ranges, plus only the surrounding definitions/usages needed to "
+    "falsify the requested invariants."
+)
+_EXPLORER_OPTIMIZED_INSTRUCTION = (
+    "First verify repo_state once. The quality guard injects every changed file "
+    "completely into the FINAL pass and also injects the exact BASE..HEAD patch for "
+    "modified files. Do NOT spend explorer calls rereading changed-file content. "
+    "Use explorer tools only for surrounding/reused definitions and usages, exact "
+    "binding/CI evidence, and other evidence outside the mandatory changed-file bundle "
+    "needed to falsify the requested invariants. Once those external dependencies are "
+    "sufficient, stop calling tools and return EVIDENCE_COMPLETE with the strongest "
+    "candidate finding or 'no material candidate found'."
+)
+
+
+def _optimized_explorer_messages(
+    stage: str,
+    messages: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if stage != "explore" or not messages:
+        return messages
+
+    optimized = [dict(message) for message in messages]
+    first = dict(optimized[0])
+    content = str(first.get("content") or "")
+    if _EXPLORER_REDUNDANT_INSTRUCTION not in content:
+        raise RuntimeError(
+            "explorer system prompt changed; refuse to apply token optimization silently"
+        )
+    first["content"] = content.replace(
+        _EXPLORER_REDUNDANT_INSTRUCTION,
+        _EXPLORER_OPTIMIZED_INSTRUCTION,
+        1,
+    )
+    optimized[0] = first
+    return optimized
+
 
 def compat_send_request(
     *,
@@ -24,11 +63,11 @@ def compat_send_request(
     max_tokens: int,
     model: str,
 ) -> dict[str, Any]:
-    """Preserve the stable reviewer's HTTP-400 compatibility fallback."""
+    """Preserve API compatibility and remove redundant explorer changed-file reads."""
 
     payload: dict[str, Any] = {
         "model": model,
-        "messages": messages,
+        "messages": _optimized_explorer_messages(stage, messages),
         "stream": False,
         "max_tokens": max_tokens,
         "thinking": {"type": "enabled" if thinking else "disabled"},
