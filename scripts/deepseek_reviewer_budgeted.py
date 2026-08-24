@@ -14,6 +14,12 @@ import deepseek_reviewer as reviewer
 EXPLORER_MODEL = os.environ.get("DEEPSEEK_EXPLORER_MODEL", reviewer.MODEL)
 FINAL_MODEL = os.environ.get("DEEPSEEK_FINAL_MODEL", reviewer.MODEL)
 MAX_EXPLORER_ROUNDS = int(os.environ.get("DEEPSEEK_MAX_EXPLORER_ROUNDS", "7"))
+MAX_TOOL_CALLS_PER_ROUND = int(
+    os.environ.get("DEEPSEEK_MAX_TOOL_CALLS_PER_ROUND", "8")
+)
+MAX_EXPLORATION_CONTEXT_CHARS = int(
+    os.environ.get("DEEPSEEK_MAX_EXPLORATION_CONTEXT_CHARS", "120000")
+)
 MAX_TOOL_TEXT = int(os.environ.get("DEEPSEEK_MAX_TOOL_TEXT", "9000"))
 MAX_EVIDENCE_CHARS = int(os.environ.get("DEEPSEEK_MAX_EVIDENCE_CHARS", "100000"))
 EXPLORER_MAX_TOKENS = int(os.environ.get("DEEPSEEK_EXPLORER_MAX_TOKENS", "2200"))
@@ -221,6 +227,10 @@ def append_evidence(
     evidence.append(block)
 
 
+def serialized_message_chars(messages: list[dict[str, Any]]) -> int:
+    return len(json.dumps(messages, ensure_ascii=False, separators=(",", ":")))
+
+
 def exploration_budget_exhausted() -> bool:
     return (
         TOTALS["prompt_tokens"] >= EXPLORATION_PROMPT_BUDGET
@@ -245,6 +255,8 @@ def write_usage_summary() -> None:
         (
             "Exploration policy: "
             f"max {MAX_EXPLORER_ROUNDS} rounds, "
+            f"max {MAX_TOOL_CALLS_PER_ROUND} tool calls/round, "
+            f"max {MAX_EXPLORATION_CONTEXT_CHARS} serialized exploration chars, "
             f"{MAX_TOOL_TEXT} chars/tool result, "
             f"{MAX_EVIDENCE_CHARS} chars final evidence bundle, "
             f"{EXPLORATION_PROMPT_BUDGET} cumulative exploration prompt tokens, "
@@ -293,8 +305,21 @@ TARGET REVIEW:
     ]
     evidence: list[str] = []
     explorer_note = ""
+    seen_tool_calls: set[tuple[str, str]] = set()
 
     for round_number in range(1, MAX_EXPLORER_ROUNDS + 1):
+        context_chars = serialized_message_chars(messages)
+        if context_chars > MAX_EXPLORATION_CONTEXT_CHARS:
+            if evidence:
+                explorer_note = (
+                    "Exploration stopped before the next API call because the serialized "
+                    f"context reached {context_chars} characters. Use collected raw evidence only."
+                )
+                break
+            raise RuntimeError(
+                "initial exploration context exceeds DEEPSEEK_MAX_EXPLORATION_CONTEXT_CHARS"
+            )
+
         response = send_request(
             stage="explore",
             round_number=round_number,
@@ -320,33 +345,52 @@ TARGET REVIEW:
             explorer_note = content
             break
 
-        for call in tool_calls:
+        for call_index, call in enumerate(tool_calls, start=1):
             function = call.get("function") or {}
             name = str(function.get("name") or "")
             raw_arguments = function.get("arguments") or "{}"
             call_id = str(call.get("id") or "")
+            executed = False
             try:
                 arguments = (
                     json.loads(raw_arguments)
                     if isinstance(raw_arguments, str)
                     else (raw_arguments or {})
                 )
-                implementation = reviewer.TOOL_IMPL.get(name)
-                if implementation is None:
-                    result = f"ERROR: unknown tool {name}"
+                signature = (
+                    name,
+                    json.dumps(arguments, sort_keys=True, separators=(",", ":")),
+                )
+                if call_index > MAX_TOOL_CALLS_PER_ROUND:
+                    result = (
+                        "SKIPPED: per-round tool-call budget exceeded; "
+                        "prioritize remaining evidence in the next round."
+                    )
+                elif signature in seen_tool_calls:
+                    result = (
+                        "SKIPPED: duplicate tool call; use the evidence already returned "
+                        "for the same tool and arguments."
+                    )
                 else:
-                    result = implementation(arguments)
+                    seen_tool_calls.add(signature)
+                    implementation = reviewer.TOOL_IMPL.get(name)
+                    if implementation is None:
+                        result = f"ERROR: unknown tool {name}"
+                    else:
+                        result = implementation(arguments)
+                        executed = True
             except Exception as exc:  # noqa: BLE001
                 arguments = {}
                 result = f"ERROR: {type(exc).__name__}: {exc}"
 
             result = compact_clip(result)
-            append_evidence(
-                evidence,
-                name=name,
-                arguments=arguments,
-                result=result,
-            )
+            if executed or result.startswith("ERROR:"):
+                append_evidence(
+                    evidence,
+                    name=name,
+                    arguments=arguments,
+                    result=result,
+                )
             messages.append(
                 {
                     "role": "tool",
