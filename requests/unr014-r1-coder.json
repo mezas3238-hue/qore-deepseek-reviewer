@@ -1,0 +1,9 @@
+{
+  "pr_number": 397,
+  "package_id": "UNR014-ETAPAC-R1-DS-CODER-01",
+  "expected_base": "76eda1ce4c324c3e97b70001ea4cac37a6d4a6a9",
+  "expected_head": "4663af69a57812ff811bbe382efc6d787ae43506",
+  "expected_synthetic": "954ecb4214f84498211af7cf4abce56311ebb564",
+  "review_mode": "coder",
+  "prompt_path": "prompts/unr014-r1-coder.md"
+}
