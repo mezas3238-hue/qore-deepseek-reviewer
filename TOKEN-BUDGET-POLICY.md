@@ -26,6 +26,7 @@ Rules:
 - inspect every changed file completely with targeted ranges;
 - batch independent tool calls where possible;
 - do not reread the same ranges;
+- duplicate tool calls with identical arguments are automatically skipped;
 - search before broad reads;
 - inspect only relevant surrounding definitions/usages;
 - avoid the historical PR review chain unless the target package directly requires prior adjudication evidence;
@@ -33,13 +34,15 @@ Rules:
 
 Default hard limits:
 - maximum exploration rounds: **7**;
+- maximum tool calls per round: **8**;
+- maximum serialized exploration context before another API call: **120,000 characters**;
 - maximum tool-result text: **9,000 characters**;
 - final evidence bundle: **100,000 characters**;
 - cumulative exploration prompt-token budget: **220,000**;
 - cumulative exploration cache-miss budget: **80,000**;
 - explorer max completion per call: **2,200 tokens**.
 
-The harness stops additional exploration when a token budget is reached and proceeds with already collected evidence. It must not infer unseen facts.
+The harness stops additional exploration when a context/token budget is reached and proceeds with already collected evidence. It must not infer unseen facts.
 
 ### 2. Final review — thinking/high, no tools
 
@@ -88,8 +91,11 @@ If the evidence budget is insufficient for a material claim, the final reviewer 
 
 V1 target:
 - normally **<= 8 API calls** per review (7 exploration + 1 final);
-- exploration prompt tokens **<= 220k**;
-- cache-miss exploration tokens **<= 80k**;
+- exploration prompt tokens **<= 220k**, subject only to one-call measurement overshoot because API token usage is known after a request;
+- cache-miss exploration tokens **<= 80k**, with the same one-call measurement caveat;
+- serialized exploration context never intentionally sent above 120k characters;
+- no more than 8 tool calls accepted in one round;
+- identical tool calls are not executed twice;
 - large raw tool responses never exceed 9k characters each;
 - no recursive repository-tree dump.
 
