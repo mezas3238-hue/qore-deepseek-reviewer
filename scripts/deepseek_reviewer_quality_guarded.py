@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import copy
+import json
 import os
-import pathlib
 import subprocess
 from typing import Any
 
@@ -134,7 +134,34 @@ def main() -> int:
     )
 
     original_send_request = budgeted.send_request
-    quality_state: dict[str, Any] = {"budget_incomplete": False}
+    original_append_evidence = budgeted.append_evidence
+    quality_state: dict[str, Any] = {
+        "budget_incomplete": False,
+        "evidence_truncated": False,
+    }
+
+    def guarded_append_evidence(
+        evidence: list[str],
+        *,
+        name: str,
+        arguments: dict[str, Any],
+        result: str,
+    ) -> None:
+        current = sum(len(item) for item in evidence)
+        prospective_block = (
+            f"\n## TOOL {name}\n"
+            f"ARGS: {json.dumps(arguments, sort_keys=True)}\n"
+            f"{budgeted.compact_clip(result)}\n"
+        )
+        remaining = budgeted.MAX_EVIDENCE_CHARS - current
+        if remaining <= 0 or len(prospective_block) > remaining:
+            quality_state["evidence_truncated"] = True
+        original_append_evidence(
+            evidence,
+            name=name,
+            arguments=arguments,
+            result=result,
+        )
 
     def guarded_send_request(**kwargs: Any) -> dict[str, Any]:
         stage = str(kwargs.get("stage") or "")
@@ -147,6 +174,8 @@ def main() -> int:
                 if isinstance(message, dict)
             )
             incomplete = any(marker in combined for marker in BUDGET_INCOMPLETE_MARKERS)
+            if quality_state["evidence_truncated"]:
+                incomplete = True
             if (
                 budgeted.TOTALS["api_calls"] >= budgeted.MAX_EXPLORER_ROUNDS
                 and "EVIDENCE_COMPLETE" not in combined
@@ -165,8 +194,8 @@ def main() -> int:
                     + "must be inspected in full. If any surrounding definition/evidence "
                     + "required to certify a requested invariant is absent, do not infer it. "
                     + "Return EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA rather than a "
-                    + "clean verdict. A token/context budget stop can never by itself support "
-                    + "HALLAZGOS: NINGUNO / VALIDACIÓN OK.\n"
+                    + "clean verdict. A token/context/evidence budget stop can never by itself "
+                    + "support HALLAZGOS: NINGUNO / VALIDACIÓN OK.\n"
                 )
             if guarded_messages and isinstance(guarded_messages[-1], dict):
                 guarded_messages[-1]["content"] = (
@@ -178,10 +207,12 @@ def main() -> int:
 
         return original_send_request(**kwargs)
 
+    budgeted.append_evidence = guarded_append_evidence
     budgeted.send_request = guarded_send_request
     try:
         returncode = budgeted.main()
     finally:
+        budgeted.append_evidence = original_append_evidence
         budgeted.send_request = original_send_request
 
     if quality_state["budget_incomplete"]:
@@ -192,8 +223,8 @@ def main() -> int:
             except FileNotFoundError:
                 pass
             raise RuntimeError(
-                "quality guard rejected a clean verdict after exploration budget/context "
-                "exhaustion; increase evidence budget or narrow the review surface"
+                "quality guard rejected a clean verdict after exploration budget/context/"
+                "evidence exhaustion; increase evidence budget or narrow the review surface"
             )
 
     return returncode
