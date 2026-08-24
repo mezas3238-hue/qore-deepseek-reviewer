@@ -43,7 +43,7 @@ The harness assembles locally:
 - HEAD check-runs;
 - combined commit status.
 
-This evidence is not selected by the model.
+This evidence is not selected by the model. Complete source is emitted as exact raw text rather than adding a numeric prefix to every line; path and line-span metadata remain in the surrounding evidence headers.
 
 ### 2. One-shot evidence planner — one non-thinking DeepSeek call
 
@@ -55,7 +55,9 @@ Safeguards:
 
 - maximum 12 planned tool calls;
 - only targeted `read_file`, `git_show`, `search_text`, and `github_get` are exposed;
-- changed files and guaranteed dependency modules are not reread;
+- complete changed files are never reread;
+- definitions already included in a dependency slice should not be reread, but targeted material outside that partial slice remains legal even when it lives in the same dependency module;
+- the planner inventory lists direct imports, selected local helper definitions and referenced external QORE symbols so missing surrounding evidence can be requested deliberately;
 - duplicate calls are skipped;
 - broad line reads are bounded;
 - clipped/errored planned evidence marks the plan incomplete;
@@ -68,6 +70,8 @@ The final reviewer receives the complete deterministic bundle plus any planned e
 Normal expected total: **2 API calls**.
 
 A non-thinking final fallback is permitted only if the high-reasoning call returns no visible review content. It is exceptional, not part of the normal budget.
+
+The generated final report itself is review evidence and is never truncated after generation merely to save tokens.
 
 ## Fail-closed rule
 
