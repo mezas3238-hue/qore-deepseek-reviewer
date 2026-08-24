@@ -126,6 +126,14 @@ def build_mandatory_changed_evidence() -> tuple[str, int]:
     return evidence, changed_count
 
 
+def clean_verdict_markers(final: str) -> set[str]:
+    return {
+        line.strip().strip("*` ")
+        for line in final.splitlines()
+        if line.strip()
+    }
+
+
 def main() -> int:
     mandatory_evidence, changed_count = build_mandatory_changed_evidence()
     print(
@@ -217,7 +225,8 @@ def main() -> int:
 
     if quality_state["budget_incomplete"]:
         final = reviewer.OUTPUT.read_text(encoding="utf-8") if reviewer.OUTPUT.is_file() else ""
-        if "VALIDACIÓN OK" in final or "HALLAZGOS: NINGUNO" in final:
+        markers = clean_verdict_markers(final)
+        if "VALIDACIÓN OK" in markers or "HALLAZGOS: NINGUNO" in markers:
             try:
                 reviewer.OUTPUT.unlink()
             except FileNotFoundError:
