@@ -1,0 +1,160 @@
+name: Retry UNR018 R1 DeepSeek Expert
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/retry-unr018-r1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+
+      - name: Create QORE Reviewer installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+
+      - name: Verify frozen PR binding
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: "441"
+          EXPECTED_BASE: 470db7333ab08024c002bd0f057b34b0ae30e5e3
+          EXPECTED_HEAD: b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+          EXPECTED_SYNTHETIC: 87f8a704d19c43a1d6373794242a7b2fb76ad649
+        run: |
+          set -euo pipefail
+          PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(printf '%s' "$PR_JSON" | jq -r '.state')" = "open"
+          test "$(printf '%s' "$PR_JSON" | jq -r '.merged')" = "false"
+          test "$(printf '%s' "$PR_JSON" | jq -r '.base.sha')" = "$EXPECTED_BASE"
+          test "$(printf '%s' "$PR_JSON" | jq -r '.head.sha')" = "$EXPECTED_HEAD"
+          test "$(printf '%s' "$PR_JSON" | jq -r '.merge_commit_sha')" = "$EXPECTED_SYNTHETIC"
+
+      - name: Checkout exact qore-core HEAD
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact git binding and synthetic parents
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
+          git cat-file -e "470db7333ab08024c002bd0f057b34b0ae30e5e3^{commit}"
+          git fetch origin "refs/pull/441/merge:refs/remotes/origin/qore-review-merge"
+          test "$(git rev-parse refs/remotes/origin/qore-review-merge)" = "87f8a704d19c43a1d6373794242a7b2fb76ad649"
+          test "$(git show -s --format=%P 87f8a704d19c43a1d6373794242a7b2fb76ad649)" = "470db7333ab08024c002bd0f057b34b0ae30e5e3 b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
+          test "$(git show -s --format=%T b4fa5eda4117fedf9ca81a4eb7d0693d3165026b)" = "$(git show -s --format=%T 87f8a704d19c43a1d6373794242a7b2fb76ad649)"
+
+      - name: Run recovered DeepSeek reviewer
+        id: reviewer
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
+          PR_NUMBER: "441"
+          PACKAGE_ID: UNR018-ETAPAC-R1-DS-EXPERT-01
+          EXPECTED_BASE: 470db7333ab08024c002bd0f057b34b0ae30e5e3
+          EXPECTED_HEAD: b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+          EXPECTED_SYNTHETIC: 87f8a704d19c43a1d6373794242a7b2fb76ad649
+          REVIEW_MODE: expert
+          PROMPT_PATH: ${{ github.workspace }}/prompts/unr018-r1-expert.md
+          REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
+          DEEPSEEK_MODEL: deepseek-v4-pro
+        run: |
+          set +e
+          python3 scripts/run_review_with_meter.py > reviewer-run.log 2>&1
+          RC=$?
+          set -e
+          echo "rc=${RC}" >> "$GITHUB_OUTPUT"
+          {
+            echo "package=UNR018-ETAPAC-R1-DS-EXPERT-01"
+            echo "head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
+            echo "exit_code=${RC}"
+            echo "--- sanitized reviewer log tail ---"
+            tail -n 260 reviewer-run.log
+          } > reviewer-diagnostic.txt
+          exit 0
+
+      - name: Persist sanitized diagnostic
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CONTENT="$(base64 -w0 reviewer-diagnostic.txt)"
+          jq -n \
+            --arg message "diagnostic: UNR-018 R1 DeepSeek recovery" \
+            --arg content "$CONTENT" \
+            --arg branch "main" \
+            '{message:$message,content:$content,branch:$branch}' > diagnostic-payload.json
+          gh api \
+            --method PUT \
+            repos/mezas3238-hue/qore-deepseek-reviewer/contents/diagnostics/unr018-r1-retry.txt \
+            --input diagnostic-payload.json \
+            --jq '{commit: .commit.sha, blob: .content.sha}'
+
+      - name: Verify frozen HEAD before publishing
+        if: steps.reviewer.outputs.rc == '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/mezas3238-hue/qore-core/pulls/441 --jq '.head.sha')" = "b4fa5eda4117fedf9ca81a4eb7d0693d3165026b"
+
+      - name: Publish recovered DeepSeek review
+        if: steps.reviewer.outputs.rc == '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          review = Path("deepseek-review.md").read_text(encoding="utf-8")
+          body = (
+              "<!-- QORE-DEEPSEEK-REVIEW package=UNR018-ETAPAC-R1-DS-EXPERT-01 "
+              "head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b -->\n\n"
+              + review
+          )
+          Path("review-payload.json").write_text(
+              json.dumps(
+                  {
+                      "body": body,
+                      "event": "COMMENT",
+                      "commit_id": "b4fa5eda4117fedf9ca81a4eb7d0693d3165026b",
+                  }
+              ),
+              encoding="utf-8",
+          )
+          PY
+          gh api \
+            --method POST \
+            repos/mezas3238-hue/qore-core/pulls/441/reviews \
+            --input review-payload.json \
+            --jq '{id: .id, state: .state, commit_id: .commit_id}'
+
+      - name: Fail if reviewer failed
+        if: steps.reviewer.outputs.rc != '0'
+        run: |
+          echo "Recovered reviewer failed; inspect diagnostics/unr018-r1-retry.txt"
+          exit 1
