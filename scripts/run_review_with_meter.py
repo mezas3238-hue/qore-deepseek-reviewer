@@ -13,7 +13,7 @@ from typing import Any
 
 API_KEY = os.environ["DEEPSEEK_API_KEY"]
 BALANCE_URL = "https://api.deepseek.com/user/balance"
-REVIEWER = Path(__file__).with_name("deepseek_reviewer_resilient.py")
+REVIEWER = Path(__file__).with_name("deepseek_reviewer_budgeted.py")
 
 
 def fetch_balance() -> dict[str, Any]:
