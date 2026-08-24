@@ -1,0 +1,70 @@
+reviewer_infra_sha=44300a90660079b8cd575c08545e6d37b1a3c602
+package=UNR018-ETAPAC-R1-DS-EXPERT-01
+head=b4fa5eda4117fedf9ca81a4eb7d0693d3165026b
+configured_max_explorer_rounds=12
+exit_code=1
+--- sanitized reviewer log tail ---
+ERROR: RuntimeError: quality guard rejected a clean verdict after exploration budget/context/evidence exhaustion; increase evidence budget or narrow the review surface
+Quality guard prepared complete changed-file evidence: files=3, chars=46997.
+DeepSeek usage explore#1: prompt=1921 (hit=1920, miss=1), completion=41, reasoning=0
+DeepSeek usage explore#2: prompt=2442 (hit=1920, miss=522), completion=178, reasoning=0
+DeepSeek usage explore#3: prompt=6277 (hit=2560, miss=3717), completion=94, reasoning=0
+DeepSeek usage explore#4: prompt=8588 (hit=6272, miss=2316), completion=109, reasoning=0
+DeepSeek usage explore#5: prompt=10017 (hit=8576, miss=1441), completion=313, reasoning=0
+DeepSeek usage explore#6: prompt=10996 (hit=10240, miss=756), completion=120, reasoning=0
+DeepSeek usage explore#7: prompt=11149 (hit=11008, miss=141), completion=126, reasoning=0
+DeepSeek usage explore#8: prompt=11303 (hit=11264, miss=39), completion=48, reasoning=0
+DeepSeek usage explore#9: prompt=13867 (hit=11264, miss=2603), completion=141, reasoning=0
+DeepSeek usage explore#10: prompt=14019 (hit=13952, miss=67), completion=91, reasoning=0
+DeepSeek usage explore#11: prompt=16500 (hit=14080, miss=2420), completion=139, reasoning=0
+DeepSeek usage explore#12: prompt=16996 (hit=16512, miss=484), completion=141, reasoning=0
+DeepSeek usage final#1: prompt=29412 (hit=5504, miss=23908), completion=7000, reasoning=7000
+DeepSeek usage final-fallback#1: prompt=29342 (hit=5376, miss=23966), completion=856, reasoning=0
+DeepSeek review written to /home/runner/work/qore-deepseek-reviewer/qore-deepseek-reviewer/deepseek-review.md
+## QORE DeepSeek token budget
+
+API calls: `14`
+
+| Metric | Tokens |
+|---|---:|
+| Prompt | 182829 |
+| Prompt cache hit | 120448 |
+| Prompt cache miss | 62381 |
+| Completion | 9397 |
+| Reasoning | 7000 |
+
+Exploration policy: max 12 rounds, max 8 tool calls/round, max 120000 serialized exploration chars, 9000 chars/tool result, 100000 chars final evidence bundle, 220000 cumulative exploration prompt tokens, 80000 cumulative exploration cache-miss tokens.
+
+## QORE DeepSeek token budget
+
+API calls: `14`
+
+| Metric | Tokens |
+|---|---:|
+| Prompt | 182829 |
+| Prompt cache hit | 120448 |
+| Prompt cache miss | 62381 |
+| Completion | 9397 |
+| Reasoning | 7000 |
+
+Exploration policy: max 12 rounds, max 8 tool calls/round, max 120000 serialized exploration chars, 9000 chars/tool result, 100000 chars final evidence bundle, 220000 cumulative exploration prompt tokens, 80000 cumulative exploration cache-miss tokens.
+
+Traceback (most recent call last):
+  File "/home/runner/work/qore-deepseek-reviewer/qore-deepseek-reviewer/scripts/deepseek_reviewer_compat_entrypoint.py", line 88, in <module>
+    raise SystemExit(quality_guarded.main())
+                     ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/qore-deepseek-reviewer/qore-deepseek-reviewer/scripts/deepseek_reviewer_quality_guarded.py", line 234, in main
+    raise RuntimeError(
+RuntimeError: quality guard rejected a clean verdict after exploration budget/context/evidence exhaustion; increase evidence budget or narrow the review surface
+DeepSeek balance captured before review.
+DeepSeek balance captured after review.
+## QORE DeepSeek usage
+
+Reviewer exit code: `1`
+
+| Currency | Balance before | Balance after | Spent this run |
+|---|---:|---:|---:|
+| USD | 5.67 | 5.65 | 0.02 |
+
+The balance delta is account-level actual billing observed around this run. Avoid concurrent DeepSeek API workloads if you want this delta to represent only this review.
+
