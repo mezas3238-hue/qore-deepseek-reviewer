@@ -35,9 +35,15 @@ on:
         description: Prompt file in reviewer repository
         required: true
         default: prompts/unr013-r8-expert.md
+      benchmark_only:
+        description: Execute exact reviewer for token benchmarking without publishing to qore-core
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   review:
@@ -143,7 +149,7 @@ jobs:
           set -euo pipefail
           python3 scripts/run_review_with_meter.py
 
-      - name: Verify frozen HEAD again before publishing
+      - name: Verify frozen HEAD again before completion
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -151,10 +157,11 @@ jobs:
         run: |
           set -euo pipefail
           LIVE_HEAD="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}" --jq '.head.sha')"
-          echo "Pre-publish HEAD: ${LIVE_HEAD}"
+          echo "Pre-completion HEAD: ${LIVE_HEAD}"
           test "$LIVE_HEAD" = "$EXPECTED_HEAD"
 
       - name: Publish DeepSeek review on exact HEAD
+        if: ${{ inputs.benchmark_only == false }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -189,6 +196,93 @@ jobs:
             --input review-payload.json \
             --jq '{id: .id, state: .state, user: .user.login, commit_id: .commit_id}'
 
-      - name: Review complete
+      - name: Upload benchmark evidence
+        if: ${{ always() && inputs.benchmark_only }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-${{ inputs.package_id }}
+          path: |
+            deepseek-review.md
+            deepseek-usage.jsonl
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Record benchmark telemetry
+        if: ${{ always() && inputs.benchmark_only }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          echo "DeepSeek review completed and published without modifying qore-core."
+          set -euo pipefail
+
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          review_path = Path("deepseek-review.md")
+          usage_path = Path("deepseek-usage.jsonl")
+          review = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
+          match = re.search(r"<!-- QORE-DEEPSEEK-USAGE (\{.*?\}) -->", review, re.S)
+          telemetry = match.group(1) if match else "{}"
+
+          if telemetry == "{}" and usage_path.is_file():
+              totals = {
+                  "api_calls": 0,
+                  "prompt_tokens": 0,
+                  "prompt_cache_hit_tokens": 0,
+                  "prompt_cache_miss_tokens": 0,
+                  "completion_tokens": 0,
+                  "reasoning_tokens": 0,
+              }
+              for line in usage_path.read_text(encoding="utf-8").splitlines():
+                  if not line.strip():
+                      continue
+                  row = json.loads(line)
+                  totals["api_calls"] += 1
+                  for key in tuple(totals)[1:]:
+                      totals[key] += int(row.get(key, 0) or 0)
+              telemetry = json.dumps(totals, sort_keys=True, separators=(",", ":"))
+
+          verdict_lines = []
+          if review:
+              for line in review.splitlines():
+                  stripped = line.strip()
+                  if (
+                      stripped.startswith("HALLAZGOS")
+                      or "VALIDACIÓN" in stripped
+                      or stripped.startswith("EVIDENCIA INSUFICIENTE")
+                  ):
+                      verdict_lines.append(stripped)
+              verdict_lines = verdict_lines[-8:]
+
+          body = [
+              f"## Benchmark `{os.environ['PACKAGE_ID']}`",
+              "",
+              f"- HEAD: `{os.environ['EXPECTED_HEAD']}`",
+              f"- workflow job status: `{os.environ['JOB_STATUS']}`",
+              f"- run: {os.environ['RUN_URL']}",
+              "",
+              "### Telemetry",
+              "```json",
+              telemetry,
+              "```",
+          ]
+          if verdict_lines:
+              body.extend(["", "### Verdict markers", *[f"- {line}" for line in verdict_lines]])
+          body.extend(["", "Full review and JSONL telemetry are retained as the run artifact."])
+          Path("benchmark-comment.md").write_text("\n".join(body) + "\n", encoding="utf-8")
+          PY
+
+          gh issue comment 5 \
+            --repo mezas3238-hue/qore-deepseek-reviewer \
+            --body-file benchmark-comment.md
+
+      - name: Review complete
+        if: ${{ always() }}
+        run: |
+          echo "DeepSeek workflow completed; benchmark_only=${{ inputs.benchmark_only }}."
