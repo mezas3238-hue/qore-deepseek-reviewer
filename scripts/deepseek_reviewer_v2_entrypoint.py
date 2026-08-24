@@ -55,6 +55,7 @@ def _module_path(module: str) -> str:
 
 def _changed_import_requirements() -> dict[str, set[str]]:
     requirements: dict[str, set[str]] = {}
+    changed_paths = {path for _, path in quality_guarded.changed_rows()}
     for status, path in quality_guarded.changed_rows():
         if status[:1] == "D" or not path.endswith(".py"):
             continue
@@ -70,6 +71,9 @@ def _changed_import_requirements() -> dict[str, set[str]]:
             if not isinstance(node, ast.ImportFrom) or node.module is None:
                 continue
             if not node.module.startswith("qore.infrastructure."):
+                continue
+            dependency_path = _module_path(node.module)
+            if dependency_path in changed_paths:
                 continue
             names = requirements.setdefault(node.module, set())
             for alias in node.names:
