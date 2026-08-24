@@ -29,6 +29,7 @@ on:
         type: choice
         options:
           - expert
+          - coder
         default: expert
       prompt_path:
         description: Prompt file in reviewer repository
