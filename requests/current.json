@@ -1,10 +1,10 @@
 {
   "pr_number": 446,
-  "package_id": "QORE-CORE-REVIEWER-ISOLATION-R2-DS-EXPERT-01",
+  "package_id": "QORE-CORE-REVIEWER-ISOLATION-R2-DS-CODER-01",
   "expected_base": "aaa694b6a4c1d29b57ea815743896142f6a67795",
   "expected_head": "305eb0d326708127653bb54a79a95e109f7a0760",
   "expected_synthetic": "450050a2f1acfb9af99b44182701957ec9dc990d",
-  "review_mode": "expert",
-  "prompt_path": "prompts/qore-core-reviewer-isolation-r2-expert.md",
-  "dispatch_nonce": "2026-08-25T02:40:00Z"
+  "review_mode": "coder",
+  "prompt_path": "prompts/qore-core-reviewer-isolation-r2-coder.md",
+  "dispatch_nonce": "2026-08-25T02:46:00Z"
 }
