@@ -1,10 +1,10 @@
 {
   "pr_number": 456,
-  "package_id": "QORE-UMI14-UNR024-R1-DS-EXPERT-01",
+  "package_id": "QORE-UMI14-UNR024-R1-DS-CODER-01",
   "expected_base": "5525e955307d3de715c0e22e2e51be1ad3283fa7",
   "expected_head": "2f9e0aa418375971006b183456bd133fdf0048a8",
   "expected_synthetic": "b1e32987b8ac8bc4364f1239b4f39cf4899c9582",
-  "review_mode": "expert",
-  "prompt_path": "prompts/qore-umi14-unr024-r1-expert-compact.md",
-  "dispatch_nonce": "2026-08-25T15:48:11Z"
+  "review_mode": "coder",
+  "prompt_path": "prompts/qore-umi14-unr024-r1-coder-compact.md",
+  "dispatch_nonce": "2026-08-25T15:58:00Z"
 }
