@@ -27,7 +27,9 @@
   },
   "meter": {
     "path": "scripts/run_review_with_meter.py",
-    "blob": "a72c38c90d987d225caf90f8f797e2193b664561"
+    "blob": "b2d0332864d63eb8f86bdd1810546817860b4cf4",
+    "ordinary_route": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
+    "benchmark_selector": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
   },
   "engine_files": {
     "scripts/deepseek_reviewer.py": "a93e5717ae494825d40abb8fde9fc9b7d52e9142",
@@ -42,7 +44,10 @@
     "scripts/deepseek_reviewer_v1_7_entrypoint.py": "a65acafe65556056663d8c5d222c8abea4be84a6",
     "scripts/deepseek_reviewer_v2_0_entrypoint.py": "1d80422bb1182468e0e59304268bb3c7768e69a8",
     "scripts/deepseek_reviewer_v2_1_entrypoint.py": "aeeb8f3eda950d2552021d83b4ca523b0be0002d",
-    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "54c4b77c646b84b09706dba0caf1d5a4d4ea00e0"
+    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "54c4b77c646b84b09706dba0caf1d5a4d4ea00e"
+  },
+  "benchmark_candidates": {
+    "scripts/deepseek_reviewer_v2_1_2_candidate_entrypoint.py": "be0841541253d54e49e00d1968abd9e5376ac7c1"
   },
   "entrypoint": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
   "workflows": {
@@ -51,5 +56,5 @@
     ".github/workflows/deepseek-qore-review.yml": "fa02813e2360d1e576330056a878ade71b4520e2"
   },
   "permanent_workflow_count": 3,
-  "governance_note": "This manifest records the profile-defining implementation and evidence path. Prompt, request, benchmark, telemetry, or dispatch metadata commits do not change the stable profile while this manifest blob and every pinned component blob remain unchanged. A successor must be activated through qore-core governance; changing this file alone does not authorize activation."
+  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. Prompt, request, benchmark, telemetry, or dispatch metadata commits do not change the stable ordinary profile while the ordinary engine/workflow components remain unchanged. Benchmark-only candidate routing is isolated by package prefix and is not ordinary-review activation. A successor ordinary reviewer must be activated through the applicable QORE governance process."
 }
