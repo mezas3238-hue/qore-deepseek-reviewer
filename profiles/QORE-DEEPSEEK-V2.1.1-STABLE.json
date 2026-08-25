@@ -1,0 +1,55 @@
+{
+  "profile_id": "QORE-DEEPSEEK-V2.1.1-STABLE",
+  "status": "stable",
+  "model": "deepseek-v4-pro",
+  "analysis": "thinking/high",
+  "verdict_emission": "same-model non-thinking extractor only when authoritative high analysis lacks a complete visible verdict",
+  "flash_substitution": false,
+  "cot_continuation": false,
+  "evidence_contract": {
+    "mandatory_bundle": [
+      "complete exact content of every BASE-to-HEAD changed file",
+      "exact BASE-to-HEAD patch for modified files",
+      "deterministic semantic slices for directly imported local qore.infrastructure definitions with bounded referenced helpers",
+      "exact frozen repository state, PR binding, HEAD checks and combined commit status"
+    ],
+    "planner": "one non-thinking bounded planning call for genuinely additional evidence",
+    "planner_tools": [
+      "read_file",
+      "search_text",
+      "git_show",
+      "github_get"
+    ],
+    "search_backend": "git grep -n -F -I over tracked qore-core checkout content",
+    "planner_tool_authority": "read-only and restricted to frozen qore-core checkout / qore-core GitHub endpoints",
+    "tool_result_policy": "exact up to the hard fail-closed gate; no silent pre-clipping",
+    "missing_or_truncated_evidence": "EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA"
+  },
+  "meter": {
+    "path": "scripts/run_review_with_meter.py",
+    "blob": "a72c38c90d987d225caf90f8f797e2193b664561"
+  },
+  "engine_files": {
+    "scripts/deepseek_reviewer.py": "a93e5717ae494825d40abb8fde9fc9b7d52e9142",
+    "scripts/deepseek_reviewer_budgeted.py": "c6ff7604937542a08d33a6c9970d94d4c352dacb",
+    "scripts/deepseek_reviewer_quality_guarded.py": "7a335b6dfcc6f3231ac4817f6bf40cb4c4653dd8",
+    "scripts/deepseek_reviewer_compat_entrypoint.py": "07ef1bb29620e15ae34def3a0b0099bdb2370fc0",
+    "scripts/deepseek_reviewer_v2_entrypoint.py": "d96f44f01770893867df4da3d5744295c952f9b0",
+    "scripts/deepseek_reviewer_v1_3_entrypoint.py": "12e89476fb141dbc9b47b42180091000b1169299",
+    "scripts/deepseek_reviewer_v1_4_entrypoint.py": "a932ad91faea08e7d391cd12fbfc2bafab140760",
+    "scripts/deepseek_reviewer_v1_5_entrypoint.py": "2ee30420a4016d485fa8e967cca18f30bc9b6b49",
+    "scripts/deepseek_reviewer_v1_6_entrypoint.py": "4835cf05d68495dda5ee369b69fa227aac2aa6a6",
+    "scripts/deepseek_reviewer_v1_7_entrypoint.py": "a65acafe65556056663d8c5d222c8abea4be84a6",
+    "scripts/deepseek_reviewer_v2_0_entrypoint.py": "1d80422bb1182468e0e59304268bb3c7768e69a8",
+    "scripts/deepseek_reviewer_v2_1_entrypoint.py": "aeeb8f3eda950d2552021d83b4ca523b0be0002d",
+    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "54c4b77c646b84b09706dba0caf1d5a4d4ea00e0"
+  },
+  "entrypoint": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
+  "workflows": {
+    ".github/workflows/deepseek-auto-dispatch.yml": "b7b04e73a53a6cbc1e0475dec0ded8fdf74c4c2c",
+    ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
+    ".github/workflows/deepseek-qore-review.yml": "fa02813e2360d1e576330056a878ade71b4520e2"
+  },
+  "permanent_workflow_count": 3,
+  "governance_note": "This manifest records the profile-defining implementation and evidence path. Prompt, request, benchmark, telemetry, or dispatch metadata commits do not change the stable profile while this manifest blob and every pinned component blob remain unchanged. A successor must be activated through qore-core governance; changing this file alone does not authorize activation."
+}
