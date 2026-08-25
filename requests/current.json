@@ -1,10 +1,10 @@
 {
-  "pr_number": 445,
-  "package_id": "QORE-EXTREVIEW-GOV-R5-DS-CODER-01",
-  "expected_base": "537e8ad0a73ec2dabfff381675920b910581c879",
-  "expected_head": "227a9bb8a5b48958e81beb92f411810780713893",
-  "expected_synthetic": "c7f6cacef6c2da598a3c76071f8ff807b97cb358",
-  "review_mode": "coder",
-  "prompt_path": "prompts/qore-extreview-governance-r5-coder.md",
-  "dispatch_nonce": "2026-08-25T01:58:00Z"
+  "pr_number": 446,
+  "package_id": "QORE-CORE-REVIEWER-ISOLATION-R1-DS-EXPERT-01",
+  "expected_base": "aaa694b6a4c1d29b57ea815743896142f6a67795",
+  "expected_head": "fa1ce41bc28d5caec5bd63b28c575abcb4fb7ee8",
+  "expected_synthetic": "7077a2f69e0f43cff1771a5b45a63b66d05077ba",
+  "review_mode": "expert",
+  "prompt_path": "prompts/qore-core-reviewer-consumption-isolation-r1-expert.md",
+  "dispatch_nonce": "2026-08-25T02:25:30Z"
 }
