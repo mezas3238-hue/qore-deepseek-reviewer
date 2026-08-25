@@ -1,10 +1,10 @@
 {
-  "pr_number": 441,
-  "package_id": "BENCHMARK-V1.3-UNR018-CODER-01",
-  "expected_base": "470db7333ab08024c002bd0f057b34b0ae30e5e3",
-  "expected_head": "b4fa5eda4117fedf9ca81a4eb7d0693d3165026b",
-  "expected_synthetic": "87f8a704d19c43a1d6373794242a7b2fb76ad649",
+  "pr_number": 448,
+  "package_id": "BENCHMARK-COMPACT-UNR020-R2-CODER-01",
+  "expected_base": "f4e3f10f8f24724b1e94981b5dd989bd5d0e1c7a",
+  "expected_head": "2761005b19543c6349ff2cf44b6193be4e541654",
+  "expected_synthetic": "8bfe64d129f8bce223ec41a08d4d76c5e8bc2220",
   "review_mode": "coder",
-  "prompt_path": "prompts/unr018-r1d-coder.md",
-  "dispatch_nonce": "2026-08-24T19:50:30Z"
+  "prompt_path": "prompts/qore-umi14-unr020-r2-coder-compact.md",
+  "dispatch_nonce": "2026-08-25T09:34:00Z"
 }
