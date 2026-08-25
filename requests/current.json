@@ -1,10 +1,10 @@
 {
   "pr_number": 459,
-  "package_id": "QORE-UMI14-ADV-PAYABLE-001-R1-DS-EXPERT-01",
+  "package_id": "QORE-UMI14-ADV-PAYABLE-001-R1-DS-CODER-01",
   "expected_base": "c5fc9fa17934d2559c65be3e79d22fcd64439916",
   "expected_head": "3872bd4046a6d9213c3398ecf19ee2f148b7d276",
   "expected_synthetic": "4fdcb9268fd79b06e2096803973e4f19bb2dfda2",
-  "review_mode": "expert",
-  "prompt_path": "prompts/qore-umi14-advanced-payable-001-r1-expert-compact.md",
-  "dispatch_nonce": "2026-08-25T17:21:00Z"
+  "review_mode": "coder",
+  "prompt_path": "prompts/qore-umi14-advanced-payable-001-r1-coder-compact.md",
+  "dispatch_nonce": "2026-08-25T17:31:00Z"
 }
