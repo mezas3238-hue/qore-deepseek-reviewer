@@ -13,7 +13,16 @@ from typing import Any
 
 API_KEY = os.environ["DEEPSEEK_API_KEY"]
 BALANCE_URL = "https://api.deepseek.com/user/balance"
-REVIEWER = Path(__file__).with_name("deepseek_reviewer_v2_1_1_entrypoint.py")
+_STABLE_REVIEWER = Path(__file__).with_name("deepseek_reviewer_v2_1_1_entrypoint.py")
+_COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
+    "deepseek_reviewer_v2_1_2_candidate_entrypoint.py"
+)
+_PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
+REVIEWER = (
+    _COMPACT_CANDIDATE_REVIEWER
+    if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-")
+    else _STABLE_REVIEWER
+)
 
 
 def fetch_balance() -> dict[str, Any]:
@@ -190,6 +199,7 @@ def write_summary(
 def main() -> int:
     before = fetch_balance()
     print("DeepSeek balance captured before review.")
+    print(f"Reviewer entrypoint: {REVIEWER.name}")
 
     proc = subprocess.run(
         [sys.executable, str(REVIEWER)],
