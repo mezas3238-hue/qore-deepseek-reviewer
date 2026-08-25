@@ -1,10 +1,10 @@
 {
   "pr_number": 445,
-  "package_id": "QORE-EXTREVIEW-GOV-R3-DS-EXPERT-01",
+  "package_id": "QORE-EXTREVIEW-GOV-R3-DS-CODER-01",
   "expected_base": "537e8ad0a73ec2dabfff381675920b910581c879",
   "expected_head": "7ff81c412a53cd62a6acd7eab7459d8f1cfa0fc5",
   "expected_synthetic": "a243bb309ccb2e128656260c1ba3943b30cc395f",
-  "review_mode": "expert",
-  "prompt_path": "prompts/qore-extreview-governance-r3-expert.md",
-  "dispatch_nonce": "2026-08-25T00:58:00Z"
+  "review_mode": "coder",
+  "prompt_path": "prompts/qore-extreview-governance-r3-coder.md",
+  "dispatch_nonce": "2026-08-25T01:05:00Z"
 }
