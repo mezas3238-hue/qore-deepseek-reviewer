@@ -9,13 +9,16 @@ from typing import Any
 import deepseek_reviewer_v1_3_entrypoint as v13
 
 # V1.4 keeps the V1.3 evidence and fail-closed contracts intact. It only widens
-# measured bottlenecks from BENCHMARK-V1.3-UNR018-CODER-01: one planned result
-# could be clipped at 16k chars and the Pro/high final exhausted its entire 16k
-# reasoning envelope without emitting visible review content.
+# measured bottlenecks from BENCHMARK-V1.3-UNR018-CODER-01 and later exact review
+# measurements: planner results must remain complete, and the final evidence fuse
+# must fit the complete changed-file/dependency/baseline bundle plus bounded planned
+# evidence without silent truncation. R22 measured 397,549 final evidence chars with
+# 67,535 planned chars on a 35-file candidate; the budgets below preserve headroom
+# for the existing bounded planner while keeping every fail-closed check intact.
 v13.FINAL_MAX_TOKENS = max(v13.FINAL_MAX_TOKENS, 24000)
-v13.MAX_PLANNED_TOOL_RESULT_CHARS = max(v13.MAX_PLANNED_TOOL_RESULT_CHARS, 40000)
-v13.MAX_PLANNED_EVIDENCE_CHARS = max(v13.MAX_PLANNED_EVIDENCE_CHARS, 120000)
-v13.MAX_FINAL_EVIDENCE_CHARS = max(v13.MAX_FINAL_EVIDENCE_CHARS, 320000)
+v13.MAX_PLANNED_TOOL_RESULT_CHARS = max(v13.MAX_PLANNED_TOOL_RESULT_CHARS, 80000)
+v13.MAX_PLANNED_EVIDENCE_CHARS = max(v13.MAX_PLANNED_EVIDENCE_CHARS, 160000)
+v13.MAX_FINAL_EVIDENCE_CHARS = max(v13.MAX_FINAL_EVIDENCE_CHARS, 520000)
 
 _DIAGNOSTIC_PATH = Path("deepseek-plan-diagnostic.json")
 _original_plan_additional_evidence = v13.plan_additional_evidence
