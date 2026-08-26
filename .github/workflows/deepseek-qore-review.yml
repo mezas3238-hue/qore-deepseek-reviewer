@@ -145,7 +145,7 @@ jobs:
           PROMPT_PATH: ${{ github.workspace }}/${{ inputs.prompt_path }}
           REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
           DEEPSEEK_MODEL: deepseek-v4-pro
-          DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS: "240000"
+          DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS: "300000"
         run: |
           set -euo pipefail
           python3 scripts/run_review_with_meter.py
