@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import os
 from typing import Any
 
 import deepseek_reviewer_v2_0_entrypoint as v20
@@ -12,21 +13,39 @@ v13 = v20.v13
 budgeted = v20.budgeted
 
 # V2.1 keeps the complete V1.7 evidence path and the same deepseek-v4-pro model.
-# Measured V2.0 proved input amplification is solved (17,997 prompt tokens) but
-# deepseek-v4-pro/high consumed the entire 48k output envelope as hidden reasoning.
+# The reviewer now enforces one adaptive completion budget across *all* model calls
+# in a review package. Prompt/input tokens are metered separately and do not consume
+# this output budget. Completion usage includes hidden reasoning plus visible output.
 #
-# Separate *analysis* from *verdict emission* without changing the reviewing model:
-# 1) one bounded V4-Pro/high authoritative adversarial analysis over full evidence;
-# 2) only when the high pass has no complete visible verdict, one V4-Pro
-#    non-thinking extractor receives the retained analysis, not the evidence bundle.
+# Policy:
+# - 100k completion tokens is a hard ceiling, never a consumption target.
+# - exploration/planning may use only the budget that remains after preserving a
+#   mandatory verdict reserve;
+# - the authoritative high-reasoning pass may use all remaining pre-reserve budget;
+# - if that pass does not emit a complete visible verdict, the same-model non-thinking
+#   extractor may use the preserved reserve to publish findings/verdict;
+# - no legacy continuation or second full-evidence review is allowed.
 #
-# The extractor is deliberately non-authoritative: it may only expose conclusions
-# already supported by the retained high-reasoning analysis. If support is incomplete,
-# ambiguous, truncated before coverage closes, or lacks a constructible witness for a
-# proposed defect, it must fail closed. No CoT continuation and no Flash substitution.
-ANALYSIS_MAX_TOKENS = 20000
-EXTRACT_MAX_TOKENS = 3200
+# DeepSeek V4-Pro currently supports an output ceiling above this package budget, so
+# the harness -- not the provider maximum -- is the controlling limit.
+TOTAL_COMPLETION_BUDGET = int(
+    os.environ.get("DEEPSEEK_TOTAL_COMPLETION_TOKEN_BUDGET", "100000")
+)
+VERDICT_RESERVE_TOKENS = int(
+    os.environ.get("DEEPSEEK_VERDICT_RESERVE_TOKENS", "12000")
+)
+ANALYSIS_MAX_TOKENS = max(0, TOTAL_COMPLETION_BUDGET - VERDICT_RESERVE_TOKENS)
+EXTRACT_MAX_TOKENS = VERDICT_RESERVE_TOKENS
 v13.FINAL_MAX_TOKENS = ANALYSIS_MAX_TOKENS
+
+if TOTAL_COMPLETION_BUDGET <= 0:
+    raise RuntimeError("DEEPSEEK_TOTAL_COMPLETION_TOKEN_BUDGET must be positive")
+if VERDICT_RESERVE_TOKENS <= 0:
+    raise RuntimeError("DEEPSEEK_VERDICT_RESERVE_TOKENS must be positive")
+if VERDICT_RESERVE_TOKENS >= TOTAL_COMPLETION_BUDGET:
+    raise RuntimeError(
+        "DEEPSEEK_VERDICT_RESERVE_TOKENS must be smaller than total completion budget"
+    )
 
 _base_send_request = v20._base_send_request
 _v17_send_request = v17.budgeted.send_request
@@ -43,6 +62,25 @@ def _choice(response: dict[str, Any]) -> dict[str, Any]:
 def _message(response: dict[str, Any]) -> dict[str, Any]:
     value = _choice(response).get("message") or {}
     return value if isinstance(value, dict) else {}
+
+
+def _completion_used() -> int:
+    value = budgeted.TOTALS.get("completion_tokens", 0)
+    return int(value) if isinstance(value, (int, float)) else 0
+
+
+def _completion_remaining() -> int:
+    return max(0, TOTAL_COMPLETION_BUDGET - _completion_used())
+
+
+def _pre_verdict_allowance(requested: int) -> int:
+    return max(
+        0,
+        min(
+            requested,
+            _completion_remaining() - VERDICT_RESERVE_TOKENS,
+        ),
+    )
 
 
 def _blocked_response(model: str, reason: str) -> dict[str, Any]:
@@ -76,7 +114,9 @@ def _analysis_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "speculative architecture outside the frozen lane. If evidence is missing, "
             "state that explicitly in the analysis rather than inferring. A later same-model "
             "non-thinking step may only FORMAT conclusions actually supported here; it may "
-            "not add findings or manufacture PASS."
+            "not add findings or manufacture PASS. The package has a hard adaptive total "
+            "completion budget; finish naturally as soon as coverage is sufficient rather "
+            "than trying to consume the available ceiling."
         )
     return prepared
 
@@ -134,13 +174,28 @@ def send_request(
     model: str,
 ) -> dict[str, Any]:
     if stage == "final" and thinking:
+        analysis_tokens = _pre_verdict_allowance(ANALYSIS_MAX_TOKENS)
+        v15._merge_diagnostic(
+            v2_1_total_completion_budget=TOTAL_COMPLETION_BUDGET,
+            v2_1_verdict_reserve_tokens=VERDICT_RESERVE_TOKENS,
+            v2_1_completion_used_before_analysis=_completion_used(),
+            v2_1_analysis_available_tokens=analysis_tokens,
+        )
+        if analysis_tokens <= 0:
+            return _blocked_response(
+                model,
+                "The package exhausted its pre-verdict completion allowance before the "
+                "authoritative analysis could run; the reserved verdict budget cannot be "
+                "repurposed into a fabricated review.",
+            )
+
         analysis = _base_send_request(
             stage="final-analysis",
             round_number=round_number,
             messages=_analysis_messages(messages),
             thinking=True,
             tools=False,
-            max_tokens=ANALYSIS_MAX_TOKENS,
+            max_tokens=analysis_tokens,
             model=model,
         )
         analysis_choice = _choice(analysis)
@@ -151,18 +206,19 @@ def send_request(
 
         v15._merge_diagnostic(
             v2_1_split_analysis=True,
-            v2_1_analysis_max_tokens=ANALYSIS_MAX_TOKENS,
+            v2_1_analysis_max_tokens=analysis_tokens,
             v2_1_analysis_finish_reason=finish_reason,
             v2_1_analysis_reasoning_chars=len(reasoning),
             v2_1_analysis_visible_chars=len(visible),
-            v2_1_extract_max_tokens=EXTRACT_MAX_TOKENS,
+            v2_1_extract_max_tokens=min(EXTRACT_MAX_TOKENS, _completion_remaining()),
+            v2_1_completion_used_after_analysis=_completion_used(),
+            v2_1_completion_remaining_after_analysis=_completion_remaining(),
             v2_1_same_model_extractor=True,
             v2_1_flash_substitution=False,
             v2_1_cot_continuation=False,
         )
 
         if finish_reason == "stop" and visible:
-            # Best case: the authoritative high pass completed naturally. Avoid a third call.
             return analysis
 
         if not reasoning and not visible:
@@ -171,6 +227,13 @@ def send_request(
                 "V2.1 high-reasoning analysis returned no retained analysis to adjudicate.",
             )
 
+        extract_tokens = min(EXTRACT_MAX_TOKENS, _completion_remaining())
+        if extract_tokens <= 0:
+            return _blocked_response(
+                model,
+                "The authoritative analysis consumed the package completion ceiling before "
+                "a complete verdict could be emitted.",
+            )
         extracted = _base_send_request(
             stage="verdict-extract",
             round_number=1,
@@ -181,7 +244,7 @@ def send_request(
             ),
             thinking=False,
             tools=False,
-            max_tokens=EXTRACT_MAX_TOKENS,
+            max_tokens=extract_tokens,
             model=model,
         )
         extract_choice = _choice(extracted)
@@ -191,7 +254,15 @@ def send_request(
         v15._merge_diagnostic(
             v2_1_extract_finish_reason=extract_finish,
             v2_1_extract_visible_chars=len(extract_visible),
+            v2_1_completion_used_final=_completion_used(),
+            v2_1_completion_remaining_final=_completion_remaining(),
         )
+        if _completion_used() > TOTAL_COMPLETION_BUDGET:
+            return _blocked_response(
+                model,
+                "Provider-reported completion usage exceeded the hard package ceiling; "
+                "validation is blocked rather than treating an over-budget result as PASS.",
+            )
         if extract_finish != "stop" or not extract_visible:
             return _blocked_response(
                 model,
@@ -200,19 +271,25 @@ def send_request(
         return extracted
 
     if stage == "final-fallback":
-        # V2.1 never issues another API review/continuation through the legacy fallback.
         return _blocked_response(
             model,
             "V2.1 does not permit a legacy full-evidence fallback after verdict extraction.",
         )
 
+    allowed_tokens = _pre_verdict_allowance(max_tokens)
+    if allowed_tokens <= 0:
+        return _blocked_response(
+            model,
+            "Pre-verdict completion allowance is exhausted; preserving the mandatory "
+            "verdict reserve for the authoritative final stage.",
+        )
     return _v17_send_request(
         stage=stage,
         round_number=round_number,
         messages=messages,
         thinking=thinking,
         tools=tools,
-        max_tokens=max_tokens,
+        max_tokens=allowed_tokens,
         model=model,
     )
 
