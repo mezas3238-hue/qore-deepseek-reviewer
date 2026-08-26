@@ -1,10 +1,10 @@
 {
-  "pr_number": 460,
-  "package_id": "QORE-UMI14-OPTION-COMPOSITION-007-R4-DS-CODER-01",
-  "expected_base": "8bef552a555a1762ad61b2fe6869912eb84e4695",
-  "expected_head": "e1f2d28d3f499ff51dd678d006adf948673a7e2d",
-  "expected_synthetic": "e2a398db3983e5785342226076f2e037ccf0d9e0",
-  "review_mode": "coder",
-  "prompt_path": "prompts/qore-umi14-option-composition-007-r4-coder-compact.md",
-  "dispatch_nonce": "2026-08-25T22:22:00Z"
+  "pr_number": 461,
+  "package_id": "QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-EXPERT-R1",
+  "expected_base": "ebd0adf000874797653df92ea1c08a892cce6c8c",
+  "expected_head": "3817066dbed03742e5bdbb7a4df85692b03dfb7b",
+  "expected_synthetic": "7d4ffe33349db8b7971fcd4fbe35309e4faef0bc",
+  "review_mode": "expert",
+  "prompt_path": "prompts/qore-umi14-umi12-final-owner-recert-001-expert-r1-compact.md",
+  "dispatch_nonce": "2026-08-26T01:13:00Z"
 }
