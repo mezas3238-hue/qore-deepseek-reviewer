@@ -62,6 +62,17 @@ def _mandatory_r62_probe_suite(_: dict[str, Any]) -> str:
         "    pass\n"
         "print('kw', events)\n",
     )
+    probes["python_star_failure_keyword_exec"] = _python(
+        "run",
+        "seen = []\n"
+        "def f(*args, **kwargs):\n"
+        "    return args, kwargs\n"
+        "try:\n"
+        "    f(*None, candidate=seen.append(eval('1+1')))\n"
+        "except TypeError:\n"
+        "    pass\n"
+        "print(seen)\n",
+    )
     probes["python_direct_return_runtime"] = _python(
         "run",
         "def get_eval():\n"
@@ -122,6 +133,12 @@ def _mandatory_r62_probe_suite(_: dict[str, Any]) -> str:
             "def consume(*arguments, **keywords):\n"
             "    return arguments, keywords\n"
             "consume(*None, candidate=eval)\n"
+        ),
+        "scanner_star_failure_keyword_exec": (
+            "seen = []\n"
+            "def consume(*arguments, **keywords):\n"
+            "    return arguments, keywords\n"
+            "consume(*None, candidate=seen.append(eval('1+1')))\n"
         ),
         "scanner_direct_return_eval": (
             "def get_eval():\n"
