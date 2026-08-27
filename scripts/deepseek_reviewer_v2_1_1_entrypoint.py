@@ -18,6 +18,21 @@ os.environ["DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS"] = str(
 
 import deepseek_reviewer_v2_0_entrypoint as v20  # noqa: E402
 
+# R43 measured a legitimate 65-file final evidence bundle at 528,547 characters,
+# above V1.4's historical 520k fuse while the mandatory changed-file bundle itself
+# remained inside its independent 500k gate. Token-budget policy explicitly permits
+# raising evidence budgets rather than truncating required evidence. Accept an
+# explicit operator/workflow budget only monotonically: a supplied value can widen
+# the fail-closed fuse but can never lower the inherited quality budget.
+_final_evidence_chars = int(
+    os.environ.get("DEEPSEEK_MAX_FINAL_EVIDENCE_CHARS", "0") or "0"
+)
+if _final_evidence_chars > 0:
+    v20.v13.MAX_FINAL_EVIDENCE_CHARS = max(
+        v20.v13.MAX_FINAL_EVIDENCE_CHARS,
+        _final_evidence_chars,
+    )
+
 # V2.1 referenced `v17.budgeted.send_request`, but V1.7 never exported a
 # `budgeted` module attribute. The failed R1G run therefore died at import time
 # before any DeepSeek review call. V2.0 already retains the exact stable
