@@ -1,10 +1,10 @@
 {
   "pr_number": 461,
-  "package_id": "QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-EXPERT-R46",
+  "package_id": "QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-EXPERT-R47",
   "expected_base": "ebd0adf000874797653df92ea1c08a892cce6c8c",
   "expected_head": "470932ec73542836537a1332ec76c4eddd52f122",
   "expected_synthetic": "8b33af4c6fcc89b3e7d161c89300acc7eae44d38",
   "review_mode": "expert",
-  "prompt_path": "prompts/qore-umi14-umi12-final-owner-recert-001-expert-r46-compact.md",
-  "dispatch_nonce": "R46-470932ec73542836537a1332ec76c4eddd52f122"
+  "prompt_path": "prompts/qore-umi14-umi12-final-owner-recert-001-expert-r47-compact.md",
+  "dispatch_nonce": "R47-470932ec73542836537a1332ec76c4eddd52f122"
 }
