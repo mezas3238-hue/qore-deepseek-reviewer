@@ -146,7 +146,7 @@ jobs:
           REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
           DEEPSEEK_MODEL: deepseek-v4-pro
           DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS: "600000"
-          DEEPSEEK_MAX_FINAL_EVIDENCE_CHARS: "620000"
+          DEEPSEEK_MAX_FINAL_EVIDENCE_CHARS: "650000"
         run: |
           set -euo pipefail
           python3 scripts/run_review_with_meter.py
