@@ -7,10 +7,11 @@ from typing import Any
 
 import deepseek_reviewer_budgeted as budgeted
 
-# CEO compact-review policy: this route is for new review packages only.
-# Prompt/context input is fail-closed before every model call using a
-# conservative UTF-8 request-size upper bound plus protocol reserve, and is
-# independently checked against actual API usage after every call.
+# Compact-review policy: 60k-80k cumulative prompt input is the preferred
+# operating target when sufficient, while 100k is the actual hard ceiling.
+# Preflight uses a deliberately conservative UTF-8 request-size upper bound;
+# exceeding the preferred target is advisory, but exceeding the hard ceiling
+# blocks the call. Actual API prompt usage is checked again after every call.
 HARD_TOTAL_PROMPT_TOKENS = int(
     os.environ.get("DEEPSEEK_MAX_TOTAL_PROMPT_TOKENS", "100000")
 )
@@ -122,9 +123,19 @@ def guarded_send_request(
         + request_upper_bound
         + PROTOCOL_TOKEN_RESERVE
     )
-    if projected > TARGET_PREFLIGHT_UPPER_BOUND:
+    if projected > HARD_TOTAL_PROMPT_TOKENS:
         raise RuntimeError(
-            "compact DeepSeek preflight blocked model call: "
+            "compact DeepSeek preflight blocked model call at hard ceiling: "
+            f"stage={stage} round={round_number} actual_prompt_so_far="
+            f"{budgeted.TOTALS['prompt_tokens']} request_utf8_bytes="
+            f"{request_upper_bound} reserve={PROTOCOL_TOKEN_RESERVE} "
+            f"projected_upper_bound={projected} target="
+            f"{TARGET_PREFLIGHT_UPPER_BOUND} hard={HARD_TOTAL_PROMPT_TOKENS}"
+        )
+    if projected > TARGET_PREFLIGHT_UPPER_BOUND:
+        print(
+            "DeepSeek compact preflight advisory: preferred target exceeded by "
+            "conservative upper bound, but hard ceiling remains satisfied: "
             f"stage={stage} round={round_number} actual_prompt_so_far="
             f"{budgeted.TOTALS['prompt_tokens']} request_utf8_bytes="
             f"{request_upper_bound} reserve={PROTOCOL_TOKEN_RESERVE} "
