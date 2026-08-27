@@ -17,12 +17,22 @@ _STABLE_REVIEWER = Path(__file__).with_name("deepseek_reviewer_v2_1_1_entrypoint
 _COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_v2_1_2_candidate_entrypoint.py"
 )
-_PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
-REVIEWER = (
-    _COMPACT_CANDIDATE_REVIEWER
-    if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-")
-    else _STABLE_REVIEWER
+_COMPACT_BUDGETED_REVIEWER = Path(__file__).with_name(
+    "deepseek_reviewer_compact_budgeted.py"
 )
+_PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
+_REVIEWER_PROFILE = os.environ.get("DEEPSEEK_REVIEWER_PROFILE", "compact-budgeted")
+
+if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-"):
+    REVIEWER = _COMPACT_CANDIDATE_REVIEWER
+elif _REVIEWER_PROFILE == "compact-budgeted":
+    REVIEWER = _COMPACT_BUDGETED_REVIEWER
+elif _REVIEWER_PROFILE == "stable":
+    REVIEWER = _STABLE_REVIEWER
+else:
+    raise RuntimeError(
+        "unsupported DEEPSEEK_REVIEWER_PROFILE; expected 'compact-budgeted' or 'stable'"
+    )
 
 
 def fetch_balance() -> dict[str, Any]:
