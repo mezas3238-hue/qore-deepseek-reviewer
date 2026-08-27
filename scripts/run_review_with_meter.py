@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.error
@@ -17,12 +18,26 @@ _STABLE_REVIEWER = Path(__file__).with_name("deepseek_reviewer_v2_1_1_entrypoint
 _COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_v2_1_2_candidate_entrypoint.py"
 )
-_PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
-REVIEWER = (
-    _COMPACT_CANDIDATE_REVIEWER
-    if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-")
-    else _STABLE_REVIEWER
+_COMPACT_BUDGETED_REVIEWER = Path(__file__).with_name(
+    "deepseek_reviewer_compact_budgeted.py"
 )
+_PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
+_QORE_UMI12_COMPACT_PACKAGE = re.compile(
+    r"^QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-(?:EXPERT|CODER)-R(?P<round>\d+)$"
+)
+
+
+def use_qore_umi12_compact_reviewer(package_id: str) -> bool:
+    match = _QORE_UMI12_COMPACT_PACKAGE.fullmatch(package_id)
+    return match is not None and int(match.group("round")) >= 60
+
+
+if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-"):
+    REVIEWER = _COMPACT_CANDIDATE_REVIEWER
+elif use_qore_umi12_compact_reviewer(_PACKAGE_ID):
+    REVIEWER = _COMPACT_BUDGETED_REVIEWER
+else:
+    REVIEWER = _STABLE_REVIEWER
 
 
 def fetch_balance() -> dict[str, Any]:
