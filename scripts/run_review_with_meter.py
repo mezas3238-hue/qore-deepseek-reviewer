@@ -18,7 +18,7 @@ _COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_v2_1_2_candidate_entrypoint.py"
 )
 _COMPACT_BUDGETED_REVIEWER = Path(__file__).with_name(
-    "deepseek_reviewer_compact_budgeted_v15.py"
+    "deepseek_reviewer_compact_budgeted_v16.py"
 )
 _PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
 _REVIEWER_PROFILE = os.environ.get("DEEPSEEK_REVIEWER_PROFILE", "compact-budgeted")
@@ -119,109 +119,78 @@ def spent_by_currency(
     return result
 
 
-def persist_usage_with_review(
-    before_payload: dict[str, Any],
-    after_payload: dict[str, Any],
-    returncode: int,
-) -> None:
-    if returncode != 0:
-        return
-    output_raw = os.environ.get("REVIEW_OUTPUT")
-    if not output_raw:
-        return
-    output = Path(output_raw).resolve()
-    if not output.is_file():
-        return
-
-    telemetry = {
-        **aggregate_token_usage(),
-        "spent_by_currency": spent_by_currency(before_payload, after_payload),
-    }
-    marker = (
-        "<!-- QORE-DEEPSEEK-USAGE "
-        + json.dumps(telemetry, sort_keys=True, separators=(",", ":"))
-        + " -->"
-    )
-    review = output.read_text(encoding="utf-8").rstrip()
-    output.write_text(review + "\n\n" + marker + "\n", encoding="utf-8")
-    print("DeepSeek token telemetry persisted with review output.")
-
-
-def write_summary(
-    before_payload: dict[str, Any],
-    after_payload: dict[str, Any],
-    returncode: int,
-) -> None:
-    before = balances_by_currency(before_payload)
-    after = balances_by_currency(after_payload)
-    currencies = sorted(set(before) | set(after))
-
-    lines = [
-        "## QORE DeepSeek usage",
-        "",
-        f"Reviewer exit code: `{returncode}`",
-        "",
-        "| Currency | Balance before | Balance after | Spent this run |",
-        "|---|---:|---:|---:|",
-    ]
-
-    if currencies:
-        for currency in currencies:
-            b = before.get(currency)
-            a = after.get(currency)
-            spent = (b - a) if b is not None and a is not None else None
-            lines.append(
-                "| "
-                + currency
-                + " | "
-                + (fmt_money(b) if b is not None else "n/a")
-                + " | "
-                + (fmt_money(a) if a is not None else "n/a")
-                + " | "
-                + (fmt_money(spent) if spent is not None else "n/a")
-                + " |"
-            )
-    else:
-        lines.append("| n/a | n/a | n/a | n/a |")
-
-    if before_payload.get("error"):
-        lines.extend(["", f"Balance-before error: `{before_payload['error']}`"])
-    if after_payload.get("error"):
-        lines.extend(["", f"Balance-after error: `{after_payload['error']}`"])
-
-    lines.extend(
-        [
-            "",
-            "The balance delta is account-level actual billing observed around this run. "
-            "Avoid concurrent DeepSeek API workloads if you want this delta to represent only this review.",
-        ]
-    )
-
-    text = "\n".join(lines) + "\n"
-    print(text)
-
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
-    if summary_path:
-        with open(summary_path, "a", encoding="utf-8") as handle:
-            handle.write(text)
+def render_balance(payload: dict[str, Any]) -> str:
+    if "error" in payload:
+        return f"- balance query unavailable: {payload['error']}"
+    infos = payload.get("balance_infos") or []
+    if not infos:
+        return "- balance response had no balance_infos"
+    lines = []
+    for info in infos:
+        currency = str(info.get("currency") or "UNKNOWN")
+        total = info.get("total_balance")
+        granted = info.get("granted_balance")
+        topped = info.get("topped_up_balance")
+        lines.append(
+            f"- {currency}: total={total}, granted={granted}, topped_up={topped}"
+        )
+    return "\n".join(lines)
 
 
 def main() -> int:
-    before = fetch_balance()
+    before_payload = fetch_balance()
     print("DeepSeek balance captured before review.")
     print(f"Reviewer entrypoint: {REVIEWER.name}")
 
-    proc = subprocess.run(
-        [sys.executable, str(REVIEWER)],
-        env=os.environ.copy(),
-        check=False,
+    completed = subprocess.run([sys.executable, str(REVIEWER)], check=False)
+
+    after_payload = fetch_balance()
+    print("DeepSeek balance captured after review.")
+    print("## QORE DeepSeek usage")
+    print()
+    print(f"Reviewer exit code: `{completed.returncode}`")
+    print()
+    print("| Currency | Balance before | Balance after | Spent this run |")
+    print("|---|---:|---:|---:|")
+    before = balances_by_currency(before_payload)
+    after = balances_by_currency(after_payload)
+    spent = spent_by_currency(before_payload, after_payload)
+    for currency in sorted(set(before) | set(after)):
+        before_text = fmt_money(before[currency]) if currency in before else "n/a"
+        after_text = fmt_money(after[currency]) if currency in after else "n/a"
+        spent_text = spent.get(currency, "n/a")
+        print(f"| {currency} | {before_text} | {after_text} | {spent_text} |")
+    if not before and not after:
+        print("| n/a | n/a | n/a | n/a |")
+    print()
+    print(
+        "The balance delta is account-level actual billing observed around this run. "
+        "Avoid concurrent DeepSeek API workloads if you want this delta to represent "
+        "only this review."
     )
 
-    after = fetch_balance()
-    print("DeepSeek balance captured after review.")
-    write_summary(before, after, proc.returncode)
-    persist_usage_with_review(before, after, proc.returncode)
-    return proc.returncode
+    usage = aggregate_token_usage()
+    output_path = Path(os.environ.get("REVIEW_OUTPUT", "deepseek-review.md")).resolve()
+    if output_path.is_file():
+        existing = output_path.read_text(encoding="utf-8")
+        usage_comment = (
+            "\n\n<!-- QORE-DEEPSEEK-USAGE "
+            + json.dumps(
+                {
+                    **usage,
+                    "spent_by_currency": spent,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + " -->\n"
+        )
+        output_path.write_text(existing.rstrip() + usage_comment, encoding="utf-8")
+        print("DeepSeek token telemetry persisted with review output.")
+    else:
+        print("DeepSeek review output absent; usage not attached to a review file.")
+
+    return completed.returncode
 
 
 if __name__ == "__main__":
