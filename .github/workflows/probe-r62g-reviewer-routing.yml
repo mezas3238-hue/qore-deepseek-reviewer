@@ -25,6 +25,16 @@ jobs:
       - name: Verify exact R62G routing without model
         env:
           QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
+          PR_NUMBER: '461'
+          EXPECTED_BASE: ebd0adf000874797653df92ea1c08a892cce6c8c
+          EXPECTED_HEAD: 476a93cdd08a064d0b99a139cd1b49287b937f21
+          EXPECTED_SYNTHETIC: 871def531b0f1222e6a1e61252af700f4ed204e3
+          PACKAGE_ID: NO-MODEL-R62G-ROUTING-PROBE
+          REVIEW_MODE: expert
+          PROMPT_PATH: ${{ github.workspace }}/prompts/qore-umi14-umi12-final-owner-recert-001-expert-r89-compact.md
+          REVIEW_OUTPUT: ${{ github.workspace }}/probe-review-not-used.md
+          DEEPSEEK_API_KEY: not-used
+          GH_TOKEN: not-used
         run: |
           python - <<'PY'
           import sys
@@ -50,7 +60,7 @@ jobs:
           assert 'scanner=r62g' in r62g_safe
           assert '\n()\n' in r62g_safe
           assert 'scanner=r62k' in r62k_safe
-          assert "call:2" in r62k_safe
+          assert 'call:2' in r62k_safe
           assert 'scanner=r62g' in r62g_danger
           assert 'call:2' in r62g_danger
           print('R62G_REVIEWER_ROUTING_OK')
