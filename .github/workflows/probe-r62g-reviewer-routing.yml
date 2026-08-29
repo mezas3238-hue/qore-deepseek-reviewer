@@ -60,7 +60,7 @@ jobs:
           assert 'scanner=r62g' in r62g_safe
           assert '\n()\n' in r62g_safe
           assert 'scanner=r62k' in r62k_safe
-          assert 'call:2' in r62k_safe
+          assert '\n()\n' in r62k_safe
           assert 'scanner=r62g' in r62g_danger
           assert 'call:2' in r62g_danger
           print('R62G_REVIEWER_ROUTING_OK')
