@@ -1,0 +1,96 @@
+name: Probe R88 builtins module vs mapping
+
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-r88-builtins-module-vs-mapping.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create QORE Reviewer installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+      - name: Checkout exact QORE head
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 7d16609795e99052db66281749aefe406172f870
+          token: ${{ steps.app-token.outputs.token }}
+          path: qore
+          fetch-depth: 1
+      - name: Adjudicate R88 witnesses
+        env:
+          PYTHONPATH: ${{ github.workspace }}/qore/tests/infrastructure:${{ github.workspace }}/qore/src
+        run: |
+          python --version
+          python - <<'PY'
+          import importlib.util
+          import pathlib
+          import tempfile
+          import textwrap
+          import test_universal_cross_asset_conformance_final_owner_r62g_guards as r62g
+          import test_universal_cross_asset_conformance_final_owner_r62n_guards as r62n
+
+          module_subscript = 'import builtins\nresult = builtins["eval"]("1+1")\n'
+          dunder_subscript = 'result = __builtins__["eval"]("1+1")\n'
+          mapping_subscript = 'import builtins\nresult = builtins.__dict__["eval"]("1+1")\n'
+
+          def run_exec(source: str):
+              ns = {}
+              try:
+                  exec(source, ns)
+              except Exception as exc:
+                  return (type(exc).__name__, str(exc), type(ns.get('__builtins__')).__name__)
+              return ('OK', ns.get('result'), type(ns.get('__builtins__')).__name__)
+
+          def run_import(source: str):
+              with tempfile.TemporaryDirectory() as td:
+                  path = pathlib.Path(td) / 'witness_module.py'
+                  path.write_text(source, encoding='utf-8')
+                  spec = importlib.util.spec_from_file_location('qore_r88_witness_module', path)
+                  assert spec is not None and spec.loader is not None
+                  module = importlib.util.module_from_spec(spec)
+                  try:
+                      spec.loader.exec_module(module)
+                  except Exception as exc:
+                      return (type(exc).__name__, str(exc), type(module.__dict__.get('__builtins__')).__name__)
+                  return ('OK', getattr(module, 'result', None), type(module.__dict__.get('__builtins__')).__name__)
+
+          cases = {
+              'module_subscript': module_subscript,
+              'dunder_subscript': dunder_subscript,
+              'mapping_subscript': mapping_subscript,
+          }
+          for name, source in cases.items():
+              print(name, 'exec=', run_exec(source))
+              print(name, 'import=', run_import(source))
+              print(name, 'r62g=', r62g._r62g_dynamic_execution_markers_from_source(source))
+              print(name, 'r62n=', r62n._r62n_dynamic_execution_markers_from_source(source))
+
+          # Ground truth gates.
+          assert run_exec(module_subscript)[0] == 'TypeError'
+          assert run_import(module_subscript)[0] == 'TypeError'
+          assert run_exec(mapping_subscript)[:2] == ('OK', 2)
+          assert run_import(mapping_subscript)[:2] == ('OK', 2)
+          # In exec/import module contexts __builtins__ is a dict, so subscript reaches eval.
+          assert run_exec(dunder_subscript)[:2] == ('OK', 2)
+          assert run_import(dunder_subscript)[:2] == ('OK', 2)
+
+          # Current scanner should demonstrate the one real FP and preserve dangerous mappings.
+          assert 'call:2' in r62g._r62g_dynamic_execution_markers_from_source(module_subscript)
+          assert 'call:2' in r62n._r62n_dynamic_execution_markers_from_source(module_subscript)
+          assert r62n._r62n_dynamic_execution_markers_from_source(dunder_subscript)
+          assert r62n._r62n_dynamic_execution_markers_from_source(mapping_subscript)
+          print('R88_CONTEXT_ADJUDICATION_OK')
+          PY
