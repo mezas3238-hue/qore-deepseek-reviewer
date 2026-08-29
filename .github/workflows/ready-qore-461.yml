@@ -1,0 +1,49 @@
+name: Ready exact QORE Core PR 461
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/ready-qore-461.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ready:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Create QORE Reviewer installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+
+      - name: Mark only the exact frozen PR ready
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_BASE: ebd0adf000874797653df92ea1c08a892cce6c8c
+          EXPECTED_HEAD: 476a93cdd08a064d0b99a139cd1b49287b937f21
+          EXPECTED_SYNTHETIC: 871def531b0f1222e6a1e61252af700f4ed204e3
+        run: |
+          set -euo pipefail
+          PR_JSON="$(gh api repos/mezas3238-hue/qore-core/pulls/461)"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = open
+          test "$(jq -r '.draft' <<<"$PR_JSON")" = true
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = false
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
+          PR_NODE_ID="$(jq -r '.node_id' <<<"$PR_JSON")"
+          gh api graphql             -f query='mutation($id:ID!){markPullRequestReadyForReview(input:{pullRequestId:$id}){pullRequest{id isDraft state baseRefOid headRefOid}}}'             -F id="$PR_NODE_ID"             --jq '.data.markPullRequestReadyForReview.pullRequest'
+          LIVE_JSON="$(gh api repos/mezas3238-hue/qore-core/pulls/461)"
+          test "$(jq -r '.state' <<<"$LIVE_JSON")" = open
+          test "$(jq -r '.draft' <<<"$LIVE_JSON")" = false
+          test "$(jq -r '.base.sha' <<<"$LIVE_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$LIVE_JSON")" = "$EXPECTED_HEAD"
+          echo "QORE_PR_461_READY_EXACT_HEAD_OK"
