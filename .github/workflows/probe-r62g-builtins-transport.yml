@@ -1,0 +1,77 @@
+name: Probe R62G builtins transport
+
+on:
+  push:
+    paths:
+      - '.github/workflows/probe-r62g-builtins-transport.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create QORE Reviewer installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+      - name: Checkout exact QORE head
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 1f3b3ebd4503932a72a54760201f3d8f12c837f5
+          token: ${{ steps.app-token.outputs.token }}
+          path: qore
+          fetch-depth: 1
+      - name: Probe transported module values
+        env:
+          PYTHONPATH: ${{ github.workspace }}/qore/tests/infrastructure:${{ github.workspace }}/qore/src
+        run: |
+          python - <<'PY'
+          import test_universal_cross_asset_conformance_final_owner_r62g_guards as r62g
+          import test_universal_cross_asset_conformance_final_owner_r62n_guards as r62n
+
+          def runtime(source: str):
+              ns = {}
+              try:
+                  exec(source, ns)
+              except Exception as exc:
+                  return type(exc).__name__
+              return f"OK:{ns.get('result')!r}"
+
+          safe = {
+              'tuple_alias': 'import builtins\nh=(builtins,)\nb=h[0]\nresult=b["eval"]("1+1")\n',
+              'list_alias': 'import builtins\nh=[builtins]\nb=h[0]\nresult=b["eval"]("1+1")\n',
+              'tuple_inline': 'import builtins\nresult=(builtins,)[0]["eval"]("1+1")\n',
+              'list_inline': 'import builtins\nresult=[builtins][0]["eval"]("1+1")\n',
+              'tuple_get': 'import builtins\nh=(builtins,)\nresult=h[0].get("eval")("1+1")\n',
+              'tuple_dunder_getitem': 'import builtins\nh=(builtins,)\nresult=h[0].__getitem__("eval")("1+1")\n',
+              'ifexp_module': 'import builtins\nb=builtins if True else builtins\nresult=b["eval"]("1+1")\n',
+          }
+          danger = {
+              'tuple_dict': 'import builtins\nh=(builtins.__dict__,)\nm=h[0]\nresult=m["eval"]("1+1")\n',
+              'list_vars': 'import builtins\nh=[vars(builtins)]\nm=h[0]\nresult=m["eval"]("1+1")\n',
+              'ifexp_union_mapping': 'import builtins\nb=builtins if unknown else builtins.__dict__\nresult=b["eval"]("1+1")\n',
+          }
+          for name, src in safe.items():
+              actual=runtime(src)
+              g=r62g._r62g_dynamic_execution_markers_from_source(src)
+              n=r62n._r62n_dynamic_execution_markers_from_source(src)
+              print('SAFE', name, actual, g, n)
+              assert actual in {'TypeError','AttributeError'}
+              assert not any(x.startswith('call:') for x in g), (name,g)
+              assert not any(x.startswith('call:') for x in n), (name,n)
+          for name, src in danger.items():
+              g=r62g._r62g_dynamic_execution_markers_from_source(src)
+              n=r62n._r62n_dynamic_execution_markers_from_source(src)
+              print('DANGER', name, runtime(src), g, n)
+              assert any(x.startswith('call:') for x in g), (name,g)
+              assert any(x.startswith('call:') for x in n), (name,n)
+          print('R62G_TRANSPORT_MATRIX_OK')
+          PY
