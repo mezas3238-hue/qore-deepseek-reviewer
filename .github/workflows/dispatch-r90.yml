@@ -1,0 +1,31 @@
+name: Dispatch Expert R90 exact freeze
+
+on:
+  push:
+    paths:
+      - .github/workflows/dispatch-r90.yml
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch canonical DeepSeek review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh workflow run deepseek-qore-review.yml \
+            --repo mezas3238-hue/qore-deepseek-reviewer \
+            --ref main \
+            -f pr_number=461 \
+            -f package_id=QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-EXPERT-R90 \
+            -f expected_base=ebd0adf000874797653df92ea1c08a892cce6c8c \
+            -f expected_head=476a93cdd08a064d0b99a139cd1b49287b937f21 \
+            -f expected_synthetic=871def531b0f1222e6a1e61252af700f4ed204e3 \
+            -f review_mode=expert \
+            -f prompt_path=prompts/qore-umi14-umi12-final-owner-recert-001-expert-r90-compact.md \
+            -f benchmark_only=false
