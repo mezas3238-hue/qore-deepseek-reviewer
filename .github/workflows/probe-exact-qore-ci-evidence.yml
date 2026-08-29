@@ -35,6 +35,7 @@ jobs:
           REVIEW_OUTPUT: ${{ github.workspace }}/probe-unused.md
           DEEPSEEK_API_KEY: unused-no-model-call
         run: |
+          # v19 follows the GitHub log redirect without leaking Authorization.
           PYTHONPATH=scripts python3 - <<'PY'
           import deepseek_reviewer_compact_budgeted_v19 as v19
           evidence = v19._exact_qore_ci_evidence()
