@@ -24,8 +24,16 @@ jobs:
       - name: Fetch and validate exact CI evidence without model call
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          PROMPT_PATH: ${{ github.workspace }}/prompts/qore-umi14-umi12-final-owner-recert-001-expert-r87-compact.md
+          QORE_ROOT: ${{ github.workspace }}
+          PR_NUMBER: '461'
+          PACKAGE_ID: PROBE-NO-MODEL
+          EXPECTED_BASE: ebd0adf000874797653df92ea1c08a892cce6c8c
+          EXPECTED_HEAD: 7d16609795e99052db66281749aefe406172f870
           EXPECTED_SYNTHETIC: d55cee13735d1c50bb63cf43fb34e97385b8d138
+          REVIEW_MODE: expert
+          PROMPT_PATH: ${{ github.workspace }}/prompts/qore-umi14-umi12-final-owner-recert-001-expert-r87-compact.md
+          REVIEW_OUTPUT: ${{ github.workspace }}/probe-unused.md
+          DEEPSEEK_API_KEY: unused-no-model-call
         run: |
           PYTHONPATH=scripts python3 - <<'PY'
           import deepseek_reviewer_compact_budgeted_v19 as v19
