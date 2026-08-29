@@ -6,5 +6,5 @@
   "expected_synthetic": "871def531b0f1222e6a1e61252af700f4ed204e3",
   "review_mode": "expert",
   "prompt_path": "prompts/qore-umi14-umi12-final-owner-recert-001-expert-r89-compact.md",
-  "dispatch_nonce": "R89-EXPERT-476a93cdd08a064d0b99a139cd1b49287b937f21-FINAL"
+  "dispatch_nonce": "R89-EXPERT-476a93cdd08a064d0b99a139cd1b49287b937f21-RETRY1"
 }
