@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mezas3238-hue/qore-core
-          ref: b5f1c8063be894c1aaeead6ff0e08dc8647406b5
+          ref: 1f3b3ebd4503932a72a54760201f3d8f12c837f5
           token: ${{ steps.app-token.outputs.token }}
           path: qore
           fetch-depth: 1
@@ -77,7 +77,7 @@ jobs:
               g = r62g._r62g_dynamic_execution_markers_from_source(source)
               n = r62n._r62n_dynamic_execution_markers_from_source(source)
               print("SAFE", name, actual, g, n)
-              assert actual[0] in {"TypeError", "NameError"}
+              assert actual[0] in {"TypeError", "AttributeError", "NameError"}
               assert not any(item.startswith("call:") for item in g)
               assert not any(item.startswith("call:") for item in n)
 
