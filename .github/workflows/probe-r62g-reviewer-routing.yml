@@ -1,0 +1,57 @@
+name: Probe R62G reviewer routing
+
+on:
+  push:
+    paths:
+      - .github/workflows/probe-r62g-reviewer-routing.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 476a93cdd08a064d0b99a139cd1b49287b937f21
+          path: workspace/qore-core
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify exact R62G routing without model
+        env:
+          QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path('scripts').resolve()))
+          import deepseek_reviewer_compact_budgeted_v20 as v20
+
+          safe = 'import builtins\nresult = builtins["eval"]("1+1")\n'
+          danger = 'import builtins\nresult = builtins.__dict__["eval"]("1+1")\n'
+
+          r62g_safe = v20.v16._scanner_r62g(safe)
+          r62k_safe = v20.v17._scanner_r62k(safe)
+          r62g_danger = v20.v16._scanner_r62g(danger)
+
+          print('R62G SAFE')
+          print(r62g_safe)
+          print('R62K SAME WITNESS')
+          print(r62k_safe)
+          print('R62G REAL MAPPING')
+          print(r62g_danger)
+
+          assert 'scanner=r62g' in r62g_safe
+          assert '\n()\n' in r62g_safe
+          assert 'scanner=r62k' in r62k_safe
+          assert "call:2" in r62k_safe
+          assert 'scanner=r62g' in r62g_danger
+          assert 'call:2' in r62g_danger
+          print('R62G_REVIEWER_ROUTING_OK')
+          PY
