@@ -1,0 +1,36 @@
+name: Reviewer exact-QG free probes
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/deepseek-auto-dispatch.yml"
+      - ".github/workflows/deepseek-qore-review.yml"
+      - ".github/workflows/probe-exact-qg-binding.yml"
+      - "scripts/deepseek_reviewer_compact_budgeted_v19.py"
+      - "scripts/deepseek_reviewer_compact_budgeted_v20.py"
+      - "scripts/probe_exact_qg_binding.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  exact-qg-binding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+
+      - name: Compile exact-QG reviewer modules
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/deepseek_reviewer_compact_budgeted_v19.py \
+            scripts/deepseek_reviewer_compact_budgeted_v20.py \
+            scripts/probe_exact_qg_binding.py
+
+      - name: Run exact-QG and full-freeze regression probes
+        run: |
+          set -euo pipefail
+          python3 scripts/probe_exact_qg_binding.py

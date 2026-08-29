@@ -23,6 +23,9 @@ on:
         description: Expected frozen synthetic PR merge SHA
         required: true
         default: cd97ad3dbd6edb68855d06aba475d636be983bd9
+      expected_qg_summary:
+        description: Exact QORE quality-gate summary JSON
+        required: true
       review_mode:
         description: Reviewer role
         required: true
@@ -141,6 +144,7 @@ jobs:
           EXPECTED_BASE: ${{ inputs.expected_base }}
           EXPECTED_HEAD: ${{ inputs.expected_head }}
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+          EXPECTED_QG_SUMMARY_JSON: ${{ inputs.expected_qg_summary }}
           REVIEW_MODE: ${{ inputs.review_mode }}
           PROMPT_PATH: ${{ github.workspace }}/${{ inputs.prompt_path }}
           REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
@@ -151,16 +155,36 @@ jobs:
           set -euo pipefail
           python3 scripts/run_review_with_meter.py
 
-      - name: Verify frozen HEAD again before completion
+      - name: Revalidate complete frozen PR immediately before publication
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
           EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
         run: |
           set -euo pipefail
-          LIVE_HEAD="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}" --jq '.head.sha')"
-          echo "Pre-completion HEAD: ${LIVE_HEAD}"
-          test "$LIVE_HEAD" = "$EXPECTED_HEAD"
+
+          PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
+
+          SYNTHETIC_JSON="$(
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}"
+          )"
+          HEAD_JSON="$(
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}"
+          )"
+          PARENTS="$(jq -r '[.parents[].sha] | join(" ")' <<<"$SYNTHETIC_JSON")"
+          SYNTHETIC_TREE="$(jq -r '.tree.sha' <<<"$SYNTHETIC_JSON")"
+          HEAD_TREE="$(jq -r '.tree.sha' <<<"$HEAD_JSON")"
+
+          test "$PARENTS" = "$EXPECTED_BASE $EXPECTED_HEAD"
+          test "$SYNTHETIC_TREE" = "$HEAD_TREE"
+          echo "Complete pre-publication freeze revalidated."
 
       - name: Publish DeepSeek review on exact HEAD
         if: ${{ inputs.benchmark_only == false }}

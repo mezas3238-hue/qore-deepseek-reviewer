@@ -26,4 +26,4 @@ v16._scanner_r62g = _scanner_r62g_exact
 
 
 if __name__ == "__main__":
-    raise SystemExit(v19.v7.main())
+    raise SystemExit(v19.main())

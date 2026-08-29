@@ -49,13 +49,42 @@ jobs:
           fi
 
           jq -e '
-            (.pr_number | type == "number") and
+            def positive_integer:
+              type == "number" and . >= 1 and floor == .;
+            def nonnegative_integer:
+              type == "number" and . >= 0 and floor == .;
+            (.pr_number | positive_integer) and
             (.package_id | type == "string" and length > 0) and
-            (.expected_base | type == "string" and length == 40) and
-            (.expected_head | type == "string" and length == 40) and
-            (.expected_synthetic | type == "string" and length == 40) and
+            (.expected_base | type == "string" and test("^[0-9a-f]{40}$")) and
+            (.expected_head | type == "string" and test("^[0-9a-f]{40}$")) and
+            (.expected_synthetic | type == "string" and test("^[0-9a-f]{40}$")) and
             (.review_mode | type == "string" and (. == "expert" or . == "coder")) and
-            (.prompt_path | type == "string" and length > 0)
+            (.prompt_path | type == "string" and startswith("prompts/") and length > 8) and
+            (.qg_summary | type == "object") and
+            ((.qg_summary | keys) == [
+              "coverage_missed_statements",
+              "coverage_percent",
+              "coverage_total_statements",
+              "job_id",
+              "mypy_source_files",
+              "pytest_collected",
+              "pytest_passed",
+              "pytest_warnings",
+              "ruff_passed",
+              "run_id"
+            ]) and
+            (.qg_summary.run_id | positive_integer) and
+            (.qg_summary.job_id | positive_integer) and
+            (.qg_summary.ruff_passed == true) and
+            (.qg_summary.mypy_source_files | positive_integer) and
+            (.qg_summary.pytest_collected | positive_integer) and
+            (.qg_summary.pytest_passed | positive_integer) and
+            (.qg_summary.pytest_warnings | nonnegative_integer) and
+            (.qg_summary.coverage_total_statements | positive_integer) and
+            (.qg_summary.coverage_missed_statements | nonnegative_integer) and
+            (.qg_summary.coverage_percent | nonnegative_integer and . <= 100) and
+            (.qg_summary.pytest_collected == .qg_summary.pytest_passed) and
+            (.qg_summary.coverage_missed_statements <= .qg_summary.coverage_total_statements)
           ' "$REQUEST" >/dev/null
 
           PR_NUMBER="$(jq -r '.pr_number' "$REQUEST")"
@@ -65,6 +94,7 @@ jobs:
           EXPECTED_SYNTHETIC="$(jq -r '.expected_synthetic' "$REQUEST")"
           REVIEW_MODE="$(jq -r '.review_mode' "$REQUEST")"
           PROMPT_PATH="$(jq -r '.prompt_path' "$REQUEST")"
+          EXPECTED_QG_SUMMARY="$(jq -c '.qg_summary' "$REQUEST")"
 
           test -f "$PROMPT_PATH"
 
@@ -89,6 +119,7 @@ jobs:
             -f "expected_base=${EXPECTED_BASE}" \
             -f "expected_head=${EXPECTED_HEAD}" \
             -f "expected_synthetic=${EXPECTED_SYNTHETIC}" \
+            -f "expected_qg_summary=${EXPECTED_QG_SUMMARY}" \
             -f "review_mode=${REVIEW_MODE}" \
             -f "prompt_path=${PROMPT_PATH}" \
             -f "benchmark_only=${BENCHMARK_ONLY}"
