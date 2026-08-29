@@ -1,9 +1,14 @@
 name: Probe R62G reviewer routing
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - .github/workflows/probe-r62g-reviewer-routing.yml
+      - scripts/deepseek_reviewer_compact_budgeted_v16.py
+      - scripts/deepseek_reviewer_compact_budgeted_v17.py
+      - scripts/deepseek_reviewer_compact_budgeted_v20.py
+      - scripts/probe_r62g_evidence_routing.py
 
 permissions:
   contents: read
@@ -22,7 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Verify exact R62G routing without model
+      - name: Verify exact R62G evidence routing and runtime contexts
         env:
           QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
           PR_NUMBER: '461'
@@ -31,37 +36,8 @@ jobs:
           EXPECTED_SYNTHETIC: 871def531b0f1222e6a1e61252af700f4ed204e3
           PACKAGE_ID: NO-MODEL-R62G-ROUTING-PROBE
           REVIEW_MODE: expert
-          PROMPT_PATH: ${{ github.workspace }}/prompts/qore-umi14-umi12-final-owner-recert-001-expert-r89-compact.md
+          PROMPT_PATH: ${{ github.workspace }}/prompts/qore-umi14-umi12-final-owner-recert-001-expert-r90-compact.md
           REVIEW_OUTPUT: ${{ github.workspace }}/probe-review-not-used.md
           DEEPSEEK_API_KEY: not-used
           GH_TOKEN: not-used
-        run: |
-          python - <<'PY'
-          import sys
-          from pathlib import Path
-
-          sys.path.insert(0, str(Path('scripts').resolve()))
-          import deepseek_reviewer_compact_budgeted_v20 as v20
-
-          safe = 'import builtins\nresult = builtins["eval"]("1+1")\n'
-          danger = 'import builtins\nresult = builtins.__dict__["eval"]("1+1")\n'
-
-          r62g_safe = v20.v16._scanner_r62g(safe)
-          r62k_safe = v20.v17._scanner_r62k(safe)
-          r62g_danger = v20.v16._scanner_r62g(danger)
-
-          print('R62G SAFE')
-          print(r62g_safe)
-          print('R62K SAME WITNESS')
-          print(r62k_safe)
-          print('R62G REAL MAPPING')
-          print(r62g_danger)
-
-          assert 'scanner=r62g' in r62g_safe
-          assert '\n()\n' in r62g_safe
-          assert 'scanner=r62k' in r62k_safe
-          assert '\n()\n' in r62k_safe
-          assert 'scanner=r62g' in r62g_danger
-          assert 'call:2' in r62g_danger
-          print('R62G_REVIEWER_ROUTING_OK')
-          PY
+        run: python scripts/probe_r62g_evidence_routing.py

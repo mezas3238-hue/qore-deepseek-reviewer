@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 import json
+import pathlib
+import subprocess
+import sys
+import tempfile
 
 import deepseek_reviewer_compact_budgeted_v15 as v15
 
@@ -121,6 +125,78 @@ _NESTED_DEFAULT_LOCALS = (
     "result = hold.__defaults__[0]['builtins'].eval('1+1')\n"
     "print(result)\n"
 )
+_EXPLICIT_BUILTINS_MODULE_SUBSCRIPT = (
+    "import builtins\n"
+    "result = builtins['eval']('1+1')\n"
+    "print(result)\n"
+)
+_EXPLICIT_BUILTINS_MAPPING_SUBSCRIPT = (
+    "import builtins\n"
+    "result = builtins.__dict__['eval']('1+1')\n"
+    "print(result)\n"
+)
+_EXPLICIT_DUNDER_BUILTINS_MAPPING = (
+    "__builtins__ = {'eval': eval}\n"
+    "result = __builtins__['eval']('1+1')\n"
+    "print(result)\n"
+)
+
+_R62G_CONTEXT_SENSITIVE_SOURCES = frozenset(
+    {
+        v15._DIRECT_DUNDER_BUILTINS,
+        v15._IMPORTED_BUILTINS_DICT,
+    }
+)
+
+
+def _python_imported_module_runtime(source: str) -> str:
+    """Run a controlled witness with normal imported-module builtins injection."""
+
+    compact._validate_runtime_probe(compact.ast.parse(source))
+    driver = (
+        "import importlib.util, pathlib, sys\n"
+        "path = pathlib.Path(sys.argv[1])\n"
+        "spec = importlib.util.spec_from_file_location(\n"
+        "    'qore_r62g_runtime_probe', path\n"
+        ")\n"
+        "if spec is None or spec.loader is None:\n"
+        "    raise RuntimeError('unable to construct imported-module probe')\n"
+        "module = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(module)\n"
+        "print('BUILTINS_TYPE=' + type(module.__dict__['__builtins__']).__name__)\n"
+    )
+    with tempfile.TemporaryDirectory(prefix="qore-r62g-module-") as directory:
+        module_path = pathlib.Path(directory) / "runtime_probe.py"
+        module_path.write_text(source, encoding="utf-8")
+        proc = subprocess.run(
+            [sys.executable, "-I", "-B", "-c", driver, str(module_path)],
+            cwd=pathlib.Path("/tmp"),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=8,
+            check=False,
+            env=compact._probe_env(),
+        )
+    return compact.compact_clip(
+        "python="
+        + sys.version
+        + "\ncontext=imported-module\n"
+        + f"EXIT={proc.returncode}\n{proc.stdout}"
+    )
+
+
+def _python_r62g_runtime_evidence(source: str) -> str:
+    main_context = v6._python("run", source)
+    if source not in _R62G_CONTEXT_SENSITIVE_SOURCES:
+        return main_context
+    imported_context = _python_imported_module_runtime(source)
+    return (
+        "CPYTHON __main__ (-c) CONTEXT:\n"
+        + main_context
+        + "\nCPYTHON IMPORTED-MODULE CONTEXT:\n"
+        + imported_context
+    )
 
 _R62G_RUNTIME_SOURCES = frozenset(
     {
@@ -134,6 +210,9 @@ _R62G_RUNTIME_SOURCES = frozenset(
         _MODULE_COMP_VARS,
         _NESTED_DEFAULT_VARS,
         _NESTED_DEFAULT_LOCALS,
+        _EXPLICIT_BUILTINS_MODULE_SUBSCRIPT,
+        _EXPLICIT_BUILTINS_MAPPING_SUBSCRIPT,
+        _EXPLICIT_DUNDER_BUILTINS_MAPPING,
     }
 )
 v8._CONTROLLED_IMPORTLIB_RUNTIME_SOURCES = (
@@ -163,7 +242,7 @@ def _extended_r62g_probe_suite() -> str:
         "imported_builtins_dict": v15._IMPORTED_BUILTINS_DICT,
         "operator_builtins_dict": v15._OPERATOR_BUILTINS_DICT,
     }.items():
-        probes[f"python_r62g_{name}"] = v6._python("run", source)
+        probes[f"python_r62g_{name}"] = _python_r62g_runtime_evidence(source)
         probes[f"scanner_r62g_{name}"] = _scanner_r62g(source)
 
     for name, source in {
@@ -171,6 +250,16 @@ def _extended_r62g_probe_suite() -> str:
         "safe_builtins_len": v15._SAFE_BUILTINS_LEN,
         "safe_shadow": v15._SAFE_SHADOW,
         "safe_vars_argument": v15._SAFE_VARS_ARGUMENT,
+    }.items():
+        probes[f"python_r62g_{name}"] = v6._python("run", source)
+        probes[f"scanner_r62g_{name}"] = _scanner_r62g(source)
+
+    # Permanent unambiguous module-vs-mapping routing guard. These probes keep
+    # the direct imported ``builtins`` module separate from real dictionaries.
+    for name, source in {
+        "explicit_builtins_module_subscript": _EXPLICIT_BUILTINS_MODULE_SUBSCRIPT,
+        "explicit_builtins_mapping_subscript": _EXPLICIT_BUILTINS_MAPPING_SUBSCRIPT,
+        "explicit_dunder_builtins_mapping": _EXPLICIT_DUNDER_BUILTINS_MAPPING,
     }.items():
         probes[f"python_r62g_{name}"] = v6._python("run", source)
         probes[f"scanner_r62g_{name}"] = _scanner_r62g(source)
