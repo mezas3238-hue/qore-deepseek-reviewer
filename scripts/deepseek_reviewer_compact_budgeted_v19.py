@@ -16,8 +16,10 @@ compact = v18.compact
 
 _base_suite = v7._extended_r62b_probe_suite
 _CI_BINDING_RE = re.compile(
-    r"Required exact-head QORE CI is run `(?P<run_id>\d+)` / job `(?P<job_id>\d+)`"
+    r"Required (?:native )?exact-head QORE CI is run `(?P<run_id>\d+)` / job `(?P<job_id>\d+)`"
 )
+_COLLECTED_RE = re.compile(r"collected (?P<count>\d+) items")
+_PASSED_RE = re.compile(r"(?P<count>\d+) passed, (?P<warnings>\d+) warnings")
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -96,15 +98,27 @@ def _exact_qore_ci_evidence() -> str:
         expected_synthetic,
         "All checks passed!",
         "Success: no issues found in 740 source files",
-        "collected 4858 items",
         "TOTAL",
         "87%",
-        "4858 passed, 7 warnings",
     )
     missing = [fragment for fragment in mandatory_fragments if fragment not in log]
     if missing:
         raise RuntimeError(f"QORE CI raw log is missing mandatory evidence: {missing!r}")
 
+    collected_match = _COLLECTED_RE.search(log)
+    passed_match = _PASSED_RE.search(log)
+    if collected_match is None or passed_match is None:
+        raise RuntimeError("QORE CI raw log is missing pytest collection/pass summary")
+    collected = int(collected_match.group("count"))
+    passed = int(passed_match.group("count"))
+    warnings = int(passed_match.group("warnings"))
+    if collected <= 0 or collected != passed:
+        raise RuntimeError(
+            f"QORE CI pytest count mismatch: collected={collected}, passed={passed}"
+        )
+
+    collected_fragment = f"collected {collected} items"
+    passed_fragment = f"{passed} passed, {warnings} warnings"
     selected: list[str] = []
     needles = (
         expected_synthetic,
@@ -113,9 +127,9 @@ def _exact_qore_ci_evidence() -> str:
         "Run mypy src tests",
         "Success: no issues found in 740 source files",
         "Run pytest --cov=src/qore --cov-report=term-missing",
-        "collected 4858 items",
+        collected_fragment,
         "TOTAL",
-        "4858 passed, 7 warnings",
+        passed_fragment,
     )
     for line in log.splitlines():
         if any(needle in line for needle in needles):
@@ -129,6 +143,9 @@ def _exact_qore_ci_evidence() -> str:
         "conclusion": job.get("conclusion"),
         "head_sha": job.get("head_sha"),
         "html_url": job.get("html_url"),
+        "pytest_collected": collected,
+        "pytest_passed": passed,
+        "pytest_warnings": warnings,
     }
     evidence = (
         "QORE CI JOB METADATA (fetched live from GitHub Actions API):\n"
