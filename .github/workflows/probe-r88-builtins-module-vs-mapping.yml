@@ -21,76 +21,87 @@ jobs:
           private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
           owner: mezas3238-hue
           repositories: qore-core
-      - name: Checkout exact QORE head
+      - name: Checkout exact corrected QORE head
         uses: actions/checkout@v4
         with:
           repository: mezas3238-hue/qore-core
-          ref: 7d16609795e99052db66281749aefe406172f870
+          ref: b5f1c8063be894c1aaeead6ff0e08dc8647406b5
           token: ${{ steps.app-token.outputs.token }}
           path: qore
           fetch-depth: 1
-      - name: Adjudicate R88 witnesses
+      - name: Install QORE test tooling
+        working-directory: qore
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Adversarial module versus mapping matrix
         env:
           PYTHONPATH: ${{ github.workspace }}/qore/tests/infrastructure:${{ github.workspace }}/qore/src
         run: |
           python --version
           python - <<'PY'
-          import importlib.util
-          import pathlib
-          import tempfile
-          import textwrap
           import test_universal_cross_asset_conformance_final_owner_r62g_guards as r62g
           import test_universal_cross_asset_conformance_final_owner_r62n_guards as r62n
 
-          module_subscript = 'import builtins\nresult = builtins["eval"]("1+1")\n'
-          dunder_subscript = 'result = __builtins__["eval"]("1+1")\n'
-          mapping_subscript = 'import builtins\nresult = builtins.__dict__["eval"]("1+1")\n'
-
-          def run_exec(source: str):
-              ns = {}
+          def runtime(source: str):
+              namespace = {}
               try:
-                  exec(source, ns)
+                  exec(source, namespace)
               except Exception as exc:
-                  return (type(exc).__name__, str(exc), type(ns.get('__builtins__')).__name__)
-              return ('OK', ns.get('result'), type(ns.get('__builtins__')).__name__)
+                  return type(exc).__name__, str(exc)
+              return "OK", namespace.get("result")
 
-          def run_import(source: str):
-              with tempfile.TemporaryDirectory() as td:
-                  path = pathlib.Path(td) / 'witness_module.py'
-                  path.write_text(source, encoding='utf-8')
-                  spec = importlib.util.spec_from_file_location('qore_r88_witness_module', path)
-                  assert spec is not None and spec.loader is not None
-                  module = importlib.util.module_from_spec(spec)
-                  try:
-                      spec.loader.exec_module(module)
-                  except Exception as exc:
-                      return (type(exc).__name__, str(exc), type(module.__dict__.get('__builtins__')).__name__)
-                  return ('OK', getattr(module, 'result', None), type(module.__dict__.get('__builtins__')).__name__)
-
-          cases = {
-              'module_subscript': module_subscript,
-              'dunder_subscript': dunder_subscript,
-              'mapping_subscript': mapping_subscript,
+          safe = {
+              "direct": 'import builtins\nresult = builtins["eval"]("1+1")\n',
+              "alias": 'import builtins as b\nresult = b["eval"]("1+1")\n',
+              "get": 'import builtins\nresult = builtins.get("eval")("1+1")\n',
+              "dunder_getitem": 'import builtins\nresult = builtins.__getitem__("eval")("1+1")\n',
+              "operator_getitem": 'import builtins\nimport operator\nresult = operator.getitem(builtins, "eval")("1+1")\n',
+              "itemgetter": 'import builtins\nimport operator\nresult = operator.itemgetter("eval")(builtins)("1+1")\n',
+              "assignment_alias": 'import builtins\nb = builtins\nresult = b["eval"]("1+1")\n',
           }
-          for name, source in cases.items():
-              print(name, 'exec=', run_exec(source))
-              print(name, 'import=', run_import(source))
-              print(name, 'r62g=', r62g._r62g_dynamic_execution_markers_from_source(source))
-              print(name, 'r62n=', r62n._r62n_dynamic_execution_markers_from_source(source))
+          dangerous = {
+              "dict": 'import builtins\nresult = builtins.__dict__["eval"]("1+1")\n',
+              "vars": 'import builtins\nresult = vars(builtins)["eval"]("1+1")\n',
+              "dunder": 'result = __builtins__["eval"]("1+1")\n',
+              "operator_dict": 'import builtins\nimport operator\nresult = operator.getitem(builtins.__dict__, "eval")("1+1")\n',
+              "itemgetter_dict": 'import builtins\nimport operator\nresult = operator.itemgetter("eval")(builtins.__dict__)("1+1")\n',
+              "operator_dunder": 'import operator\nresult = operator.getitem(__builtins__, "eval")("1+1")\n',
+              "direct_attribute": 'import builtins\nresult = builtins.eval("1+1")\n',
+              "getattr_attribute": 'import builtins\nresult = getattr(builtins, "eval")("1+1")\n',
+              "mapping_alias": 'import builtins\nm = builtins.__dict__\nresult = m["eval"]("1+1")\n',
+          }
 
-          # Ground truth gates.
-          assert run_exec(module_subscript)[0] == 'TypeError'
-          assert run_import(module_subscript)[0] == 'TypeError'
-          assert run_exec(mapping_subscript)[:2] == ('OK', 2)
-          assert run_import(mapping_subscript)[:2] == ('OK', 2)
-          # In exec/import module contexts __builtins__ is a dict, so subscript reaches eval.
-          assert run_exec(dunder_subscript)[:2] == ('OK', 2)
-          assert run_import(dunder_subscript)[:2] == ('OK', 2)
+          for name, source in safe.items():
+              actual = runtime(source)
+              g = r62g._r62g_dynamic_execution_markers_from_source(source)
+              n = r62n._r62n_dynamic_execution_markers_from_source(source)
+              print("SAFE", name, actual, g, n)
+              assert actual[0] in {"TypeError", "NameError"}
+              assert not any(item.startswith("call:") for item in g)
+              assert not any(item.startswith("call:") for item in n)
 
-          # Current scanner should demonstrate the one real FP and preserve dangerous mappings.
-          assert 'call:2' in r62g._r62g_dynamic_execution_markers_from_source(module_subscript)
-          assert 'call:2' in r62n._r62n_dynamic_execution_markers_from_source(module_subscript)
-          assert r62n._r62n_dynamic_execution_markers_from_source(dunder_subscript)
-          assert r62n._r62n_dynamic_execution_markers_from_source(mapping_subscript)
-          print('R88_CONTEXT_ADJUDICATION_OK')
+          for name, source in dangerous.items():
+              actual = runtime(source)
+              g = r62g._r62g_dynamic_execution_markers_from_source(source)
+              n = r62n._r62n_dynamic_execution_markers_from_source(source)
+              print("DANGER", name, actual, g, n)
+              assert actual == ("OK", 2)
+              assert any(item.startswith("call:") for item in g)
+              assert any(item.startswith("call:") for item in n)
+
+          unbound = 'result = builtins["eval"]("1+1")\n'
+          assert runtime(unbound)[0] == "NameError"
+          assert r62g._r62g_dynamic_execution_markers_from_source(unbound) == ()
+          assert not any(
+              item.startswith("call:")
+              for item in r62n._r62n_dynamic_execution_markers_from_source(unbound)
+          )
+          print("R88_CORRECTION_MATRIX_OK")
           PY
+      - name: Validate permanent R62G and R62N suites
+        working-directory: qore
+        run: |
+          ruff check tests/infrastructure/test_universal_cross_asset_conformance_final_owner_r62g_guards.py
+          pytest -q tests/infrastructure/test_universal_cross_asset_conformance_final_owner_r62g_guards.py
+          pytest -q tests/infrastructure/test_universal_cross_asset_conformance_final_owner_r62n_guards.py
