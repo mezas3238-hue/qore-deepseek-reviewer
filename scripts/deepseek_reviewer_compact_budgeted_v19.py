@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,11 @@ _base_suite = v7._extended_r62b_probe_suite
 _CI_BINDING_RE = re.compile(
     r"Required exact-head QORE CI is run `(?P<run_id>\d+)` / job `(?P<job_id>\d+)`"
 )
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        return None
 
 
 def _github_json(url: str) -> dict[str, Any]:
@@ -45,7 +51,18 @@ def _github_text(url: str) -> str:
             "User-Agent": "qore-deepseek-reviewer",
         },
     )
-    with urllib.request.urlopen(request, timeout=60) as response:
+    opener = urllib.request.build_opener(_NoRedirect())
+    try:
+        response = opener.open(request, timeout=60)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in {301, 302, 303, 307, 308}:
+            raise
+        location = exc.headers.get("Location")
+        if not location:
+            raise RuntimeError("GitHub job-log redirect omitted Location") from exc
+        with urllib.request.urlopen(location, timeout=60) as redirected:
+            return redirected.read().decode("utf-8", errors="replace")
+    with response:
         return response.read().decode("utf-8", errors="replace")
 
 
