@@ -314,7 +314,7 @@ def _validate_exact_qore_ci(
         raise RuntimeError("QORE CI run is not completed SUCCESS")
     if run.get("head_sha") != expected_head:
         raise RuntimeError("QORE CI run head_sha does not equal EXPECTED_HEAD")
-    workflow_identity = _validate_qore_ci_workflow_identity(
+    _validate_qore_ci_workflow_identity(
         run,
         expected_head=expected_head,
         expected_synthetic=expected_synthetic,
