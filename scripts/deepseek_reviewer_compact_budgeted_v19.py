@@ -32,6 +32,7 @@ _QORE_CI_EVENT_MATRIX = {
     "pr_review_authorized": "pull_request",
     "postmerge_parser_fixture_only": "push",
 }
+_QG_EVIDENCE_MAX_CHARS = 8000
 _MYPY_RE = re.compile(
     r"Success: no issues found in (?P<count>\d+) source files"
 )
@@ -354,21 +355,12 @@ def _validate_exact_qore_ci(
 
 def _exact_qore_ci_evidence() -> str:
     expected = _load_exact_qg_contract()
-    observed, run, job, log = _validate_exact_qore_ci(expected)
+    observed, run, job, _raw_log = _validate_exact_qore_ci(expected)
     workflow_identity = _validate_qore_ci_workflow_identity(
         run,
         expected_head=os.environ["EXPECTED_HEAD"],
         expected_synthetic=os.environ["EXPECTED_SYNTHETIC"],
     )
-
-    selected: list[str] = []
-    for command in (
-        "ruff check .",
-        "mypy src tests",
-        "pytest --cov=src/qore --cov-report=term-missing",
-    ):
-        selected.append(f"COMMAND: {command}")
-        selected.extend(_command_section(log, command).splitlines())
 
     metadata = {
         "run": {
@@ -395,6 +387,25 @@ def _exact_qore_ci_evidence() -> str:
         },
         "declared_summary": expected,
         "observed_summary": observed,
+        "authenticated_command_summaries": {
+            "ruff check .": "All checks passed!",
+            "mypy src tests": (
+                "Success: no issues found in "
+                f"{observed['mypy_source_files']} source files"
+            ),
+            "pytest --cov=src/qore --cov-report=term-missing": {
+                "collected": observed["pytest_collected"],
+                "passed": observed["pytest_passed"],
+                "warnings": observed["pytest_warnings"],
+                "coverage_total_statements": observed[
+                    "coverage_total_statements"
+                ],
+                "coverage_missed_statements": observed[
+                    "coverage_missed_statements"
+                ],
+                "coverage_percent": observed["coverage_percent"],
+            },
+        },
     }
     checkout_evidence = (
         "COMMAND: "
@@ -407,11 +418,18 @@ def _exact_qore_ci_evidence() -> str:
         + json.dumps(metadata, indent=2, sort_keys=True)
         + "\nQORE CI COMMAND-BOUND CHECKOUT PROOF:\n"
         + checkout_evidence
-        + "\nQORE CI COMMAND-WINDOW RAW LOG SECTIONS:\n"
-        + "\n".join(selected)
+        + "\nQORE CI RAW VALIDATION STATUS:\n"
+        + "Full command windows were parsed and validated internally; only "
+        + "authenticated identity, exact summaries, and checkout proof are "
+        + "transported to model context."
     )
+    if len(evidence) > _QG_EVIDENCE_MAX_CHARS:
+        raise RuntimeError(
+            "compact QORE CI evidence exceeds its hard transport bound: "
+            f"{len(evidence)} > {_QG_EVIDENCE_MAX_CHARS}"
+        )
     print("QORE exact CI evidence attached to mandatory reviewer evidence.\n" + evidence)
-    return compact.compact_clip(evidence, 40000)
+    return evidence
 
 
 def _required_env_sha(name: str) -> str:
