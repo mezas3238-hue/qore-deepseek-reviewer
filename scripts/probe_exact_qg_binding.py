@@ -42,10 +42,31 @@ def _summary(*, warnings: int = 2) -> dict[str, int | bool]:
     }
 
 
+def _request(
+    package_id: str, *, qg_summary: dict[str, int | bool] | None
+) -> dict[str, object]:
+    request: dict[str, object] = {
+        "pr_number": 465,
+        "package_id": package_id,
+        "expected_base": "a" * 40,
+        "expected_head": "b" * 40,
+        "expected_synthetic": "c" * 40,
+        "review_mode": "expert",
+        "prompt_path": "prompts/probe.md",
+    }
+    if qg_summary is not None:
+        request["qg_summary"] = qg_summary
+    return request
+
+
 def _group(command: str, lines: list[str]) -> str:
-    rendered = [f"2026-08-29T00:00:00Z ##[group]Run {command}"]
+    rendered = [
+        f"2026-08-29T00:00:00Z ##[group]Run {command}",
+        f"2026-08-29T00:00:00Z [36;1m{command}[0m",
+        "2026-08-29T00:00:00Z shell: /usr/bin/bash -e {0}",
+        "2026-08-29T00:00:00Z ##[endgroup]",
+    ]
     rendered.extend(f"2026-08-29T00:00:01Z {line}" for line in lines)
-    rendered.append("2026-08-29T00:00:02Z ##[endgroup]")
     return "\n".join(rendered)
 
 
@@ -55,6 +76,7 @@ def _log(
     omit_zero_warnings: bool = False,
     mypy_count: int | None = None,
     bind_mypy_to_wrong_command: bool = False,
+    checkout_synthetic: str | None = None,
 ) -> str:
     actual_mypy = (
         int(summary["mypy_source_files"]) if mypy_count is None else mypy_count
@@ -75,6 +97,13 @@ def _log(
         )
     return "\n".join(
         (
+            "\n".join(
+                (
+                    "2026-08-29T00:00:00Z [command]/usr/bin/git log -1 --format=%H",
+                    "2026-08-29T00:00:01Z "
+                    + (checkout_synthetic or os.environ["EXPECTED_SYNTHETIC"]),
+                )
+            ),
             _group("ruff check .", ruff_lines),
             _group("mypy src tests", mypy_lines),
             _group(
@@ -91,6 +120,61 @@ def _log(
             ),
         )
     )
+
+
+def _live_actions_fixture(*, timestamp: str, synthetic: str) -> str:
+    """Condensed shape of authoritative jobs 99120615940 / 99149252535."""
+    return "\n".join(
+        (
+            f"{timestamp}.0000000Z ##[endgroup]",
+            f"{timestamp}.0000001Z [command]/usr/bin/git log -1 --format=%H",
+            f"{timestamp}.0000002Z {synthetic}",
+            f"{timestamp}.0000003Z ##[group]Run ruff check .",
+            f"{timestamp}.0000004Z \x1b[36;1mruff check .\x1b[0m",
+            f"{timestamp}.0000005Z shell: /usr/bin/bash -e {{0}}",
+            f"{timestamp}.0000006Z ##[endgroup]",
+            f"{timestamp}.0000007Z All checks passed!",
+            f"{timestamp}.0000008Z ##[group]Run mypy src tests",
+            f"{timestamp}.0000009Z \x1b[36;1mmypy src tests\x1b[0m",
+            f"{timestamp}.0000010Z shell: /usr/bin/bash -e {{0}}",
+            f"{timestamp}.0000011Z ##[endgroup]",
+            f"{timestamp}.0000012Z Success: no issues found in 740 source files",
+            (
+                f"{timestamp}.0000013Z ##[group]Run "
+                "pytest --cov=src/qore --cov-report=term-missing"
+            ),
+            (
+                f"{timestamp}.0000014Z \x1b[36;1m"
+                "pytest --cov=src/qore --cov-report=term-missing\x1b[0m"
+            ),
+            f"{timestamp}.0000015Z shell: /usr/bin/bash -e {{0}}",
+            f"{timestamp}.0000016Z ##[endgroup]",
+            f"{timestamp}.0000017Z collected 4862 items",
+            f"{timestamp}.0000018Z TOTAL 47568 6234 87%",
+            f"{timestamp}.0000019Z 4862 passed, 7 warnings in 627.83s",
+            f"{timestamp}.0000020Z ##[group]Run echo post-quality",
+            # This decoy must be outside the pytest command window.
+            f"{timestamp}.0000021Z 9999 passed, 0 warnings in 0.01s",
+            f"{timestamp}.0000022Z ##[endgroup]",
+        )
+    )
+
+
+def _assert_workflow_preflight_and_publication() -> None:
+    manual = (
+        REPOSITORY_ROOT / ".github/workflows/deepseek-qore-review.yml"
+    ).read_text(encoding="utf-8")
+    auto = (
+        REPOSITORY_ROOT / ".github/workflows/deepseek-auto-dispatch.yml"
+    ).read_text(encoding="utf-8")
+    assert "scripts/qg_package_contract.py workflow" in manual
+    assert "steps.package-contract.outputs.qg_summary" in manual
+    assert (
+        "if: ${{ steps.package-contract.outputs.publish_allowed == 'true' }}"
+        in manual
+    )
+    assert "if: ${{ inputs.benchmark_only == false }}" not in manual
+    assert "scripts/qg_package_contract.py" in auto
 
 
 def _write_prompt(path: Path, summary: dict[str, int | bool] | None) -> None:
@@ -120,7 +204,7 @@ def _install_fake_github(
     run_head: str | None = None,
     job_run_id: int | None = None,
 ) -> tuple[Callable[[str], dict[str, object]], Callable[[str], str]]:
-    synthetic = os.environ["EXPECTED_SYNTHETIC"]
+    head = os.environ["EXPECTED_HEAD"]
 
     def fake_json(url: str) -> dict[str, object]:
         if "/actions/runs/" in url:
@@ -128,7 +212,7 @@ def _install_fake_github(
                 "id": summary["run_id"],
                 "status": "completed",
                 "conclusion": "success",
-                "head_sha": run_head or synthetic,
+                "head_sha": run_head or head,
                 "html_url": "https://example.invalid/run",
             }
         if "/actions/jobs/" in url:
@@ -138,7 +222,7 @@ def _install_fake_github(
                 "name": "quality",
                 "status": "completed",
                 "conclusion": "success",
-                "head_sha": job_head or synthetic,
+                "head_sha": job_head or head,
                 "html_url": "https://example.invalid/job",
             }
         raise AssertionError(f"unexpected fake GitHub JSON URL: {url}")
@@ -212,9 +296,143 @@ def _valid_freeze_payloads() -> tuple[
 
 
 def main() -> int:
+    _assert_workflow_preflight_and_publication()
+    valid = _summary()
+    assert v19.qg_contract.validate_dispatch_request(
+        _request("CANONICAL-PROBE", qg_summary=valid),
+        benchmark_only=False,
+        source="canonical probe",
+    ) == valid
+    assert v19.qg_contract.validate_dispatch_request(
+        _request("BENCHMARK-COMPACT-PROBE", qg_summary=None),
+        benchmark_only=True,
+        source="benchmark probe",
+    ) == {}
+    assert v19.qg_contract.validate_dispatch_request(
+        _request("BENCHMARK-OTHER-PROBE", qg_summary=None),
+        benchmark_only=True,
+        source="benchmark probe",
+    ) == {}
+    assert v19.qg_contract.validate_workflow_contract(
+        package_id="CANONICAL-PROBE",
+        benchmark_only=False,
+        raw_summary=json.dumps(valid),
+    ) == {
+        "benchmark_only": False,
+        "publish_allowed": True,
+        "qg_summary": valid,
+    }
+    assert v19.qg_contract.validate_workflow_contract(
+        package_id="BENCHMARK-PROBE",
+        benchmark_only=True,
+        raw_summary="{}",
+    ) == {
+        "benchmark_only": True,
+        "publish_allowed": False,
+        "qg_summary": {},
+    }
+    _expect_failure(
+        "canonical missing QG",
+        "must be a JSON object",
+        lambda: v19.qg_contract.validate_dispatch_request(
+            _request("CANONICAL-PROBE", qg_summary=None),
+            benchmark_only=False,
+            source="canonical probe",
+        ),
+    )
+    _expect_failure(
+        "benchmark carrying canonical QG",
+        "must not declare canonical qg_summary",
+        lambda: v19.qg_contract.validate_dispatch_request(
+            _request("BENCHMARK-COMPACT-PROBE", qg_summary=valid),
+            benchmark_only=True,
+            source="benchmark probe",
+        ),
+    )
+    _expect_failure(
+        "canonical benchmark-prefix laundering",
+        "canonical review forbids",
+        lambda: v19.qg_contract.validate_dispatch_request(
+            _request("BENCHMARK-COMPACT-PROBE", qg_summary=valid),
+            benchmark_only=False,
+            source="canonical probe",
+        ),
+    )
+    _expect_failure(
+        "benchmark flag laundering",
+        "requires BENCHMARK-",
+        lambda: v19.qg_contract.validate_dispatch_request(
+            _request("CANONICAL-PROBE", qg_summary=None),
+            benchmark_only=True,
+            source="benchmark probe",
+        ),
+    )
+    malformed = {**valid, "unexpected": 1}
+    _expect_failure(
+        "canonical malformed QG",
+        "extra=['unexpected']",
+        lambda: v19.qg_contract.validate_dispatch_request(
+            _request("CANONICAL-PROBE", qg_summary=malformed),
+            benchmark_only=False,
+            source="canonical probe",
+        ),
+    )
+    _expect_failure(
+        "manual canonical missing QG",
+        "invalid keys",
+        lambda: v19.qg_contract.validate_workflow_contract(
+            package_id="CANONICAL-PROBE",
+            benchmark_only=False,
+            raw_summary="{}",
+        ),
+    )
+    _expect_failure(
+        "manual benchmark publication laundering",
+        "canonical review forbids",
+        lambda: v19.qg_contract.validate_workflow_contract(
+            package_id="BENCHMARK-PROBE",
+            benchmark_only=False,
+            raw_summary=json.dumps(valid),
+        ),
+    )
+    _expect_failure(
+        "manual canonical benchmark-flag laundering",
+        "requires BENCHMARK-",
+        lambda: v19.qg_contract.validate_workflow_contract(
+            package_id="CANONICAL-PROBE",
+            benchmark_only=True,
+            raw_summary="{}",
+        ),
+    )
+
+    live_expected = {
+        "ruff_passed": True,
+        "mypy_source_files": 740,
+        "pytest_collected": 4862,
+        "pytest_passed": 4862,
+        "pytest_warnings": 7,
+        "coverage_total_statements": 47568,
+        "coverage_missed_statements": 6234,
+        "coverage_percent": 87,
+    }
+    for job_id, timestamp, synthetic in (
+        (
+            99120615940,
+            "2026-08-29T15:24:31",
+            "871def531b0f1222e6a1e61252af700f4ed204e3",
+        ),
+        (
+            99149252535,
+            "2026-08-29T19:29:03",
+            "5a158ef0fb2e21db95f2be0685373780bf1ab197",
+        ),
+    ):
+        fixture = _live_actions_fixture(timestamp=timestamp, synthetic=synthetic)
+        assert v19._parse_qg_log(fixture) == live_expected, job_id
+        assert v19._validate_checkout_synthetic(fixture, synthetic) == synthetic
+
     with tempfile.TemporaryDirectory(prefix="qore-exact-qg-probe-") as directory:
         prompt = Path(directory) / "prompt.md"
-        valid = _summary()
         _configure_contract(prompt, valid)
         evidence = _with_fake_github(
             valid,
@@ -251,8 +469,8 @@ def main() -> int:
             ),
         )
         _expect_failure(
-            "stale job synthetic",
-            "job head_sha does not equal EXPECTED_SYNTHETIC",
+            "stale job HEAD metadata",
+            "job head_sha does not equal EXPECTED_HEAD",
             lambda: _with_fake_github(
                 valid,
                 _log(valid),
@@ -261,13 +479,22 @@ def main() -> int:
             ),
         )
         _expect_failure(
-            "stale run synthetic",
-            "run head_sha does not equal EXPECTED_SYNTHETIC",
+            "stale run HEAD metadata",
+            "run head_sha does not equal EXPECTED_HEAD",
             lambda: _with_fake_github(
                 valid,
                 _log(valid),
                 v19._exact_qore_ci_evidence,
                 run_head="e" * 40,
+            ),
+        )
+        _expect_failure(
+            "stale checkout synthetic",
+            "checkout proof does not equal EXPECTED_SYNTHETIC",
+            lambda: _with_fake_github(
+                valid,
+                _log(valid, checkout_synthetic="e" * 40),
+                v19._exact_qore_ci_evidence,
             ),
         )
         _expect_failure(

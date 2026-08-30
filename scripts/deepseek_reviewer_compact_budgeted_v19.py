@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import deepseek_reviewer_compact_budgeted_v18 as v18
+import qg_package_contract as qg_contract
 
 v7 = v18.v7
 compact = v18.compact
@@ -22,20 +23,8 @@ _QG_MARKER_RE = re.compile(
 )
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 _GROUP_PREFIX = "##[group]Run "
-_QG_SUMMARY_KEYS = frozenset(
-    {
-        "run_id",
-        "job_id",
-        "ruff_passed",
-        "mypy_source_files",
-        "pytest_collected",
-        "pytest_passed",
-        "pytest_warnings",
-        "coverage_total_statements",
-        "coverage_missed_statements",
-        "coverage_percent",
-    }
-)
+_QG_SUMMARY_KEYS = qg_contract.QG_SUMMARY_KEYS
+_CHECKOUT_COMMAND = "[command]/usr/bin/git log -1 --format=%H"
 _MYPY_RE = re.compile(
     r"Success: no issues found in (?P<count>\d+) source files"
 )
@@ -98,87 +87,14 @@ def _github_text(url: str) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
-def _strict_int(
-    payload: Mapping[str, Any],
-    key: str,
-    *,
-    source: str,
-    minimum: int,
-) -> int:
-    value = payload.get(key)
-    if type(value) is not int or value < minimum:
-        raise RuntimeError(
-            f"{source} field {key!r} must be an integer >= {minimum}"
-        )
-    return value
-
-
-def _validate_qg_summary(payload: Any, *, source: str) -> dict[str, int | bool]:
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"{source} must be a JSON object")
-    actual_keys = frozenset(payload)
-    if actual_keys != _QG_SUMMARY_KEYS:
-        missing = sorted(_QG_SUMMARY_KEYS - actual_keys)
-        extra = sorted(actual_keys - _QG_SUMMARY_KEYS)
-        raise RuntimeError(
-            f"{source} has invalid keys: missing={missing!r}, extra={extra!r}"
-        )
-    if payload.get("ruff_passed") is not True:
-        raise RuntimeError(f"{source} field 'ruff_passed' must be true")
-
-    validated: dict[str, int | bool] = {
-        "run_id": _strict_int(payload, "run_id", source=source, minimum=1),
-        "job_id": _strict_int(payload, "job_id", source=source, minimum=1),
-        "ruff_passed": True,
-        "mypy_source_files": _strict_int(
-            payload, "mypy_source_files", source=source, minimum=1
-        ),
-        "pytest_collected": _strict_int(
-            payload, "pytest_collected", source=source, minimum=1
-        ),
-        "pytest_passed": _strict_int(
-            payload, "pytest_passed", source=source, minimum=1
-        ),
-        "pytest_warnings": _strict_int(
-            payload, "pytest_warnings", source=source, minimum=0
-        ),
-        "coverage_total_statements": _strict_int(
-            payload, "coverage_total_statements", source=source, minimum=1
-        ),
-        "coverage_missed_statements": _strict_int(
-            payload, "coverage_missed_statements", source=source, minimum=0
-        ),
-        "coverage_percent": _strict_int(
-            payload, "coverage_percent", source=source, minimum=0
-        ),
-    }
-    if validated["pytest_collected"] != validated["pytest_passed"]:
-        raise RuntimeError(f"{source} must declare pytest_collected == pytest_passed")
-    if validated["coverage_missed_statements"] > validated["coverage_total_statements"]:
-        raise RuntimeError(
-            f"{source} coverage misses exceed total statements"
-        )
-    if validated["coverage_percent"] > 100:
-        raise RuntimeError(f"{source} coverage_percent must be <= 100")
-    return validated
-
-
-def _parse_json_object(raw: str, *, source: str) -> dict[str, Any]:
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{source} is not valid JSON: {exc.msg}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"{source} must be a JSON object")
-    return payload
-
-
 def _load_exact_qg_contract() -> dict[str, int | bool]:
     raw_environment = os.environ.get("EXPECTED_QG_SUMMARY_JSON")
     if raw_environment is None:
         raise RuntimeError("EXPECTED_QG_SUMMARY_JSON is required")
-    environment_summary = _validate_qg_summary(
-        _parse_json_object(raw_environment, source="EXPECTED_QG_SUMMARY_JSON"),
+    environment_summary = qg_contract.validate_qg_summary(
+        qg_contract.parse_json_object(
+            raw_environment, source="EXPECTED_QG_SUMMARY_JSON"
+        ),
         source="EXPECTED_QG_SUMMARY_JSON",
     )
 
@@ -189,8 +105,8 @@ def _load_exact_qg_contract() -> dict[str, int | bool]:
         raise RuntimeError(
             "prompt must contain exactly one <!-- QORE-EXACT-QG {...} --> marker"
         )
-    prompt_summary = _validate_qg_summary(
-        _parse_json_object(
+    prompt_summary = qg_contract.validate_qg_summary(
+        qg_contract.parse_json_object(
             matches[0].group("payload"), source="prompt QORE-EXACT-QG marker"
         ),
         source="prompt QORE-EXACT-QG marker",
@@ -229,11 +145,9 @@ def _command_section(log: str, command: str) -> str:
     start = starts[0] + 1
     end = len(lines)
     for index in range(start, len(lines)):
-        if _normalized_log_line(lines[index]) == "##[endgroup]":
+        if _normalized_log_line(lines[index]).startswith(_GROUP_PREFIX):
             end = index
             break
-    if end == len(lines):
-        raise RuntimeError(f"QORE CI command group {command!r} is not terminated")
     return "\n".join(_ANSI_RE.sub("", line) for line in lines[start:end])
 
 
@@ -309,12 +223,43 @@ def _parse_qg_log(log: str) -> dict[str, int | bool]:
     }
 
 
+def _validate_checkout_synthetic(log: str, expected_synthetic: str) -> str:
+    lines = log.splitlines()
+    commands = [
+        index
+        for index, line in enumerate(lines)
+        if _normalized_log_line(line) == _CHECKOUT_COMMAND
+    ]
+    if len(commands) != 1:
+        raise RuntimeError(
+            "QORE CI checkout log must contain exactly one command-bound "
+            f"git HEAD proof; found {len(commands)}"
+        )
+    proof_index = commands[0] + 1
+    while proof_index < len(lines) and not _normalized_log_line(lines[proof_index]):
+        proof_index += 1
+    observed = (
+        _normalized_log_line(lines[proof_index])
+        if proof_index < len(lines)
+        else ""
+    )
+    if observed != expected_synthetic:
+        raise RuntimeError(
+            "QORE CI checkout proof does not equal EXPECTED_SYNTHETIC: "
+            + repr(observed)
+        )
+    return expected_synthetic
+
+
 def _validate_exact_qore_ci(
     expected: Mapping[str, int | bool],
 ) -> tuple[dict[str, int | bool], dict[str, Any], dict[str, Any], str]:
     run_id = int(expected["run_id"])
     job_id = int(expected["job_id"])
+    expected_head = os.environ["EXPECTED_HEAD"]
     expected_synthetic = os.environ["EXPECTED_SYNTHETIC"]
+    if _SHA_RE.fullmatch(expected_head) is None:
+        raise RuntimeError("EXPECTED_HEAD must be a lowercase 40-hex SHA")
     if _SHA_RE.fullmatch(expected_synthetic) is None:
         raise RuntimeError("EXPECTED_SYNTHETIC must be a lowercase 40-hex SHA")
 
@@ -328,8 +273,8 @@ def _validate_exact_qore_ci(
         raise RuntimeError("QORE CI run id mismatch")
     if run.get("status") != "completed" or run.get("conclusion") != "success":
         raise RuntimeError("QORE CI run is not completed SUCCESS")
-    if run.get("head_sha") != expected_synthetic:
-        raise RuntimeError("QORE CI run head_sha does not equal EXPECTED_SYNTHETIC")
+    if run.get("head_sha") != expected_head:
+        raise RuntimeError("QORE CI run head_sha does not equal EXPECTED_HEAD")
     if int(job.get("id", -1)) != job_id:
         raise RuntimeError("QORE CI job id mismatch")
     if int(job.get("run_id", -1)) != run_id:
@@ -338,12 +283,13 @@ def _validate_exact_qore_ci(
         raise RuntimeError("QORE CI job is not completed SUCCESS")
     if job.get("name") != "quality":
         raise RuntimeError("QORE CI job is not the required quality job")
-    if job.get("head_sha") != expected_synthetic:
-        raise RuntimeError("QORE CI job head_sha does not equal EXPECTED_SYNTHETIC")
+    if job.get("head_sha") != expected_head:
+        raise RuntimeError("QORE CI job head_sha does not equal EXPECTED_HEAD")
 
     log = _github_text(
         f"https://api.github.com/repos/mezas3238-hue/qore-core/actions/jobs/{job_id}/logs"
     )
+    _validate_checkout_synthetic(log, expected_synthetic)
     observed: dict[str, int | bool] = {
         "run_id": run_id,
         "job_id": job_id,
@@ -395,10 +341,18 @@ def _exact_qore_ci_evidence() -> str:
         "declared_summary": expected,
         "observed_summary": observed,
     }
+    checkout_evidence = (
+        "COMMAND: "
+        + _CHECKOUT_COMMAND
+        + "\n"
+        + str(os.environ["EXPECTED_SYNTHETIC"])
+    )
     evidence = (
         "QORE CI BINDING (package/prompt/live GitHub equality verified):\n"
         + json.dumps(metadata, indent=2, sort_keys=True)
-        + "\nQORE CI COMMAND-BOUND RAW LOG SECTIONS:\n"
+        + "\nQORE CI COMMAND-BOUND CHECKOUT PROOF:\n"
+        + checkout_evidence
+        + "\nQORE CI COMMAND-WINDOW RAW LOG SECTIONS:\n"
         + "\n".join(selected)
     )
     print("QORE exact CI evidence attached to mandatory reviewer evidence.\n" + evidence)

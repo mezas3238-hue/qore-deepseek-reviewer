@@ -9,6 +9,7 @@ on:
       - "scripts/deepseek_reviewer_compact_budgeted_v19.py"
       - "scripts/deepseek_reviewer_compact_budgeted_v20.py"
       - "scripts/probe_exact_qg_binding.py"
+      - "scripts/qg_package_contract.py"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +29,8 @@ jobs:
           python3 -m py_compile \
             scripts/deepseek_reviewer_compact_budgeted_v19.py \
             scripts/deepseek_reviewer_compact_budgeted_v20.py \
-            scripts/probe_exact_qg_binding.py
+            scripts/probe_exact_qg_binding.py \
+            scripts/qg_package_contract.py
 
       - name: Run exact-QG and full-freeze regression probes
         run: |
