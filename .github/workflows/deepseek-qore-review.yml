@@ -1,4 +1,5 @@
 name: DeepSeek QORE review
+run-name: DeepSeek QORE review · ${{ inputs.package_id }}
 
 on:
   workflow_dispatch:
@@ -192,10 +193,10 @@ jobs:
           test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
 
           SYNTHETIC_JSON="$(
-            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}"
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}")"
           )"
           HEAD_JSON="$(
-            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}"
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}")"
           )"
           PARENTS="$(jq -r '[.parents[].sha] | join(" ")' <<<"$SYNTHETIC_JSON")"
           SYNTHETIC_TREE="$(jq -r '.tree.sha' <<<"$SYNTHETIC_JSON")"
@@ -331,4 +332,3 @@ jobs:
         if: ${{ always() }}
         run: |
           echo "DeepSeek workflow completed; benchmark_only=${{ steps.package-contract.outputs.benchmark_only }}."
-
