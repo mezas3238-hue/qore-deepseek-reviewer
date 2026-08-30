@@ -1,4 +1,5 @@
 name: DeepSeek QORE review
+run-name: DeepSeek QORE review · ${{ inputs.package_id }}
 
 on:
   workflow_dispatch:
