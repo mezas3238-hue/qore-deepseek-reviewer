@@ -83,9 +83,15 @@
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "5b4bdfe1740fd58fca930aab81c5b817b43910de",
-    ".github/workflows/qore-orchestrator-completion-callback.yml": "eb09acebafc5c8adf5f0f17999355104478ba3bd"
+    ".github/workflows/deepseek-qore-review.yml": "5b4bdfe1740fd58fca930aab81c5b817b43910de"
   },
-  "permanent_workflow_count": 4,
-  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
+  "permanent_workflow_count": 3,
+  "operational_workflows": {
+    ".github/workflows/qore-orchestrator-completion-callback.yml": {
+      "blob": "c6ce2acf34e95688258ad260b33f3b7456e12780",
+      "role": "orchestration completion transport only; no reviewer-semantic authority",
+      "profile_defining": false
+    }
+  },
+  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. Exactly the three workflows in `workflows` are profile-defining review-lane workflows governed by qore-core. The Sol completion callback is separate operational orchestration transport, recorded only for discovery and explicitly carries no reviewer-semantic authority. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
 }
