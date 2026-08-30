@@ -15,12 +15,7 @@
       "authenticated exact QORE CI summary bound to the declared quality job and synthetic checkout"
     ],
     "planner": "one non-thinking bounded planning call for genuinely additional evidence",
-    "planner_tools": [
-      "read_file",
-      "search_text",
-      "git_show",
-      "github_get"
-    ],
+    "planner_tools": ["read_file", "search_text", "git_show", "github_get"],
     "search_backend": "git grep -n -F -I over tracked qore-core checkout content",
     "planner_tool_authority": "read-only and restricted to frozen qore-core checkout / qore-core GitHub endpoints",
     "tool_result_policy": "exact up to the hard fail-closed gate; no silent pre-clipping",
@@ -83,9 +78,15 @@
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "5b4bdfe1740fd58fca930aab81c5b817b43910de",
-    ".github/workflows/qore-orchestrator-completion-callback.yml": "eb09acebafc5c8adf5f0f17999355104478ba3bd"
+    ".github/workflows/deepseek-qore-review.yml": "5b4bdfe1740fd58fca930aab81c5b817b43910de"
   },
-  "permanent_workflow_count": 4,
-  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
+  "permanent_workflow_count": 3,
+  "operational_workflows": {
+    ".github/workflows/qore-orchestrator-completion-callback.yml": {
+      "blob": "81b4a0bdc04508ece31ff7964b2624906b71f94c",
+      "role": "orchestration completion transport only; no reviewer-semantic authority",
+      "profile_defining": false
+    }
+  },
+  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. Exactly the three workflows in `workflows` are profile-defining review-lane workflows governed by qore-core. The Sol completion callback is separate operational orchestration transport, recorded only for discovery and explicitly carries no reviewer-semantic authority. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
 }
