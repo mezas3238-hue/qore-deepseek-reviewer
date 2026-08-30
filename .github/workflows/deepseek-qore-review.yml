@@ -23,6 +23,10 @@ on:
         description: Expected frozen synthetic PR merge SHA
         required: true
         default: cd97ad3dbd6edb68855d06aba475d636be983bd9
+      expected_qg_summary:
+        description: Exact QORE quality-gate summary JSON; use {} only for benchmarks
+        required: true
+        default: "{}"
       review_mode:
         description: Reviewer role
         required: true
@@ -53,6 +57,24 @@ jobs:
     steps:
       - name: Checkout reviewer infrastructure
         uses: actions/checkout@v4
+
+      - name: Validate package routing and publication contract
+        id: package-contract
+        env:
+          PACKAGE_ID: ${{ inputs.package_id }}
+          BENCHMARK_ONLY: ${{ inputs.benchmark_only }}
+          EXPECTED_QG_SUMMARY_JSON: ${{ inputs.expected_qg_summary }}
+        run: |
+          set -euo pipefail
+
+          CONTRACT="$(
+            python3 scripts/qg_package_contract.py workflow \
+              "$PACKAGE_ID" "$BENCHMARK_ONLY" "$EXPECTED_QG_SUMMARY_JSON"
+          )"
+          echo "qg_summary=$(jq -c '.qg_summary' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
+          echo "benchmark_only=$(jq -r '.benchmark_only' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
+          echo "publish_allowed=$(jq -r '.publish_allowed' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
+          echo "Package routing and publication contract validated."
 
       - name: Create QORE Reviewer installation token
         id: app-token
@@ -141,6 +163,7 @@ jobs:
           EXPECTED_BASE: ${{ inputs.expected_base }}
           EXPECTED_HEAD: ${{ inputs.expected_head }}
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+          EXPECTED_QG_SUMMARY_JSON: ${{ steps.package-contract.outputs.qg_summary }}
           REVIEW_MODE: ${{ inputs.review_mode }}
           PROMPT_PATH: ${{ github.workspace }}/${{ inputs.prompt_path }}
           REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
@@ -151,19 +174,39 @@ jobs:
           set -euo pipefail
           python3 scripts/run_review_with_meter.py
 
-      - name: Verify frozen HEAD again before completion
+      - name: Revalidate complete frozen PR immediately before publication
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
           EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
         run: |
           set -euo pipefail
-          LIVE_HEAD="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}" --jq '.head.sha')"
-          echo "Pre-completion HEAD: ${LIVE_HEAD}"
-          test "$LIVE_HEAD" = "$EXPECTED_HEAD"
+
+          PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
+
+          SYNTHETIC_JSON="$(
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}"
+          )"
+          HEAD_JSON="$(
+            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}"
+          )"
+          PARENTS="$(jq -r '[.parents[].sha] | join(" ")' <<<"$SYNTHETIC_JSON")"
+          SYNTHETIC_TREE="$(jq -r '.tree.sha' <<<"$SYNTHETIC_JSON")"
+          HEAD_TREE="$(jq -r '.tree.sha' <<<"$HEAD_JSON")"
+
+          test "$PARENTS" = "$EXPECTED_BASE $EXPECTED_HEAD"
+          test "$SYNTHETIC_TREE" = "$HEAD_TREE"
+          echo "Complete pre-publication freeze revalidated."
 
       - name: Publish DeepSeek review on exact HEAD
-        if: ${{ inputs.benchmark_only == false }}
+        if: ${{ steps.package-contract.outputs.publish_allowed == 'true' }}
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ inputs.pr_number }}
@@ -199,7 +242,7 @@ jobs:
             --jq '{id: .id, state: .state, user: .user.login, commit_id: .commit_id}'
 
       - name: Upload benchmark evidence
-        if: ${{ always() && inputs.benchmark_only }}
+        if: ${{ always() && steps.package-contract.outputs.benchmark_only == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: deepseek-${{ inputs.package_id }}
@@ -210,7 +253,7 @@ jobs:
           retention-days: 30
 
       - name: Record benchmark telemetry
-        if: ${{ always() && inputs.benchmark_only }}
+        if: ${{ always() && steps.package-contract.outputs.benchmark_only == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           PACKAGE_ID: ${{ inputs.package_id }}
@@ -287,4 +330,5 @@ jobs:
       - name: Review complete
         if: ${{ always() }}
         run: |
-          echo "DeepSeek workflow completed; benchmark_only=${{ inputs.benchmark_only }}."
+          echo "DeepSeek workflow completed; benchmark_only=${{ steps.package-contract.outputs.benchmark_only }}."
+

@@ -48,15 +48,10 @@ jobs:
             exit 1
           fi
 
-          jq -e '
-            (.pr_number | type == "number") and
-            (.package_id | type == "string" and length > 0) and
-            (.expected_base | type == "string" and length == 40) and
-            (.expected_head | type == "string" and length == 40) and
-            (.expected_synthetic | type == "string" and length == 40) and
-            (.review_mode | type == "string" and (. == "expert" or . == "coder")) and
-            (.prompt_path | type == "string" and length > 0)
-          ' "$REQUEST" >/dev/null
+          EXPECTED_QG_SUMMARY="$(
+            python3 scripts/qg_package_contract.py \
+              request "$REQUEST" "$BENCHMARK_ONLY"
+          )"
 
           PR_NUMBER="$(jq -r '.pr_number' "$REQUEST")"
           PACKAGE_ID="$(jq -r '.package_id' "$REQUEST")"
@@ -65,20 +60,11 @@ jobs:
           EXPECTED_SYNTHETIC="$(jq -r '.expected_synthetic' "$REQUEST")"
           REVIEW_MODE="$(jq -r '.review_mode' "$REQUEST")"
           PROMPT_PATH="$(jq -r '.prompt_path' "$REQUEST")"
-
           test -f "$PROMPT_PATH"
 
           if $BENCHMARK_ONLY; then
-            case "$PACKAGE_ID" in
-              BENCHMARK-*) ;;
-              *) echo "Benchmark package_id must start with BENCHMARK-." >&2; exit 1 ;;
-            esac
             echo "Dispatching isolated benchmark ${PACKAGE_ID} for qore-core PR #${PR_NUMBER}."
           else
-            case "$PACKAGE_ID" in
-              BENCHMARK-*) echo "Production review request cannot use BENCHMARK- package_id." >&2; exit 1 ;;
-              *) ;;
-            esac
             echo "Dispatching ${PACKAGE_ID} for qore-core PR #${PR_NUMBER}."
           fi
 
@@ -89,6 +75,7 @@ jobs:
             -f "expected_base=${EXPECTED_BASE}" \
             -f "expected_head=${EXPECTED_HEAD}" \
             -f "expected_synthetic=${EXPECTED_SYNTHETIC}" \
+            -f "expected_qg_summary=${EXPECTED_QG_SUMMARY}" \
             -f "review_mode=${REVIEW_MODE}" \
             -f "prompt_path=${PROMPT_PATH}" \
             -f "benchmark_only=${BENCHMARK_ONLY}"
