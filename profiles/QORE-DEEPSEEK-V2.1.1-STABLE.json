@@ -15,12 +15,7 @@
       "authenticated exact QORE CI summary bound to the declared quality job and synthetic checkout"
     ],
     "planner": "one non-thinking bounded planning call for genuinely additional evidence",
-    "planner_tools": [
-      "read_file",
-      "search_text",
-      "git_show",
-      "github_get"
-    ],
+    "planner_tools": ["read_file", "search_text", "git_show", "github_get"],
     "search_backend": "git grep -n -F -I over tracked qore-core checkout content",
     "planner_tool_authority": "read-only and restricted to frozen qore-core checkout / qore-core GitHub endpoints",
     "tool_result_policy": "exact up to the hard fail-closed gate; no silent pre-clipping",
@@ -88,7 +83,7 @@
   "permanent_workflow_count": 3,
   "operational_workflows": {
     ".github/workflows/qore-orchestrator-completion-callback.yml": {
-      "blob": "c6ce2acf34e95688258ad260b33f3b7456e12780",
+      "blob": "81b4a0bdc04508ece31ff7964b2624906b71f94c",
       "role": "orchestration completion transport only; no reviewer-semantic authority",
       "profile_defining": false
     }
