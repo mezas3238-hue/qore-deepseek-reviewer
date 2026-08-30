@@ -40,15 +40,21 @@ jobs:
       - name: Verify DeepSeek workflow package run binding exists
         run: |
           set -euo pipefail
-          grep -Fqx 'run-name: DeepSeek QORE review · ${{ inputs.package_id }}' \
-            .github/workflows/deepseek-qore-review.yml
+          python3 - <<'PY'
+          from pathlib import Path
+          needle = "run-name: DeepSeek QORE review · $" + "{{ inputs.package_id }}"
+          lines = Path(".github/workflows/deepseek-qore-review.yml").read_text(encoding="utf-8").splitlines()
+          if needle not in lines:
+              raise SystemExit("DeepSeek run-name is not exactly package-bound")
+          print("DeepSeek run-name package binding: PASS")
+          PY
 
-      - name: Create least-authority orchestrator callback token
+      - name: Create isolated orchestrator callback token
         id: callback-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
-          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          app-id: ${{ vars.QORE_CALLBACK_APP_ID }}
+          private-key: ${{ secrets.QORE_CALLBACK_APP_PRIVATE_KEY }}
           owner: mezas3238-hue
           repositories: qore-ai-orchestrator
           permission-contents: write
@@ -71,7 +77,7 @@ jobs:
           gh api --method POST \
             repos/mezas3238-hue/qore-ai-orchestrator/dispatches \
             --input "$RUNNER_TEMP/callback-preflight.json"
-          echo "Callback token can emit an unhandled repository_dispatch event."
+          echo "Dedicated callback App can emit an unhandled repository_dispatch event."
 
   emit-completion:
     if: ${{ github.event_name == 'workflow_run' }}
@@ -89,12 +95,12 @@ jobs:
           ref: main
           persist-credentials: false
 
-      - name: Create least-authority orchestrator callback token
+      - name: Create isolated orchestrator callback token
         id: callback-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
-          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          app-id: ${{ vars.QORE_CALLBACK_APP_ID }}
+          private-key: ${{ secrets.QORE_CALLBACK_APP_PRIVATE_KEY }}
           owner: mezas3238-hue
           repositories: qore-ai-orchestrator
           permission-contents: write
