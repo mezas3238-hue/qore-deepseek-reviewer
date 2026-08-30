@@ -265,6 +265,57 @@ def _with_fake_github(
         v19._github_text = original_text
 
 
+class _InitialContextCaptured(RuntimeError):
+    pass
+
+
+def _assert_composed_initial_context_budget(
+    prompt: Path, compact_qg_evidence: str
+) -> None:
+    # The lightweight local import stub does not carry the historical runtime.
+    # The repository/Actions execution always exercises the real v7 builder.
+    if not hasattr(v19.v7, "budgeted"):
+        return
+    budgeted = v19.v7.budgeted
+    historical_suite_envelope = "H" * 34000
+    mandatory_evidence = (
+        historical_suite_envelope
+        + "\n\nEXACT QORE CI AUTHORITATIVE EVIDENCE:\n"
+        + compact_qg_evidence
+    )
+    prompt.write_text("P" * 8000, encoding="utf-8")
+
+    original_prompt_path = budgeted.reviewer.PROMPT_PATH
+    original_suite = v19.v7._extended_r62b_probe_suite
+    original_send_request = budgeted.send_request
+    captured: list[int] = []
+
+    def capture_request(**kwargs: object) -> dict[str, object]:
+        messages = kwargs["messages"]
+        assert isinstance(messages, list)
+        captured.append(budgeted.serialized_message_chars(messages))
+        raise _InitialContextCaptured
+
+    budgeted.reviewer.PROMPT_PATH = prompt
+    v19.v7._extended_r62b_probe_suite = lambda: mandatory_evidence
+    budgeted.send_request = capture_request
+    try:
+        try:
+            v19.v7.main()
+        except _InitialContextCaptured:
+            pass
+        else:
+            raise AssertionError("initial-context probe did not reach the API boundary")
+    finally:
+        budgeted.reviewer.PROMPT_PATH = original_prompt_path
+        v19.v7._extended_r62b_probe_suite = original_suite
+        budgeted.send_request = original_send_request
+
+    assert len(captured) == 1
+    safety_margin = 10000
+    assert captured[0] <= budgeted.MAX_EXPLORATION_CONTEXT_CHARS - safety_margin
+
+
 def _expect_failure(label: str, fragment: str, callback: Callable[[], object]) -> None:
     try:
         callback()
@@ -506,6 +557,23 @@ def main() -> int:
             v19._exact_qore_ci_evidence,
         )
         assert "package/prompt/live GitHub equality verified" in str(evidence)
+        assert len(str(evidence)) <= v19._QG_EVIDENCE_MAX_CHARS
+
+        noisy_log = _log(valid) + "\n" + "\n".join(
+            f"tests/progress/test_{index}.py .... [{index % 100:3d}%]"
+            for index in range(5000)
+        )
+        noisy_log += "\nSECRET-PROGRESS-DECOY src/qore/example.py 10 1 90%"
+        compact_noisy_evidence = _with_fake_github(
+            valid,
+            noisy_log,
+            v19._exact_qore_ci_evidence,
+        )
+        assert len(str(compact_noisy_evidence)) <= v19._QG_EVIDENCE_MAX_CHARS
+        assert "SECRET-PROGRESS-DECOY" not in str(compact_noisy_evidence)
+        assert "tests/progress/test_4999.py" not in str(compact_noisy_evidence)
+        assert "authenticated_command_summaries" in str(compact_noisy_evidence)
+        _assert_composed_initial_context_budget(prompt, str(compact_noisy_evidence))
 
         zero_warning = _summary(warnings=0)
         _configure_contract(prompt, zero_warning)
