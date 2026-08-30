@@ -1,10 +1,11 @@
 {
-  "pr_number": 461,
-  "package_id": "QORE-UMI14-UMI12-FINAL-OWNER-RECERT-001-DS-CODER-R93",
-  "expected_base": "ebd0adf000874797653df92ea1c08a892cce6c8c",
-  "expected_head": "476a93cdd08a064d0b99a139cd1b49287b937f21",
-  "expected_synthetic": "871def531b0f1222e6a1e61252af700f4ed204e3",
-  "review_mode": "coder",
-  "prompt_path": "prompts/qore-umi14-umi12-final-owner-recert-001-coder-r93-compact.md",
-  "dispatch_nonce": "R93-CODER-476a93cdd08a064d0b99a139cd1b49287b937f21-FRESH1"
+  "pr_number": 466,
+  "package_id": "QORE-UMI14-CORR-UMI13-001-DS-EXPERT-R94",
+  "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
+  "expected_head": "df934e5585f59dd0aef17f9ece108d6f39204470",
+  "expected_synthetic": "24de1e0657427f5ba1ac1de3ed07281c8e5f49b2",
+  "qg_summary": {"run_id":33283252638,"job_id":99181893347,"ruff_passed":true,"mypy_source_files":741,"pytest_collected":4887,"pytest_passed":4887,"pytest_warnings":7,"coverage_total_statements":47615,"coverage_missed_statements":6235,"coverage_percent":87},
+  "review_mode": "expert",
+  "prompt_path": "prompts/qore-umi14-corr-umi13-001-expert-r94-compact.md",
+  "dispatch_nonce": "R94-EXPERT-df934e5585f59dd0aef17f9ece108d6f39204470-FRESH1"
 }
