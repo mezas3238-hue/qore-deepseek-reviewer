@@ -41,6 +41,22 @@ v20.v13.MAX_FINAL_EVIDENCE_CHARS = max(
 v20.v17.budgeted = SimpleNamespace(send_request=v20._v17_send_request)
 
 import deepseek_reviewer_v2_1_entrypoint as v21  # noqa: E402
+import exact_qg_evidence as exact_qg  # noqa: E402
+
+# Canonical reviews must independently authenticate the exact QORE quality gate.
+# Keep V2.1.1's complete changed-file/dependency/planner path untouched and append
+# only the bounded authenticated QG projection. Raw command windows are parsed and
+# equality-checked inside exact_qg_evidence; noisy raw logs never enter model context.
+_base_build_baseline_evidence = v21.v13.build_baseline_evidence
+
+
+def _build_baseline_with_exact_qg() -> str:
+    baseline = _base_build_baseline_evidence()
+    qg_evidence = exact_qg.build_exact_qg_evidence()
+    return baseline + "\n# EXACT QORE QUALITY GATE\n" + qg_evidence + "\n"
+
+
+v21.v13.build_baseline_evidence = _build_baseline_with_exact_qg
 
 
 def main() -> int:
