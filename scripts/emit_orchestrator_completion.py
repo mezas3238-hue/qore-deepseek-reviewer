@@ -23,7 +23,7 @@ PACKAGE_RES = {
     "CLAUDE_CODE": re.compile(r"^QORE-SOL-[0-9a-f]{12}-CLAUDE-R[1-9][0-9]*$"),
     "DEEPSEEK": re.compile(r"^QORE-SOL-[0-9a-f]{12}-DS-(?:EXPERT|CODER)-R[1-9][0-9]*$"),
 }
-USER_AGENT = "qore-reviewer-completion-callback/1.0"
+USER_AGENT = "qore-reviewer-completion-callback/1.1"
 
 
 class CallbackError(RuntimeError):
@@ -121,17 +121,25 @@ def validate_run(
     event_run: Any,
     live_run: Any,
     *,
-    workflow_name: str,
+    workflow_path: str,
 ) -> tuple[int, int, str, str | None]:
+    """Validate immutable workflow identity separately from its custom run-name.
+
+    GitHub may expose a custom ``run-name`` in the run object's ``name`` field.
+    Therefore the workflow definition is authenticated by its exact workflow path,
+    while package identity is authenticated independently from ``display_title``.
+    """
     if not isinstance(event_run, dict) or not isinstance(live_run, dict):
         raise CallbackError("workflow_run payload is invalid")
+    if not workflow_path.startswith(".github/workflows/") or not workflow_path.endswith((".yml", ".yaml")):
+        raise CallbackError("workflow path is invalid")
     run_id = _positive_int(event_run.get("id"), "workflow_run.id")
     attempt = _positive_int(event_run.get("run_attempt", 1), "workflow_run.run_attempt")
     for payload in (event_run, live_run):
         if payload.get("id") != run_id:
             raise CallbackError("workflow run ID mismatch")
-        if payload.get("name") != workflow_name:
-            raise CallbackError("workflow name mismatch")
+        if payload.get("path") != workflow_path:
+            raise CallbackError("workflow path mismatch")
         if payload.get("event") != "workflow_dispatch":
             raise CallbackError("completion source is not workflow_dispatch")
         if payload.get("status") != "completed":
@@ -191,6 +199,36 @@ def _self_test() -> None:
     encoded = base64.b64encode(json.dumps({"package_id": deepseek}).encode()).decode()
     wrapped = encoded[:8] + "\n" + encoded[8:]
     assert _decode_content({"content": wrapped})["package_id"] == deepseek
+    custom_run = {
+        "id": 7,
+        "name": f"DeepSeek QORE review · {deepseek}",
+        "display_title": f"DeepSeek QORE review · {deepseek}",
+        "path": ".github/workflows/deepseek-qore-review.yml",
+        "event": "workflow_dispatch",
+        "status": "completed",
+        "conclusion": "success",
+        "head_branch": "main",
+        "head_sha": "0" * 40,
+        "run_attempt": 1,
+    }
+    run_id, attempt, head_sha, conclusion = validate_run(
+        custom_run,
+        dict(custom_run),
+        workflow_path=".github/workflows/deepseek-qore-review.yml",
+    )
+    assert (run_id, attempt, head_sha, conclusion) == (7, 1, "0" * 40, "success")
+    wrong_path = dict(custom_run)
+    wrong_path["path"] = ".github/workflows/other.yml"
+    try:
+        validate_run(
+            custom_run,
+            wrong_path,
+            workflow_path=".github/workflows/deepseek-qore-review.yml",
+        )
+    except CallbackError:
+        pass
+    else:
+        raise AssertionError("wrong workflow path must fail closed")
     callback = build_callback(
         repository="mezas3238-hue/qore-deepseek-reviewer",
         actor="DEEPSEEK",
@@ -211,8 +249,13 @@ def _self_test() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--event")
+    parser.add_argument("--source-run-id", type=int)
+    parser.add_argument("--source-run-attempt", type=int)
+    parser.add_argument("--expected-source-head-sha")
+    parser.add_argument("--expected-package")
     parser.add_argument("--repository")
     parser.add_argument("--workflow-name")
+    parser.add_argument("--workflow-path")
     parser.add_argument("--actor", choices=tuple(PACKAGE_RES))
     parser.add_argument("--binding", choices=("artifact", "run_name"))
     parser.add_argument("--artifact-prefix", default="")
@@ -221,24 +264,41 @@ def main() -> int:
     if args.self_test:
         _self_test()
         return 0
-    if not all((args.event, args.repository, args.workflow_name, args.actor, args.binding)):
-        parser.error("event, repository, workflow-name, actor and binding are required")
+    if not all((args.repository, args.workflow_name, args.workflow_path, args.actor, args.binding)):
+        parser.error("repository, workflow-name, workflow-path, actor and binding are required")
+    if bool(args.event) == bool(args.source_run_id):
+        parser.error("provide exactly one of event or source-run-id")
 
     source_token = os.environ.get("GITHUB_TOKEN", "").strip()
     callback_token = os.environ.get("QORE_CALLBACK_TOKEN", "").strip()
     if not source_token or not callback_token:
         raise CallbackError("required GitHub tokens are unavailable")
 
-    with open(args.event, encoding="utf-8") as event_file:
-        event = json.load(event_file)
-    event_run = event.get("workflow_run") if isinstance(event, dict) else None
     source_api = f"https://api.github.com/repos/{args.repository}"
-    if not isinstance(event_run, dict):
-        raise CallbackError("workflow_run event is missing")
-    event_run_id = _positive_int(event_run.get("id"), "workflow_run.id")
-    live_run = api_json(source_token, source_api, f"/actions/runs/{event_run_id}")
+    if args.source_run_id:
+        event_run_id = _positive_int(args.source_run_id, "source-run-id")
+        live_run = api_json(source_token, source_api, f"/actions/runs/{event_run_id}")
+        event_run = live_run
+        expected_attempt = _positive_int(args.source_run_attempt, "source-run-attempt")
+        if live_run.get("run_attempt", 1) != expected_attempt:
+            raise CallbackError("replay source run attempt mismatch")
+        if not isinstance(args.expected_source_head_sha, str) or SHA_RE.fullmatch(args.expected_source_head_sha) is None:
+            raise CallbackError("replay expected source HEAD is invalid")
+        if live_run.get("head_sha") != args.expected_source_head_sha:
+            raise CallbackError("replay source HEAD mismatch")
+        if not isinstance(args.expected_package, str) or _package_re(args.actor).fullmatch(args.expected_package) is None:
+            raise CallbackError("replay expected package is invalid")
+    else:
+        with open(args.event, encoding="utf-8") as event_file:
+            event = json.load(event_file)
+        event_run = event.get("workflow_run") if isinstance(event, dict) else None
+        if not isinstance(event_run, dict):
+            raise CallbackError("workflow_run event is missing")
+        event_run_id = _positive_int(event_run.get("id"), "workflow_run.id")
+        live_run = api_json(source_token, source_api, f"/actions/runs/{event_run_id}")
+
     run_id, attempt, head_sha, conclusion = validate_run(
-        event_run, live_run, workflow_name=args.workflow_name
+        event_run, live_run, workflow_path=args.workflow_path
     )
 
     request = request_at_head(source_token, source_api, head_sha)
@@ -271,6 +331,8 @@ def main() -> int:
 
     if package_id != request_package:
         raise CallbackError("run-bound package and requests/current.json disagree")
+    if args.source_run_id and package_id != args.expected_package:
+        raise CallbackError("replay package mismatch")
 
     payload = build_callback(
         repository=args.repository,
@@ -290,6 +352,7 @@ def main() -> int:
         "reviewer_conclusion": conclusion,
         "reviewer_head_sha": head_sha,
         "candidate_head": expected_head,
+        "replay": bool(args.source_run_id),
     }, sort_keys=True))
     return 0
 
