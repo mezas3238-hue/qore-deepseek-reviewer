@@ -6,11 +6,17 @@ on:
       - DeepSeek QORE review
     types:
       - completed
+  push:
+    branches:
+      - main
+    paths:
+      - "recovery/orchestrator-completion-current.json"
   pull_request:
     paths:
       - ".github/workflows/qore-orchestrator-completion-callback.yml"
       - ".github/workflows/deepseek-qore-review.yml"
       - "scripts/emit_orchestrator_completion.py"
+      - "recovery/orchestrator-completion-current.json"
 
 permissions:
   contents: read
@@ -47,6 +53,41 @@ jobs:
           if needle not in lines:
               raise SystemExit("DeepSeek run-name is not exactly package-bound")
           print("DeepSeek run-name package binding: PASS")
+          PY
+
+      - name: Validate bounded replay request when present
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          path = Path("recovery/orchestrator-completion-current.json")
+          if not path.exists():
+              print("No replay request in candidate.")
+              raise SystemExit(0)
+          value = json.loads(path.read_text(encoding="utf-8"))
+          allowed = {
+              "schema_version",
+              "source_run_id",
+              "source_run_attempt",
+              "source_head_sha",
+              "package_id",
+          }
+          if not isinstance(value, dict) or set(value) != allowed:
+              raise SystemExit("replay request keys are not exact")
+          if value["schema_version"] != "qore.reviewer.completion.replay.v1":
+              raise SystemExit("replay schema is invalid")
+          if type(value["source_run_id"]) is not int or value["source_run_id"] <= 0:
+              raise SystemExit("replay run id is invalid")
+          if type(value["source_run_attempt"]) is not int or value["source_run_attempt"] <= 0:
+              raise SystemExit("replay run attempt is invalid")
+          if re.fullmatch(r"[0-9a-f]{40}", value["source_head_sha"]) is None:
+              raise SystemExit("replay source HEAD is invalid")
+          if re.fullmatch(r"QORE-SOL-[0-9a-f]{12}-DS-(?:EXPERT|CODER)-R[1-9][0-9]*", value["package_id"]) is None:
+              raise SystemExit("replay package is invalid")
+          print("Bounded replay request: PASS")
           PY
 
       - name: Create isolated orchestrator callback token
@@ -115,5 +156,90 @@ jobs:
             --event "$GITHUB_EVENT_PATH" \
             --repository mezas3238-hue/qore-deepseek-reviewer \
             --workflow-name "DeepSeek QORE review" \
+            --workflow-path ".github/workflows/deepseek-qore-review.yml" \
+            --actor DEEPSEEK \
+            --binding run_name
+
+  replay-completion:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Enforce trusted default-branch replay
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+
+      - name: Checkout trusted reviewer callback code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Parse exact bounded replay request
+        id: replay
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          value = json.loads(Path("recovery/orchestrator-completion-current.json").read_text(encoding="utf-8"))
+          allowed = {
+              "schema_version",
+              "source_run_id",
+              "source_run_attempt",
+              "source_head_sha",
+              "package_id",
+          }
+          if not isinstance(value, dict) or set(value) != allowed:
+              raise SystemExit("replay request keys are not exact")
+          if value["schema_version"] != "qore.reviewer.completion.replay.v1":
+              raise SystemExit("replay schema is invalid")
+          run_id = value["source_run_id"]
+          attempt = value["source_run_attempt"]
+          head = value["source_head_sha"]
+          package = value["package_id"]
+          if type(run_id) is not int or run_id <= 0:
+              raise SystemExit("replay run id is invalid")
+          if type(attempt) is not int or attempt <= 0:
+              raise SystemExit("replay run attempt is invalid")
+          if not isinstance(head, str) or re.fullmatch(r"[0-9a-f]{40}", head) is None:
+              raise SystemExit("replay source HEAD is invalid")
+          if not isinstance(package, str) or re.fullmatch(r"QORE-SOL-[0-9a-f]{12}-DS-(?:EXPERT|CODER)-R[1-9][0-9]*", package) is None:
+              raise SystemExit("replay package is invalid")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"run_id={run_id}\n")
+              output.write(f"attempt={attempt}\n")
+              output.write(f"head={head}\n")
+              output.write(f"package={package}\n")
+          PY
+
+      - name: Create isolated orchestrator callback token
+        id: callback-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_CALLBACK_APP_ID }}
+          private-key: ${{ secrets.QORE_CALLBACK_APP_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-ai-orchestrator
+          permission-contents: write
+
+      - name: Replay one exact terminal completion without rerunning reviewer
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          QORE_CALLBACK_TOKEN: ${{ steps.callback-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/emit_orchestrator_completion.py \
+            --source-run-id "${{ steps.replay.outputs.run_id }}" \
+            --source-run-attempt "${{ steps.replay.outputs.attempt }}" \
+            --expected-source-head-sha "${{ steps.replay.outputs.head }}" \
+            --expected-package "${{ steps.replay.outputs.package }}" \
+            --repository mezas3238-hue/qore-deepseek-reviewer \
+            --workflow-name "DeepSeek QORE review" \
+            --workflow-path ".github/workflows/deepseek-qore-review.yml" \
             --actor DEEPSEEK \
             --binding run_name
