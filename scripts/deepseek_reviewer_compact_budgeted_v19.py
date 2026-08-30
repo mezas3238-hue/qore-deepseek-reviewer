@@ -25,6 +25,13 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 _GROUP_PREFIX = "##[group]Run "
 _QG_SUMMARY_KEYS = qg_contract.QG_SUMMARY_KEYS
 _CHECKOUT_COMMAND = "[command]/usr/bin/git log -1 --format=%H"
+_QORE_CI_WORKFLOW_ID = 328173079
+_QORE_CI_WORKFLOW_NAME = "QORE CI"
+_QORE_CI_WORKFLOW_PATH = ".github/workflows/ci.yml"
+_QORE_CI_EVENT_MATRIX = {
+    "pr_review_authorized": "pull_request",
+    "postmerge_parser_fixture_only": "push",
+}
 _MYPY_RE = re.compile(
     r"Success: no issues found in (?P<count>\d+) source files"
 )
@@ -251,6 +258,38 @@ def _validate_checkout_synthetic(log: str, expected_synthetic: str) -> str:
     return expected_synthetic
 
 
+def _validate_qore_ci_workflow_identity(
+    run: Mapping[str, Any], *, expected_head: str, expected_synthetic: str
+) -> dict[str, Any]:
+    if expected_head == expected_synthetic:
+        raise RuntimeError(
+            "post-merge QORE CI evidence cannot authorize an OPEN-PR review"
+        )
+    expected_event = _QORE_CI_EVENT_MATRIX["pr_review_authorized"]
+    expected_fields: dict[str, int | str] = {
+        "workflow_id": _QORE_CI_WORKFLOW_ID,
+        "name": _QORE_CI_WORKFLOW_NAME,
+        "path": _QORE_CI_WORKFLOW_PATH,
+        "event": expected_event,
+    }
+    for field, expected_value in expected_fields.items():
+        if field not in run:
+            raise RuntimeError(
+                f"QORE CI run workflow identity field {field!r} is missing"
+            )
+        if run.get(field) != expected_value:
+            raise RuntimeError(
+                f"QORE CI run workflow identity field {field!r} mismatch: "
+                f"expected {expected_value!r}, observed {run.get(field)!r}"
+            )
+    return {
+        **expected_fields,
+        "mode": "pr_review_authorized",
+        "head_branch": run.get("head_branch"),
+        "event_matrix": dict(_QORE_CI_EVENT_MATRIX),
+    }
+
+
 def _validate_exact_qore_ci(
     expected: Mapping[str, int | bool],
 ) -> tuple[dict[str, int | bool], dict[str, Any], dict[str, Any], str]:
@@ -275,6 +314,11 @@ def _validate_exact_qore_ci(
         raise RuntimeError("QORE CI run is not completed SUCCESS")
     if run.get("head_sha") != expected_head:
         raise RuntimeError("QORE CI run head_sha does not equal EXPECTED_HEAD")
+    workflow_identity = _validate_qore_ci_workflow_identity(
+        run,
+        expected_head=expected_head,
+        expected_synthetic=expected_synthetic,
+    )
     if int(job.get("id", -1)) != job_id:
         raise RuntimeError("QORE CI job id mismatch")
     if int(job.get("run_id", -1)) != run_id:
@@ -311,6 +355,11 @@ def _validate_exact_qore_ci(
 def _exact_qore_ci_evidence() -> str:
     expected = _load_exact_qg_contract()
     observed, run, job, log = _validate_exact_qore_ci(expected)
+    workflow_identity = _validate_qore_ci_workflow_identity(
+        run,
+        expected_head=os.environ["EXPECTED_HEAD"],
+        expected_synthetic=os.environ["EXPECTED_SYNTHETIC"],
+    )
 
     selected: list[str] = []
     for command in (
@@ -324,11 +373,17 @@ def _exact_qore_ci_evidence() -> str:
     metadata = {
         "run": {
             "id": run.get("id"),
+            "workflow_id": run.get("workflow_id"),
+            "name": run.get("name"),
+            "path": run.get("path"),
+            "event": run.get("event"),
+            "head_branch": run.get("head_branch"),
             "status": run.get("status"),
             "conclusion": run.get("conclusion"),
             "head_sha": run.get("head_sha"),
             "html_url": run.get("html_url"),
         },
+        "workflow_identity": workflow_identity,
         "job": {
             "id": job.get("id"),
             "run_id": job.get("run_id"),

@@ -203,18 +203,30 @@ def _install_fake_github(
     job_head: str | None = None,
     run_head: str | None = None,
     job_run_id: int | None = None,
+    run_overrides: dict[str, object] | None = None,
 ) -> tuple[Callable[[str], dict[str, object]], Callable[[str], str]]:
     head = os.environ["EXPECTED_HEAD"]
 
     def fake_json(url: str) -> dict[str, object]:
         if "/actions/runs/" in url:
-            return {
+            payload: dict[str, object] = {
                 "id": summary["run_id"],
+                "workflow_id": 328173079,
+                "name": "QORE CI",
+                "path": ".github/workflows/ci.yml",
+                "event": "pull_request",
+                "head_branch": "agent/probe",
                 "status": "completed",
                 "conclusion": "success",
                 "head_sha": run_head or head,
                 "html_url": "https://example.invalid/run",
             }
+            if run_overrides:
+                payload.update(run_overrides)
+                for key in tuple(payload):
+                    if payload[key] is None:
+                        del payload[key]
+            return payload
         if "/actions/jobs/" in url:
             return {
                 "id": summary["job_id"],
@@ -430,6 +442,60 @@ def main() -> int:
         fixture = _live_actions_fixture(timestamp=timestamp, synthetic=synthetic)
         assert v19._parse_qg_log(fixture) == live_expected, job_id
         assert v19._validate_checkout_synthetic(fixture, synthetic) == synthetic
+
+    pr_identity = {
+        "workflow_id": 328173079,
+        "name": "QORE CI",
+        "path": ".github/workflows/ci.yml",
+        "event": "pull_request",
+        "head_branch": "agent/qore-probe",
+    }
+    assert v19._validate_qore_ci_workflow_identity(
+        pr_identity,
+        expected_head="b" * 40,
+        expected_synthetic="c" * 40,
+    )["mode"] == "pr_review_authorized"
+    postmerge_identity = {
+        **pr_identity,
+        "event": "push",
+        "head_branch": "main",
+    }
+    _expect_failure(
+        "postmerge QG cannot authorize PR review",
+        "cannot authorize an OPEN-PR review",
+        lambda: v19._validate_qore_ci_workflow_identity(
+            postmerge_identity,
+            expected_head="b" * 40,
+            expected_synthetic="b" * 40,
+        ),
+    )
+    for field, wrong in (
+        ("workflow_id", 999),
+        ("name", "Not QORE CI"),
+        ("path", ".github/workflows/not-ci.yml"),
+        ("event", "push"),
+    ):
+        missing_identity = dict(pr_identity)
+        del missing_identity[field]
+        _expect_failure(
+            f"missing workflow identity {field}",
+            f"field {field!r} is missing",
+            lambda payload=missing_identity: v19._validate_qore_ci_workflow_identity(
+                payload,
+                expected_head="b" * 40,
+                expected_synthetic="c" * 40,
+            ),
+        )
+        wrong_identity = {**pr_identity, field: wrong}
+        _expect_failure(
+            f"wrong workflow identity {field}",
+            f"field {field!r} mismatch",
+            lambda payload=wrong_identity: v19._validate_qore_ci_workflow_identity(
+                payload,
+                expected_head="b" * 40,
+                expected_synthetic="c" * 40,
+            ),
+        )
 
     with tempfile.TemporaryDirectory(prefix="qore-exact-qg-probe-") as directory:
         prompt = Path(directory) / "prompt.md"
