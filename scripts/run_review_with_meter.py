@@ -21,7 +21,7 @@ _COMPACT_BUDGETED_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_compact_budgeted_v20.py"
 )
 _PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
-_REVIEWER_PROFILE = os.environ.get("DEEPSEEK_REVIEWER_PROFILE", "compact-budgeted")
+_REVIEWER_PROFILE = os.environ.get("DEEPSEEK_REVIEWER_PROFILE", "stable")
 
 if _PACKAGE_ID.startswith("BENCHMARK-COMPACT-"):
     REVIEWER = _COMPACT_CANDIDATE_REVIEWER
