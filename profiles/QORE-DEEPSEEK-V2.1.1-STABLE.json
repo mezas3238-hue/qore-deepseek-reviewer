@@ -11,7 +11,8 @@
       "complete exact content of every BASE-to-HEAD changed file",
       "exact BASE-to-HEAD patch for modified files",
       "deterministic semantic slices for directly imported local qore.infrastructure definitions with bounded referenced helpers",
-      "exact frozen repository state, PR binding, HEAD checks and combined commit status"
+      "exact frozen repository state, PR binding, HEAD checks and combined commit status",
+      "authenticated exact QORE CI summary bound to the declared quality job and synthetic checkout"
     ],
     "planner": "one non-thinking bounded planning call for genuinely additional evidence",
     "planner_tools": [
@@ -25,11 +26,37 @@
     "tool_result_policy": "exact up to the hard fail-closed gate; no silent pre-clipping",
     "missing_or_truncated_evidence": "EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA"
   },
+  "exact_qg_contract": {
+    "required": true,
+    "helper": "scripts/exact_qg_evidence.py",
+    "helper_blob": "14d0bd26fdd09375d96b5a72836fbd77fc16b5f9",
+    "package_contract": "scripts/qg_package_contract.py",
+    "package_contract_blob": "b8fef9e7e29ad8e43ed395b35e498a9270df70c7",
+    "raw_validation": "full command windows are fetched, parsed and equality-checked deterministically",
+    "model_transport": "authenticated identity, exact summaries and command-bound synthetic checkout proof only",
+    "max_chars": 8000
+  },
   "meter": {
     "path": "scripts/run_review_with_meter.py",
-    "blob": "b2d0332864d63eb8f86bdd1810546817860b4cf4",
+    "blob": "1865fe124e1bf43796ea7223c92bb12785069cf2",
     "ordinary_route": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
+    "default_profile": "stable",
+    "ordinary_model": "deepseek-v4-pro",
     "benchmark_selector": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
+  },
+  "alternate_profiles": {
+    "compact-budgeted": {
+      "entrypoint": "scripts/deepseek_reviewer_compact_budgeted_v20.py",
+      "blob": "0b609af51e13a423b8ed4940d98cec89d6a62d3a",
+      "ordinary_default": false,
+      "activation": "explicit DEEPSEEK_REVIEWER_PROFILE=compact-budgeted only"
+    },
+    "benchmark-compact": {
+      "entrypoint": "scripts/deepseek_reviewer_v2_1_2_candidate_entrypoint.py",
+      "blob": "6857ded903c848a9e0f376f8b3854b7d0048918e",
+      "ordinary_default": false,
+      "activation": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
+    }
   },
   "engine_files": {
     "scripts/deepseek_reviewer.py": "a93e5717ae494825d40abb8fde9fc9b7d52e9142",
@@ -38,23 +65,27 @@
     "scripts/deepseek_reviewer_compat_entrypoint.py": "07ef1bb29620e15ae34def3a0b0099bdb2370fc0",
     "scripts/deepseek_reviewer_v2_entrypoint.py": "d96f44f01770893867df4da3d5744295c952f9b0",
     "scripts/deepseek_reviewer_v1_3_entrypoint.py": "12e89476fb141dbc9b47b42180091000b1169299",
-    "scripts/deepseek_reviewer_v1_4_entrypoint.py": "a932ad91faea08e7d391cd12fbfc2bafab140760",
+    "scripts/deepseek_reviewer_v1_4_entrypoint.py": "e7aa0a106d791bafd493b827c81aa09a8b17975f",
     "scripts/deepseek_reviewer_v1_5_entrypoint.py": "2ee30420a4016d485fa8e967cca18f30bc9b6b49",
     "scripts/deepseek_reviewer_v1_6_entrypoint.py": "4835cf05d68495dda5ee369b69fa227aac2aa6a6",
     "scripts/deepseek_reviewer_v1_7_entrypoint.py": "a65acafe65556056663d8c5d222c8abea4be84a6",
     "scripts/deepseek_reviewer_v2_0_entrypoint.py": "1d80422bb1182468e0e59304268bb3c7768e69a8",
-    "scripts/deepseek_reviewer_v2_1_entrypoint.py": "aeeb8f3eda950d2552021d83b4ca523b0be0002d",
-    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "54c4b77c646b84b09706dba0caf1d5a4d4ea00e"
+    "scripts/deepseek_reviewer_v2_1_entrypoint.py": "ba22f63f4281bc2f2659aebc0d13fea7bf27f6ad",
+    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "2b27c0ac07c172dfdf9bd01d4551ad0fb130ee54",
+    "scripts/exact_qg_evidence.py": "14d0bd26fdd09375d96b5a72836fbd77fc16b5f9",
+    "scripts/qg_package_contract.py": "b8fef9e7e29ad8e43ed395b35e498a9270df70c7"
   },
   "benchmark_candidates": {
-    "scripts/deepseek_reviewer_v2_1_2_candidate_entrypoint.py": "be0841541253d54e49e00d1968abd9e5376ac7c1"
+    "scripts/deepseek_reviewer_v2_1_2_candidate_entrypoint.py": "6857ded903c848a9e0f376f8b3854b7d0048918e"
   },
   "entrypoint": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
+  "entrypoint_blob": "2b27c0ac07c172dfdf9bd01d4551ad0fb130ee54",
   "workflows": {
-    ".github/workflows/deepseek-auto-dispatch.yml": "b7b04e73a53a6cbc1e0475dec0ded8fdf74c4c2c",
+    ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "fa02813e2360d1e576330056a878ade71b4520e2"
+    ".github/workflows/deepseek-qore-review.yml": "5b4bdfe1740fd58fca930aab81c5b817b43910de",
+    ".github/workflows/qore-orchestrator-completion-callback.yml": "eb09acebafc5c8adf5f0f17999355104478ba3bd"
   },
-  "permanent_workflow_count": 3,
-  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. Prompt, request, benchmark, telemetry, or dispatch metadata commits do not change the stable ordinary profile while the ordinary engine/workflow components remain unchanged. Benchmark-only candidate routing is isolated by package prefix and is not ordinary-review activation. A successor ordinary reviewer must be activated through the applicable QORE governance process."
+  "permanent_workflow_count": 4,
+  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
 }
