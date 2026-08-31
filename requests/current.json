@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4",
+  "dispatch_nonce": "PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4B",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "d540b5be87985f21de5088af66bb178d1716110a",
   "expected_synthetic": "9dc314018e370e31c8db06906ecfce834caf0fa7",
-  "package_id": "QORE-PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4",
+  "package_id": "QORE-PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4B",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-d540b5be-confusables-expert-r4.md",
+  "prompt_path": "prompts/qore-pr466-d540b5be-confusables-expert-r4b.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
