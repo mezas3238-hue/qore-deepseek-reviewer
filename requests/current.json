@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-2099DBD7-DS-EXPERT-UNICODE-R1",
+  "dispatch_nonce": "PR466-273C04A1-DS-EXPERT-CONFUSABLES-R2",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "2099dbd7daae7dd543606893fd85caf3991ef239",
-  "expected_synthetic": "5e86edeac462a2ec5044cc4c7f10924f97f736a0",
-  "package_id": "QORE-PR466-2099DBD7-DS-EXPERT-UNICODE-R1",
+  "expected_head": "273c04a1d75793ffa0b685aff669293f653d251f",
+  "expected_synthetic": "41960317c43c988a3781337d39a06ce558a86293",
+  "package_id": "QORE-PR466-273C04A1-DS-EXPERT-CONFUSABLES-R2",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-2099dbd7-unicode-expert-r1.md",
+  "prompt_path": "prompts/qore-pr466-273c04a1-confusables-expert-r2.md",
   "qg_summary": {
     "coverage_missed_statements": 6235,
     "coverage_percent": 87,
-    "coverage_total_statements": 47619,
-    "job_id": 99542060363,
-    "mypy_source_files": 742,
-    "pytest_collected": 4919,
-    "pytest_passed": 4919,
+    "coverage_total_statements": 47623,
+    "job_id": 99563475053,
+    "mypy_source_files": 743,
+    "pytest_collected": 4929,
+    "pytest_passed": 4929,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33408535481
+    "run_id": 33415018001
   },
   "review_mode": "expert"
 }
