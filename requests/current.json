@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-E0CADFCA-DS-EXPERT-HOMOGLYPH-R3",
+  "dispatch_nonce": "PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "e0cadfca635af00e2461e9117da1ebc1bf7f91ba",
-  "expected_synthetic": "74ad4817230bf64bb9a79399cfe36ea23639af70",
-  "package_id": "QORE-PR466-E0CADFCA-DS-EXPERT-HOMOGLYPH-R3",
+  "expected_head": "d540b5be87985f21de5088af66bb178d1716110a",
+  "expected_synthetic": "9dc314018e370e31c8db06906ecfce834caf0fa7",
+  "package_id": "QORE-PR466-D540B5BE-DS-EXPERT-CONFUSABLES-R4",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-e0cadfca-homoglyph-expert-r3.md",
+  "prompt_path": "prompts/qore-pr466-d540b5be-confusables-expert-r4.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
     "coverage_total_statements": 47650,
-    "job_id": 99581549949,
+    "job_id": 99596046852,
     "mypy_source_files": 744,
-    "pytest_collected": 4943,
-    "pytest_passed": 4943,
+    "pytest_collected": 4947,
+    "pytest_passed": 4947,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33420547356
+    "run_id": 33424915851
   },
   "review_mode": "expert"
 }
