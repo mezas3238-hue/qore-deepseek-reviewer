@@ -18,7 +18,7 @@ Treat the supplied work package and known findings as seeds, not as the full pro
 
 A. Contract and invariant reconstruction
 - Read the BASE→working-surface production code, directly relevant tests, architecture/audit docs, and package acceptance criteria.
-- Use semantic LSP navigation for definitions/references/implementations/type context where shared contracts or widely referenced symbols are involved.
+- Before the first production edit, MUST use semantic LSP on the material production surface to establish precise definitions, references/callers and type context.
 - Reconstruct construction-time, retained-state/re-entry, projection/logical-values, exact runtime type, immutability/aliasing, deterministic-order and secret-sanitization invariants that intersect the change.
 
 B. Broad adversarial discovery
@@ -31,7 +31,7 @@ C. Batch correction
 - Reproduce or independently falsify each seed/new finding.
 - Correct all validated findings that can be safely closed inside the declared allowlist and budgets in one coherent implementation batch.
 - Prefer root-cause fixes over enumerating cosmetic witnesses.
-- If one proposed fix risks a broader contract change, use focused LSP impact analysis and targeted BASE-vs-candidate probes before applying it.
+- If one proposed fix risks a broader contract change, MUST use focused LSP impact analysis plus targeted BASE-vs-candidate probes before applying it.
 
 D. Permanent regression coverage
 - Add normal, adversarial, retained-state/re-entry, projection, type-integrity and benign-preservation tests as applicable.
@@ -46,8 +46,42 @@ E. Focused engineering validation
 
 F. Final candidate audit and handoff
 - Audit the complete final diff once for scope, accidental authority, secrets, test weakening, unrelated edits, residual TODOs and unaddressed findings.
-- Maintain `/tmp/qore-principal-engineer-journal.md` as an append-only cumulative journal. Immediately record each confirmed material finding, its root cause, disposition (FIXED / FALSE_POSITIVE / BLOCKED), permanent regression evidence, and A-F coverage progress. The journal must survive a hard-cap termination.
+- Re-run semantic LSP on at least one changed production symbol or its material callers after the implementation is stable to confirm the final impact surface.
+- Maintain `/tmp/qore-principal-engineer-journal.md` as an append-only cumulative journal. Immediately record each confirmed material finding, its root cause, disposition (FIXED / FALSE_POSITIVE / BLOCKED), permanent regression evidence, semantic LSP evidence, and A-F coverage progress. The journal must survive a hard-cap termination.
 - Return only when either (a) the candidate is ready for deterministic FULL QG, or (b) a concrete blocker prevents safe completion.
+
+## Mandatory semantic LSP gate — NO EXCEPTIONS
+
+Semantic LSP use is a hard Principal Engineer acceptance requirement, not an optional optimization.
+
+`LSP INSTALLED != LSP USED`
+
+`LSP SMOKE PASS != SEMANTIC IMPACT ANALYSIS`
+
+`GREP/READ/BASH SEARCH != LSP EVIDENCE`
+
+A run MUST NOT return `CANDIDATE_READY_FOR_FULL_QG` unless the primary Principal Engineer session contains actual successful `lsp` tool calls against the real qore-core workspace.
+
+Minimum required semantic evidence for every candidate-producing run:
+
+1. At least one `findReferences` call on a materially relevant production symbol, preferably a symbol changed by the candidate or a validator/trust-edge directly affected by it.
+2. At least one `goToDefinition` or `goToImplementation` call on a materially relevant production symbol or dependency.
+3. At least one `hover` call that establishes type/signature context for a material symbol, caller or dependency.
+4. At least one LSP operation MUST occur before the first production-code edit.
+5. At least one LSP operation MUST be used after the candidate stabilizes to re-check the final impact surface.
+6. LSP calls made only by a subagent do not satisfy the primary-session requirement; subagent LSP is supplemental.
+7. Resolution smoke, Pyright installation/version checks and standalone LSP smoke fixtures do not count toward semantic usage.
+8. A failed/empty LSP query does not by itself satisfy the requirement; correct the cursor/query and obtain usable semantic evidence.
+9. If LSP is unavailable, broken, or cannot provide usable semantic evidence after reasonable directed attempts, return `BLOCKED`. Do not silently substitute grep and do not claim LSP coverage.
+
+For each mandatory LSP operation, record concise reproducible evidence in the journal and final report:
+- operation;
+- repository-relative file;
+- target symbol or caller;
+- why the query was material;
+- concise result/conclusion used in the engineering decision.
+
+The final report MUST contain a dedicated `## LSP EVIDENCE` section. If this section cannot truthfully be completed from actual tool calls, the only valid verdict is `BLOCKED`.
 
 ## Time and breadth discipline
 
@@ -58,12 +92,12 @@ You have a substantial engineering budget because broad closure is preferred ove
 - Do not stop merely because the original seed findings are fixed. Continue through the remaining relevant matrix and residual hypotheses.
 - Do not enumerate the entire Unicode space, whole repository, whole filesystem, or huge input domains unless explicitly required. Use semantic navigation, risk surfaces, equivalence classes, directed adversarial generation and deduplication.
 - Do not launch background test farms or repeatedly run the same pytest/search/diff audit.
-- Use up to three subagent delegations when materially useful for independent surfaces (for example: contract/type integrity, adversarial normalization/security, test/doc consistency). Subagents must return concise evidence; you remain responsible for adjudication and final edits.
+- Use up to three subagent delegations when materially useful for independent surfaces. Subagents must return concise evidence; you remain responsible for adjudication and final edits.
 - If a safe complete correction would exceed package path/diff budgets, record the exact residual correction unit and return `BLOCKED` rather than silently broadening scope.
 
 ## Tooling expectations
 
-Use QORE Skills, read/search/grep/glob, semantic `lsp`, edit/write/str_replace_editor, bash, targeted pytest, focused ruff/mypy, and `/tmp` probes. Prefer LSP over grep when exact symbol impact matters. Load `qore-engineer-authority` first, then only materially relevant QORE skills.
+Use QORE Skills, read/search/grep/glob, semantic `lsp`, edit/write/str_replace_editor, bash, targeted pytest, focused ruff/mypy, and `/tmp` probes. LSP is mandatory; use grep/read as complementary tools, never as substitutes for the required semantic navigation. Load `qore-engineer-authority` first, then only materially relevant QORE skills.
 
 ## Required final output
 
@@ -81,8 +115,11 @@ Enumerate every materially distinct root cause investigated. For each: severity,
 ## IMPLEMENTATION
 Summarize production/test/doc changes by root cause.
 
+## LSP EVIDENCE
+List the actual semantic LSP operations from the primary session, including operation, file, target symbol/caller and engineering conclusion. Explicitly distinguish these from installation/resolution/smoke evidence.
+
 ## TARGETED VALIDATION
-List targeted commands/probes and outcomes, including LSP/subagent use when applicable.
+List targeted commands/probes and outcomes, including subagent use when applicable.
 
 ## PERMANENT REGRESSIONS
 Map each fixed material root cause to permanent tests.
@@ -97,5 +134,7 @@ State concrete uncertainty or work deferred to deterministic FULL QG/certificati
 Exactly one of:
 - `CANDIDATE_READY_FOR_FULL_QG`
 - `BLOCKED`
+
+Missing mandatory semantic LSP evidence makes `CANDIDATE_READY_FOR_FULL_QG` invalid and requires `BLOCKED`.
 
 Do not expose private chain-of-thought. Report concise engineering conclusions, commands/evidence, witnesses, and dispositions only.
