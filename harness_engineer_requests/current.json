@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-HIST-URLUSERINFO-NFKC-20260901-001",
+  "package_id": "HARNESS-ENGINEER-HIST-URLUSERINFO-NFKC-20260901-002",
   "expected_start": "7e24bc07bf74f879ffe7655fe9217db7ff6600de",
   "expected_tree": "c20aecedb5f4ee97ec151fa20daa0b09482f0738",
   "task_path": "harness/engineer/tasks/historical-url-userinfo-nfkc-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "harness-engineer-hist-urluserinfo-nfkc-20260901-001-a40418cf",
+  "dispatch_nonce": "harness-engineer-hist-urluserinfo-nfkc-20260901-002-f1254343",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
     "tests/infrastructure/test_instrument_universe_registry_multi_authority_userinfo.py"
