@@ -1,6 +1,7 @@
 {
   "profile_id": "QORE-DEEPSEEK-V2.1.1-STABLE",
-  "status": "stable",
+  "status": "superseded",
+  "superseded_by": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE",
   "model": "deepseek-v4-pro",
   "analysis": "thinking/high",
   "verdict_emission": "same-model non-thinking extractor only when authoritative high analysis lacks a complete visible verdict",
@@ -35,7 +36,7 @@
     "path": "scripts/run_review_with_meter.py",
     "blob": "1865fe124e1bf43796ea7223c92bb12785069cf2",
     "ordinary_route": "scripts/deepseek_reviewer_v2_1_1_entrypoint.py",
-    "default_profile": "stable",
+    "default_profile": "historical-stable",
     "ordinary_model": "deepseek-v4-pro",
     "benchmark_selector": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
   },
@@ -88,5 +89,5 @@
       "profile_defining": false
     }
   },
-  "governance_note": "This manifest records the profile-defining ordinary implementation and evidence path. QORE-DEEPSEEK-V2.1.1-STABLE is the sole ordinary stable profile. Exactly the three workflows in `workflows` are profile-defining review-lane workflows governed by qore-core. The Sol completion callback is separate operational orchestration transport, recorded only for discovery and explicitly carries no reviewer-semantic authority. The compact-budgeted v20 path remains an explicit alternate and is not an ordinary default or a stable successor. Benchmark-only candidate routing is isolated by package prefix. A successor ordinary reviewer must be activated through the applicable QORE governance process."
+  "governance_note": "Historical immutable definition of QORE-DEEPSEEK-V2.1.1-STABLE. It is superseded for ordinary Expert/Coder reviews by QORE-DEEPSEEK-V2.1.2-ADAPTIVE. Historical runs remain attributable to this exact high-only profile; this manifest must not be reinterpreted as having adaptive HIGH/MAX behavior."
 }
