@@ -18,6 +18,7 @@ on:
       - "scripts/emit_orchestrator_completion.py"
       - "recovery/orchestrator-completion-current.json"
       - "profiles/QORE-DEEPSEEK-V2.1.1-STABLE.json"
+      - "profiles/QORE-DEEPSEEK-V2.1.2-ADAPTIVE.json"
 
 permissions:
   contents: read
@@ -44,7 +45,7 @@ jobs:
           python3 -m py_compile scripts/emit_orchestrator_completion.py
           python3 scripts/emit_orchestrator_completion.py --self-test
 
-      - name: Verify stable reviewer profile excludes operational callback
+      - name: Verify active adaptive reviewer profile excludes operational callback
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -52,8 +53,14 @@ jobs:
           import subprocess
           from pathlib import Path
 
-          manifest_path = Path("profiles/QORE-DEEPSEEK-V2.1.1-STABLE.json")
+          manifest_path = Path("profiles/QORE-DEEPSEEK-V2.1.2-ADAPTIVE.json")
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          if manifest.get("profile_id") != "QORE-DEEPSEEK-V2.1.2-ADAPTIVE":
+              raise SystemExit("active reviewer profile id mismatch")
+          if manifest.get("status") != "stable":
+              raise SystemExit("active adaptive reviewer profile must be stable")
+          if manifest.get("supersedes") != "QORE-DEEPSEEK-V2.1.1-STABLE":
+              raise SystemExit("active adaptive reviewer must supersede V2.1.1")
           expected = {
               ".github/workflows/deepseek-auto-dispatch.yml",
               ".github/workflows/deepseek-connection-test.yml",
@@ -61,24 +68,17 @@ jobs:
           }
           workflows = manifest.get("workflows")
           if not isinstance(workflows, dict) or set(workflows) != expected:
-              raise SystemExit("STABLE profile must contain exactly the three qore-core-authorized review workflows")
+              raise SystemExit("active profile must contain exactly the three qore-core-authorized review workflows")
           if manifest.get("permanent_workflow_count") != 3:
-              raise SystemExit("STABLE permanent_workflow_count must be exactly 3")
+              raise SystemExit("active permanent_workflow_count must be exactly 3")
+          callback_path = ".github/workflows/qore-orchestrator-completion-callback.yml"
+          if callback_path in workflows:
+              raise SystemExit("orchestrator callback must remain non-profile-defining")
           for path, declared in workflows.items():
               observed = subprocess.check_output(["git", "hash-object", path], text=True).strip()
               if observed != declared:
-                  raise SystemExit(f"STABLE technical workflow blob mismatch for {path}: {declared} != {observed}")
-          operational = manifest.get("operational_workflows")
-          callback_path = ".github/workflows/qore-orchestrator-completion-callback.yml"
-          if not isinstance(operational, dict) or not isinstance(operational.get(callback_path), dict):
-              raise SystemExit("operational callback discovery metadata is missing")
-          callback = operational[callback_path]
-          if callback.get("profile_defining") is not False:
-              raise SystemExit("orchestrator callback must remain non-profile-defining")
-          observed_callback = subprocess.check_output(["git", "hash-object", callback_path], text=True).strip()
-          if callback.get("blob") != observed_callback:
-              raise SystemExit("operational callback discovery blob is stale")
-          print("DeepSeek STABLE/operational workflow separation: PASS")
+                  raise SystemExit(f"active technical workflow blob mismatch for {path}: {declared} != {observed}")
+          print("DeepSeek adaptive-profile/operational workflow separation: PASS")
           PY
 
       - name: Verify DeepSeek workflow package run binding exists
