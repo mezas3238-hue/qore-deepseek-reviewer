@@ -4,15 +4,15 @@ from __future__ import annotations
 import json
 import os
 import pathlib
-import urllib.error
-import urllib.request
 from typing import Any
 
 import deepseek_adaptive_review_reasoning as reasoning_policy
 import deepseek_reviewer_v2_1_1_entrypoint as stable
+import deepseek_transport
 
 # Preserve every V2.1.1 evidence, freeze, budget and fail-closed contract. This layer
-# changes only the provider reasoning effort on the authoritative thinking request.
+# changes provider reasoning effort on the authoritative thinking request and adds one
+# explicit, audited transport-only retry for incomplete/broken response bodies.
 v21 = stable.v21
 v20 = stable.v20
 budgeted = v20.v13.budgeted
@@ -84,21 +84,14 @@ def _adaptive_base_send_request(
         payload["tools"] = budgeted.TOOLS
         payload["tool_choice"] = "auto"
 
-    request = urllib.request.Request(
-        reviewer.API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {reviewer.API_KEY}",
-        },
-        method="POST",
+    result, transport_retries = deepseek_transport.post_json_with_bounded_transport_retry(
+        api_url=reviewer.API_URL,
+        api_key=reviewer.API_KEY,
+        payload=payload,
+        timeout=300,
     )
-    try:
-        with urllib.request.urlopen(request, timeout=300) as response:
-            result = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"DeepSeek HTTP {exc.code}: {detail}") from exc
+    if transport_retries:
+        reasons = [*reasons, f"transport-retry-recovered:{transport_retries}"]
 
     budgeted.record_usage(stage, round_number, result)
     _append_reasoning_audit(
