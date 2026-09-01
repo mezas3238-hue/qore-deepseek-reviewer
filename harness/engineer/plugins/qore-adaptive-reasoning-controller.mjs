@@ -40,12 +40,30 @@ const DISCOVERY_PATTERN = /\b(?:material finding|contract ambiguity|root cause n
 const PRODUCTION_EDIT_PATTERN = /\b(?:str_replace_editor|apply_patch|edit|write)\b/i
 const PRODUCTION_PATH_PATTERN = /(?:^|["'\s])src\/qore\//i
 
-function safeEventText(event) {
+function safeJson(value) {
   try {
-    return JSON.stringify(event)
+    return JSON.stringify(value)
   } catch {
     return ''
   }
+}
+
+function visibleAssistantText(event) {
+  const content = event?.data?.message?.content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(block => block?.type === 'text')
+    .map(block => typeof block.text === 'string' ? block.text : '')
+    .join('\n')
+}
+
+function assistantToolCallText(event) {
+  const content = event?.data?.message?.content
+  if (!Array.isArray(content)) return ''
+  return content
+    .filter(block => block?.type === 'tool-call')
+    .map(block => `${block.name ?? ''} ${block.arguments ?? ''}`)
+    .join('\n')
 }
 
 function analyzeFreshEvents(events) {
@@ -55,44 +73,46 @@ function analyzeFreshEvents(events) {
 
   for (const event of events) {
     const type = typeof event?.type === 'string' ? event.type : ''
-    const text = safeEventText(event)
-    if (!text) continue
 
     // Task/package complexity is classified once from new user-role input.
-    // Do not repeatedly re-escalate merely because the agent later repeats
-    // words such as "Unicode" or "credential" in its own narrative.
     if (type === 'user/message') {
+      const text = safeJson(event)
       for (const group of INITIAL_RISK_GROUPS) {
         if (group.pattern.test(text) && !reasons.includes(group.id)) {
           riskScore += group.score
           reasons.push(group.id)
         }
       }
+      continue
     }
 
     // Concrete failed/contradictory execution evidence is a fresh reason to
     // spend a short max-effort burst even in an otherwise routine task.
-    if (type === 'tool/result' && FAILURE_PATTERN.test(text)) {
-      riskScore += 3
-      if (!reasons.includes('failed-or-contradictory-evidence')) {
-        reasons.push('failed-or-contradictory-evidence')
+    if (type === 'tool/result') {
+      const text = safeJson(event)
+      if (FAILURE_PATTERN.test(text)) {
+        riskScore += 3
+        if (!reasons.includes('failed-or-contradictory-evidence')) {
+          reasons.push('failed-or-contradictory-evidence')
+        }
       }
+      continue
     }
 
-    // A concise explicit engineering conclusion can also escalate the next
-    // request when the model has discovered complexity that raw tool output
-    // cannot classify reliably.
-    if (type === 'assistant/message' && DISCOVERY_PATTERN.test(text)) {
+    if (type !== 'assistant/message') continue
+
+    // Inspect only visible assistant text and structured tool calls. Explicitly
+    // exclude reasoning blocks from routing decisions.
+    const visibleText = visibleAssistantText(event)
+    if (DISCOVERY_PATTERN.test(visibleText)) {
       riskScore += 3
       if (!reasons.includes('material-discovery')) reasons.push('material-discovery')
     }
 
-    // Any production-source edit gets a bounded max-effort post-edit window
-    // for impact analysis, tests and root-cause closure.
+    const toolCallText = assistantToolCallText(event)
     if (
-      type === 'assistant/message'
-      && PRODUCTION_EDIT_PATTERN.test(text)
-      && PRODUCTION_PATH_PATTERN.test(text)
+      PRODUCTION_EDIT_PATTERN.test(toolCallText)
+      && PRODUCTION_PATH_PATTERN.test(toolCallText)
     ) {
       productionEdit = true
       if (!reasons.includes('production-source-edit')) {
