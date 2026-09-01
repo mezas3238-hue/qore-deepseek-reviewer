@@ -1,11 +1,11 @@
 {
   "pr_number": 466,
-  "package_id": "HARNESS-BENCHMARK-PR466-7F4F3C71-R1",
+  "package_id": "HARNESS-BENCHMARK-PR466-7F4F3C71-R2-FAST",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "7f4f3c7138b04ec26c7d4b2c448046dd5b2a164f",
   "expected_synthetic": "02b1ec1f851289d54e911e8a008a9d54494d1648",
-  "task_path": "harness/prompts/qore-harness-auditor-v1.md",
+  "task_path": "harness/prompts/qore-harness-auditor-fast-v2.md",
   "mode": "auditor",
   "benchmark_only": true,
-  "dispatch_nonce": "PR466-7F4F3C71-HARNESS-AUDITOR-R1"
+  "dispatch_nonce": "PR466-7F4F3C71-HARNESS-AUDITOR-R2-FAST"
 }
