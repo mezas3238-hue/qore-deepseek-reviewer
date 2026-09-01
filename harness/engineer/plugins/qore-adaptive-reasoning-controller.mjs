@@ -7,7 +7,7 @@ const AUDIT_PATH = process.env.QORE_REASONING_AUDIT_PATH
 const MAX_BURST_STEPS = 3
 const states = new WeakMap()
 
-const RISK_GROUPS = [
+const INITIAL_RISK_GROUPS = [
   {
     id: 'security-secret-hygiene',
     score: 2,
@@ -36,6 +36,7 @@ const RISK_GROUPS = [
 ]
 
 const FAILURE_PATTERN = /\b(?:traceback|assertionerror|failed|failure|mismatch|unexpectedly accepted|bypass|regression|contradiction|material finding|corruption)\b/i
+const DISCOVERY_PATTERN = /\b(?:material finding|contract ambiguity|root cause not closed|unresolved contradiction|insufficient evidence|unexpected bypass|counterexample found)\b/i
 const PRODUCTION_EDIT_PATTERN = /\b(?:str_replace_editor|apply_patch|edit|write)\b/i
 const PRODUCTION_PATH_PATTERN = /(?:^|["'\s])src\/qore\//i
 
@@ -57,8 +58,11 @@ function analyzeFreshEvents(events) {
     const text = safeEventText(event)
     if (!text) continue
 
-    if (type === 'user/message' || type === 'tool/result' || type === 'assistant/message') {
-      for (const group of RISK_GROUPS) {
+    // Task/package complexity is classified once from new user-role input.
+    // Do not repeatedly re-escalate merely because the agent later repeats
+    // words such as "Unicode" or "credential" in its own narrative.
+    if (type === 'user/message') {
+      for (const group of INITIAL_RISK_GROUPS) {
         if (group.pattern.test(text) && !reasons.includes(group.id)) {
           riskScore += group.score
           reasons.push(group.id)
@@ -66,6 +70,8 @@ function analyzeFreshEvents(events) {
       }
     }
 
+    // Concrete failed/contradictory execution evidence is a fresh reason to
+    // spend a short max-effort burst even in an otherwise routine task.
     if (type === 'tool/result' && FAILURE_PATTERN.test(text)) {
       riskScore += 3
       if (!reasons.includes('failed-or-contradictory-evidence')) {
@@ -73,6 +79,16 @@ function analyzeFreshEvents(events) {
       }
     }
 
+    // A concise explicit engineering conclusion can also escalate the next
+    // request when the model has discovered complexity that raw tool output
+    // cannot classify reliably.
+    if (type === 'assistant/message' && DISCOVERY_PATTERN.test(text)) {
+      riskScore += 3
+      if (!reasons.includes('material-discovery')) reasons.push('material-discovery')
+    }
+
+    // Any production-source edit gets a bounded max-effort post-edit window
+    // for impact analysis, tests and root-cause closure.
     if (
       type === 'assistant/message'
       && PRODUCTION_EDIT_PATTERN.test(text)
