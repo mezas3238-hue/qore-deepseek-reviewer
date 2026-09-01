@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18",
+  "dispatch_nonce": "PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18B",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "63ca01f3c38fd0f0be875f455d561a3fc306eceb",
   "expected_synthetic": "588aaf98e4e3b645c790fbfbb41295d80943e441",
-  "package_id": "QORE-PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18",
+  "package_id": "QORE-PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18B",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-63ca01f3-harness-closure-expert-r18.md",
+  "prompt_path": "prompts/qore-pr466-63ca01f3-harness-closure-expert-r18b.md",
   "qg_summary": {
     "coverage_missed_statements": 6237,
     "coverage_percent": 87,
