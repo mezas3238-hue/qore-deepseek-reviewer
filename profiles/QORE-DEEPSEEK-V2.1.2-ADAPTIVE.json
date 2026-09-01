@@ -1,0 +1,102 @@
+{
+  "profile_id": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE",
+  "status": "stable",
+  "supersedes": "QORE-DEEPSEEK-V2.1.1-STABLE",
+  "model": "deepseek-v4-pro",
+  "analysis": "thinking/adaptive-high-max",
+  "reasoning_policy": {
+    "baseline": "high",
+    "escalation": "max",
+    "selector": "scripts/deepseek_adaptive_review_reasoning.py",
+    "selector_blob": "d96e0ffc0f3a11b34db63554fbadbccda355189a",
+    "expert_policy": "MAX for material adversarial/certification work on critical security, Unicode/normalization, retained-state or governance surfaces, or contradictory/failing evidence; otherwise HIGH",
+    "coder_policy": "MAX for production-source implementation work combined with critical or multi-signal edge-case risk, or contradictory/failing evidence; otherwise HIGH",
+    "private_reasoning_routing": false,
+    "audit": "scripts/deepseek_review_reasoning_audit.py",
+    "audit_blob": "f055114160f1fff3acd3b31ae5de052538787f5e",
+    "audit_artifacts": [
+      "deepseek-reasoning-effort.jsonl",
+      "deepseek-reasoning-audit.json"
+    ],
+    "fail_closed": "a successful reviewer run must contain exactly one authoritative final-analysis thinking request with recorded HIGH or MAX effort"
+  },
+  "verdict_emission": "same-model non-thinking extractor only when authoritative adaptive HIGH/MAX analysis lacks a complete visible verdict",
+  "flash_substitution": false,
+  "cot_continuation": false,
+  "evidence_contract": {
+    "mandatory_bundle": [
+      "complete exact content of every BASE-to-HEAD changed file",
+      "exact BASE-to-HEAD patch for modified files",
+      "deterministic semantic slices for directly imported local qore.infrastructure definitions with bounded referenced helpers",
+      "exact frozen repository state, PR binding, HEAD checks and combined commit status",
+      "authenticated exact QORE CI summary bound to the declared quality job and synthetic checkout"
+    ],
+    "planner": "one non-thinking bounded planning call for genuinely additional evidence",
+    "planner_tools": ["read_file", "search_text", "git_show", "github_get"],
+    "search_backend": "git grep -n -F -I over tracked qore-core checkout content",
+    "planner_tool_authority": "read-only and restricted to frozen qore-core checkout / qore-core GitHub endpoints",
+    "tool_result_policy": "exact up to the hard fail-closed gate; no silent pre-clipping",
+    "missing_or_truncated_evidence": "EVIDENCIA INSUFICIENTE / VALIDACIÓN BLOQUEADA"
+  },
+  "exact_qg_contract": {
+    "required": true,
+    "helper": "scripts/exact_qg_evidence.py",
+    "helper_blob": "14d0bd26fdd09375d96b5a72836fbd77fc16b5f9",
+    "package_contract": "scripts/qg_package_contract.py",
+    "package_contract_blob": "b8fef9e7e29ad8e43ed395b35e498a9270df70c7",
+    "raw_validation": "full command windows are fetched, parsed and equality-checked deterministically",
+    "model_transport": "authenticated identity, exact summaries and command-bound synthetic checkout proof only",
+    "max_chars": 8000
+  },
+  "meter": {
+    "path": "scripts/run_review_with_meter.py",
+    "blob": "3034b84276cecd58258bda712e40c8abd1d9a813",
+    "ordinary_route": "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py",
+    "default_profile": "stable",
+    "ordinary_model": "deepseek-v4-pro",
+    "benchmark_selector": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
+  },
+  "alternate_profiles": {
+    "compact-budgeted": {
+      "entrypoint": "scripts/deepseek_reviewer_compact_budgeted_v20.py",
+      "blob": "0b609af51e13a423b8ed4940d98cec89d6a62d3a",
+      "ordinary_default": false,
+      "activation": "explicit DEEPSEEK_REVIEWER_PROFILE=compact-budgeted only"
+    },
+    "benchmark-compact": {
+      "entrypoint": "scripts/deepseek_reviewer_v2_1_2_candidate_entrypoint.py",
+      "blob": "6857ded903c848a9e0f376f8b3854b7d0048918e",
+      "ordinary_default": false,
+      "activation": "PACKAGE_ID prefix BENCHMARK-COMPACT- only"
+    }
+  },
+  "engine_files": {
+    "scripts/deepseek_reviewer.py": "a93e5717ae494825d40abb8fde9fc9b7d52e9142",
+    "scripts/deepseek_reviewer_budgeted.py": "c6ff7604937542a08d33a6c9970d94d4c352dacb",
+    "scripts/deepseek_reviewer_quality_guarded.py": "7a335b6dfcc6f3231ac4817f6bf40cb4c4653dd8",
+    "scripts/deepseek_reviewer_compat_entrypoint.py": "07ef1bb29620e15ae34def3a0b0099bdb2370fc0",
+    "scripts/deepseek_reviewer_v2_entrypoint.py": "d96f44f01770893867df4da3d5744295c952f9b0",
+    "scripts/deepseek_reviewer_v1_3_entrypoint.py": "12e89476fb141dbc9b47b42180091000b1169299",
+    "scripts/deepseek_reviewer_v1_4_entrypoint.py": "e7aa0a106d791bafd493b827c81aa09a8b17975f",
+    "scripts/deepseek_reviewer_v1_5_entrypoint.py": "2ee30420a4016d485fa8e967cca18f30bc9b6b49",
+    "scripts/deepseek_reviewer_v1_6_entrypoint.py": "4835cf05d68495dda5ee369b69fa227aac2aa6a6",
+    "scripts/deepseek_reviewer_v1_7_entrypoint.py": "a65acafe65556056663d8c5d222c8abea4be84a6",
+    "scripts/deepseek_reviewer_v2_0_entrypoint.py": "1d80422bb1182468e0e59304268bb3c7768e69a8",
+    "scripts/deepseek_reviewer_v2_1_entrypoint.py": "ba22f63f4281bc2f2659aebc0d13fea7bf27f6ad",
+    "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "2b27c0ac07c172dfdf9bd01d4551ad0fb130ee54",
+    "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py": "d37e8882d20b8c0e246a6e0a1525b3f4742c09c8",
+    "scripts/deepseek_adaptive_review_reasoning.py": "d96e0ffc0f3a11b34db63554fbadbccda355189a",
+    "scripts/deepseek_review_reasoning_audit.py": "f055114160f1fff3acd3b31ae5de052538787f5e",
+    "scripts/exact_qg_evidence.py": "14d0bd26fdd09375d96b5a72836fbd77fc16b5f9",
+    "scripts/qg_package_contract.py": "b8fef9e7e29ad8e43ed395b35e498a9270df70c7"
+  },
+  "entrypoint": "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py",
+  "entrypoint_blob": "d37e8882d20b8c0e246a6e0a1525b3f4742c09c8",
+  "workflows": {
+    ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
+    ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
+    ".github/workflows/deepseek-qore-review.yml": "c84b3e05f997fe1063a7444f46e15caf636629c9"
+  },
+  "permanent_workflow_count": 3,
+  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts and changes only authoritative thinking-effort selection plus deterministic reasoning audit. HIGH remains the cost-controlled baseline; MAX is selected only by mode-specific materiality signals. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
+}
