@@ -1,0 +1,102 @@
+name: DeepSeek Harness Engineer LSP cache warm
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepseek-harness-engineer-lsp-cache-warm
+  cancel-in-progress: false
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore or create exact Engineer LSP cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Install exact Harness Engineer LSP stack on cache miss
+        if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+        env:
+          DSH_VERSION: 0.1.1-rc.2
+          PYRIGHT_VERSION: 1.1.413
+          INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          NODE_OPTIONS: --max-old-space-size=4096
+          NPM_CONFIG_AUDIT: "false"
+          NPM_CONFIG_FUND: "false"
+          NPM_CONFIG_PROGRESS: "false"
+          NPM_CONFIG_UPDATE_NOTIFIER: "false"
+        run: |
+          set -euo pipefail
+          rm -rf "$INSTALL_ROOT"
+          mkdir -p "$INSTALL_ROOT"
+          npm install --prefix "$INSTALL_ROOT" --no-save --no-audit --no-fund \
+            "@deepseek-ai/dsh@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-lsp@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-lsp-stdio@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-tool-lsp@${DSH_VERSION}" \
+            "pyright@${PYRIGHT_VERSION}"
+
+      - name: Verify cached stack and semantic Python LSP
+        env:
+          DSH_VERSION: 0.1.1-rc.2
+          PYRIGHT_VERSION: 1.1.413
+          INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-engineer-lsp-warm-home
+        run: |
+          set -euo pipefail
+          for PACKAGE in dsh dsh-lsp dsh-lsp-stdio dsh-tool-lsp; do
+            test "$(node -p "require('${INSTALL_ROOT}/node_modules/@deepseek-ai/${PACKAGE}/package.json').version")" = "$DSH_VERSION"
+          done
+          test "$(node -p "require('${INSTALL_ROOT}/node_modules/pyright/package.json').version")" = "$PYRIGHT_VERSION"
+
+          DSH_BIN="$INSTALL_ROOT/node_modules/.bin/dsh"
+          PYRIGHT_LANGSERVER="$INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          test -x "$DSH_BIN"
+          test -x "$PYRIGHT_LANGSERVER"
+
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME"
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - insert:
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          "$DSH_BIN" --profile headless --help >/tmp/dsh-engineer-lsp-help.txt
+          test -s /tmp/dsh-engineer-lsp-help.txt
+
+          cp scripts/harness_lsp_smoke.mjs "$INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" \
+            | tee /tmp/qore-harness-lsp-smoke.json
+          jq -e '.schema == "qore-harness-lsp-smoke-v1" and .definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' \
+            /tmp/qore-harness-lsp-smoke.json >/dev/null
+
+          echo "Engineer LSP cache ready; DeepSeek API was not used."

@@ -6,7 +6,11 @@ on:
       - .github/workflows/deepseek-harness-*.yml
       - harness/**
       - harness_requests/**
+      - harness_engineer_requests/**
       - scripts/harness_package_contract.py
+      - scripts/harness_engineer_package_contract.py
+      - scripts/harness_engineer_gate.py
+      - scripts/harness_lsp_smoke.mjs
   workflow_dispatch:
 
 permissions:
@@ -15,19 +19,22 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           persist-credentials: false
 
-      - name: Compile package contract
+      - name: Compile package contracts and Engineer gate
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/harness_package_contract.py
+          python3 -m py_compile \
+            scripts/harness_package_contract.py \
+            scripts/harness_engineer_package_contract.py \
+            scripts/harness_engineer_gate.py
 
-      - name: Validate accepted and rejected request shapes
+      - name: Validate accepted and rejected auditor request shapes
         run: |
           set -euo pipefail
           python3 scripts/harness_package_contract.py request \
@@ -54,7 +61,101 @@ jobs:
 
           jq '.mode = "engineer"' harness_requests/example.json > /tmp/harness-bad-mode.json
           if python3 scripts/harness_package_contract.py request /tmp/harness-bad-mode.json; then
-            echo "Contract accepted a write-capable mode in Phase 1." >&2
+            echo "Auditor contract accepted a write-capable mode." >&2
+            exit 1
+          fi
+
+      - name: Validate Engineer request contract and Skills
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_package_contract.py request \
+            harness_engineer_requests/example.json > /tmp/engineer-valid.json
+          jq -e '.artifact_only == true and .run_full_qg == true and .mode == "engineer"' \
+            /tmp/engineer-valid.json >/dev/null
+
+          jq '.artifact_only = false' harness_engineer_requests/example.json > /tmp/engineer-not-artifact.json
+          if python3 scripts/harness_engineer_package_contract.py request /tmp/engineer-not-artifact.json; then
+            echo "Engineer contract accepted artifact_only=false." >&2
+            exit 1
+          fi
+
+          jq '.allowed_paths = [".github/workflows/escape.yml"]' \
+            harness_engineer_requests/example.json > /tmp/engineer-forbidden-path.json
+          if python3 scripts/harness_engineer_package_contract.py request /tmp/engineer-forbidden-path.json; then
+            echo "Engineer contract accepted permanently forbidden workflow scope." >&2
+            exit 1
+          fi
+
+          jq '.task_path = "harness/prompts/qore-harness-auditor-v1.md"' \
+            harness_engineer_requests/example.json > /tmp/engineer-bad-task.json
+          if python3 scripts/harness_engineer_package_contract.py request /tmp/engineer-bad-task.json; then
+            echo "Engineer contract accepted a task outside harness/engineer/tasks/." >&2
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          skills = sorted(Path("harness/skills").glob("*/SKILL.md"))
+          assert len(skills) >= 5, skills
+          for path in skills:
+              text = path.read_text(encoding="utf-8")
+              assert text.startswith("---\n"), path
+              _, front, _body = text.split("---", 2)
+              fields = {}
+              for line in front.splitlines():
+                  if ":" in line:
+                      key, value = line.split(":", 1)
+                      fields[key.strip()] = value.strip()
+              assert re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", fields["name"]), path
+              assert fields.get("description"), path
+              assert fields.get("whenToUse"), path
+          print(f"Validated {len(skills)} QORE Harness Skills")
+          PY
+
+      - name: Exercise deterministic Engineer gate without provider I/O
+        run: |
+          set -euo pipefail
+          ROOT="$(mktemp -d)"
+          mkdir -p "$ROOT/src/qore" "$ROOT/tests/example"
+          git -C "$ROOT" init -q
+          git -C "$ROOT" config user.name qore-ci
+          git -C "$ROOT" config user.email qore-ci@invalid
+          printf 'VALUE = 1\n' > "$ROOT/src/qore/example.py"
+          git -C "$ROOT" add .
+          git -C "$ROOT" commit -qm baseline
+          START="$(git -C "$ROOT" rev-parse HEAD)"
+          TREE="$(git -C "$ROOT" show -s --format=%T HEAD)"
+
+          cat > /tmp/engineer-gate-package.json <<EOF
+          {
+            "expected_start": "${START}",
+            "expected_tree": "${TREE}",
+            "allowed_paths": ["src/qore/example.py", "tests/example"],
+            "max_changed_files": 3,
+            "max_diff_lines": 20
+          }
+          EOF
+
+          printf 'VALUE = 2\n' > "$ROOT/src/qore/example.py"
+          printf 'def test_example():\n    assert True\n' > "$ROOT/tests/example/test_new.py"
+          python3 scripts/harness_engineer_gate.py \
+            --workspace "$ROOT" \
+            --package /tmp/engineer-gate-package.json \
+            --patch /tmp/engineer-candidate.patch \
+            --metadata /tmp/engineer-gate.json
+          jq -e '.changed_file_count == 2 and .head_unchanged == true and .remote_count == 0' \
+            /tmp/engineer-gate.json >/dev/null
+          grep -Fq 'tests/example/test_new.py' /tmp/engineer-candidate.patch
+
+          printf 'escape\n' > "$ROOT/README.BAD"
+          if python3 scripts/harness_engineer_gate.py \
+            --workspace "$ROOT" \
+            --package /tmp/engineer-gate-package.json \
+            --patch /tmp/should-not-exist.patch \
+            --metadata /tmp/should-not-exist.json; then
+            echo "Engineer gate accepted an out-of-scope file." >&2
             exit 1
           fi
 
@@ -63,11 +164,12 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install and boot exact Harness CLI without provider credentials
+      - name: Install and exercise exact Harness plus Python LSP without provider credentials
         env:
           DSH_VERSION: 0.1.1-rc.2
+          PYRIGHT_VERSION: 1.1.413
           DSH_HOME: ${{ runner.temp }}/qore-dsh-infra-ci
-          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
           NODE_OPTIONS: --max-old-space-size=4096
           NPM_CONFIG_AUDIT: "false"
           NPM_CONFIG_FUND: "false"
@@ -75,18 +177,59 @@ jobs:
           NPM_CONFIG_UPDATE_NOTIFIER: "false"
         run: |
           set -euo pipefail
-          RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
-          test "$RESOLVED" = "$DSH_VERSION"
+          for PACKAGE in \
+            @deepseek-ai/dsh \
+            @deepseek-ai/dsh-lsp \
+            @deepseek-ai/dsh-lsp-stdio \
+            @deepseek-ai/dsh-tool-lsp; do
+            test "$(npm view "${PACKAGE}@${DSH_VERSION}" version)" = "$DSH_VERSION"
+          done
+          test "$(npm view "pyright@${PYRIGHT_VERSION}" version)" = "$PYRIGHT_VERSION"
+
           rm -rf "$DSH_HOME" "$DSH_INSTALL_ROOT"
           mkdir -p "$DSH_HOME" "$DSH_INSTALL_ROOT"
           npm install --prefix "$DSH_INSTALL_ROOT" --no-save --no-audit --no-fund \
-            "@deepseek-ai/dsh@${DSH_VERSION}"
-          INSTALLED="$(node -p \
-            "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")"
-          test "$INSTALLED" = "$DSH_VERSION"
+            "@deepseek-ai/dsh@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-lsp@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-lsp-stdio@${DSH_VERSION}" \
+            "@deepseek-ai/dsh-tool-lsp@${DSH_VERSION}" \
+            "pyright@${PYRIGHT_VERSION}"
+
+          for PACKAGE in dsh dsh-lsp dsh-lsp-stdio dsh-tool-lsp; do
+            test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/${PACKAGE}/package.json').version")" = "$DSH_VERSION"
+          done
+          test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/pyright/package.json').version")" = "$PYRIGHT_VERSION"
+
           DSH_BIN="$DSH_INSTALL_ROOT/node_modules/.bin/dsh"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
           test -x "$DSH_BIN"
-          "$DSH_BIN" --help >/tmp/dsh-help.txt
+          test -x "$PYRIGHT_LANGSERVER"
+
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - insert:
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+
+          "$DSH_BIN" --profile headless --help >/tmp/dsh-help.txt
           test -s /tmp/dsh-help.txt
           grep -q -- '--profile' /tmp/dsh-help.txt
-          echo "Harness package ${INSTALLED} and CLI contract validated without provider I/O."
+
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" \
+            | tee /tmp/qore-harness-lsp-smoke.json
+          jq -e '.schema == "qore-harness-lsp-smoke-v1" and .definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' \
+            /tmp/qore-harness-lsp-smoke.json >/dev/null
+
+          echo "Harness ${DSH_VERSION} + LSP stack + Pyright ${PYRIGHT_VERSION} validated without provider I/O."

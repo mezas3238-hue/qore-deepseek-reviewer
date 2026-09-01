@@ -1,0 +1,16 @@
+{
+  "package_id": "HARNESS-ENGINEER-EXAMPLE-001",
+  "expected_start": "0000000000000000000000000000000000000000",
+  "expected_tree": "0000000000000000000000000000000000000000",
+  "task_path": "harness/engineer/tasks/example.md",
+  "mode": "engineer",
+  "artifact_only": true,
+  "dispatch_nonce": "EXAMPLE-NOT-FOR-DISPATCH",
+  "allowed_paths": [
+    "src/qore/example.py",
+    "tests/example"
+  ],
+  "max_changed_files": 3,
+  "max_diff_lines": 500,
+  "run_full_qg": true
+}
