@@ -152,6 +152,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Compile benchmark meters
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/harness_usage_meter.py \
+            scripts/deepseek_balance_meter.py
+
       - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
@@ -162,13 +169,17 @@ jobs:
           DSH_VERSION: 0.1.1-rc.2
           DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
           NODE_OPTIONS: --max-old-space-size=4096
+          NPM_CONFIG_AUDIT: "false"
+          NPM_CONFIG_FUND: "false"
+          NPM_CONFIG_PROGRESS: "false"
+          NPM_CONFIG_UPDATE_NOTIFIER: "false"
         run: |
           set -euo pipefail
           RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
           test "$RESOLVED" = "$DSH_VERSION"
           rm -rf "$DSH_INSTALL_ROOT"
           mkdir -p "$DSH_INSTALL_ROOT"
-          npm install --prefix "$DSH_INSTALL_ROOT" --no-save \
+          npm install --prefix "$DSH_INSTALL_ROOT" --no-save --no-audit --no-fund \
             "@deepseek-ai/dsh@${DSH_VERSION}"
           INSTALLED="$(node -p \
             "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")"
@@ -194,7 +205,14 @@ jobs:
             model: deepseek-v4-pro
             reasoningEffort: max
           YAML
-          chmod 600 "$DSH_HOME/settings.yaml"
+          cat > "$DSH_HOME/cordis.patch.yml" <<'YAML'
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          YAML
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
 
       - name: Seal workspace against Git writes and snapshot state
         working-directory: workspace/qore-core
@@ -208,6 +226,14 @@ jobs:
           git remote remove origin || true
           test -z "$(git remote)"
           git status --porcelain=v1 --untracked-files=all > "$RUNNER_TEMP/qore-pre-harness-status.txt"
+
+      - name: Capture DeepSeek balance baseline
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py \
+            snapshot "$RUNNER_TEMP/deepseek-balance-before.json"
 
       - name: Run DeepSeek Harness headless auditor
         id: harness
@@ -245,6 +271,36 @@ jobs:
           "$DSH_BIN" --profile headless "$TASK" \
             | tee "$GITHUB_WORKSPACE/harness-output.md"
           test -s "$GITHUB_WORKSPACE/harness-output.md"
+
+      - name: Measure Harness token usage
+        if: ${{ always() }}
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-home
+        run: |
+          set -euo pipefail
+          if find "$DSH_HOME/sessions" -type f -name session.jsonl -print -quit 2>/dev/null | grep -q .; then
+            python3 scripts/harness_usage_meter.py \
+              --sessions "$DSH_HOME/sessions" \
+              --output harness-usage.json
+          else
+            printf '%s\n' '{"schema":"qore-harness-usage-v1","measurement_available":false,"reason":"no session.jsonl produced"}' \
+              > harness-usage.json
+          fi
+
+      - name: Capture DeepSeek balance delta
+        if: ${{ always() }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          if test -s "$RUNNER_TEMP/deepseek-balance-before.json"; then
+            python3 scripts/deepseek_balance_meter.py \
+              delta "$RUNNER_TEMP/deepseek-balance-before.json" \
+              harness-billing-delta.json
+          else
+            printf '%s\n' '{"schema":"qore-deepseek-balance-delta-v1","measurement_available":false,"reason":"baseline not captured"}' \
+              > harness-billing-delta.json
+          fi
 
       - name: Verify Harness did not mutate tracked Core state
         if: ${{ always() }}
@@ -316,6 +372,8 @@ jobs:
               "model": "deepseek-v4-pro",
               "reasoning_effort": "max",
               "node_options": "--max-old-space-size=4096",
+              "usage_schema": "qore-harness-usage-v1",
+              "balance_delta_schema": "qore-deepseek-balance-delta-v1",
               "run_id": int(os.environ["RUN_ID"]),
               "run_attempt": int(os.environ["RUN_ATTEMPT"]),
               "job_status": os.environ["JOB_STATUS"],
@@ -335,6 +393,9 @@ jobs:
             harness-package.json
             harness-output.md
             harness-run-metadata.json
+            harness-usage.json
+            harness-billing-delta.json
+            ${{ runner.temp }}/qore-dsh-home/sessions/**/session.jsonl
             ${{ runner.temp }}/qore-changed-files.txt
             ${{ runner.temp }}/qore-diff-stat.txt
             ${{ runner.temp }}/qore-pre-harness-status.txt
