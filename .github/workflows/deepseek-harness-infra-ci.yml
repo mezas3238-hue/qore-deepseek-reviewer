@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/deepseek-harness-*.yml
+      - .github/workflows/deepseek-qore-review.yml
       - harness/**
       - harness_requests/**
       - harness_engineer_requests/**
@@ -11,6 +12,8 @@ on:
       - scripts/harness_engineer_package_contract.py
       - scripts/harness_engineer_gate.py
       - scripts/harness_lsp_smoke.mjs
+      - scripts/harness_reasoning_audit.py
+      - scripts/harness_usage_meter.py
   workflow_dispatch:
 
 permissions:
@@ -32,7 +35,35 @@ jobs:
           python3 -m py_compile \
             scripts/harness_package_contract.py \
             scripts/harness_engineer_package_contract.py \
-            scripts/harness_engineer_gate.py
+            scripts/harness_engineer_gate.py \
+            scripts/harness_reasoning_audit.py \
+            scripts/harness_usage_meter.py
+
+      - name: Validate reviewer swarm LSP and reasoning wiring
+        run: |
+          set -euo pipefail
+          EXPERT=harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          CODER=harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
+          REVIEW=.github/workflows/deepseek-qore-review.yml
+          test -s "$EXPERT" && test -s "$CODER" && test -s "$REVIEW"
+          grep -q 'Mandatory five-subagent swarm' "$EXPERT"
+          grep -q 'Mandatory four-subagent swarm' "$CODER"
+          for FILE in "$EXPERT" "$CODER"; do
+            grep -q 'findReferences' "$FILE"
+            grep -Eq 'goToDefinition|goToImplementation' "$FILE"
+            grep -q 'hover' "$FILE"
+            grep -q 'HIGH' "$FILE"
+            grep -q 'MAX' "$FILE"
+          done
+          grep -q 'qore-deepseek-expert-swarm-v1.md' "$REVIEW"
+          grep -q 'qore-deepseek-coder-swarm-v1.md' "$REVIEW"
+          grep -q '@deepseek-ai/dsh-tool-lsp' "$REVIEW"
+          grep -q 'qore-adaptive-reasoning-controller.mjs' "$REVIEW"
+          grep -q 'reasoningEffort: high' "$REVIEW"
+          grep -q 'harness_reasoning_audit.py' "$REVIEW"
+          grep -q 'DSH_PERMISSION_MODE=workspace-write' "$REVIEW"
+          grep -q 'git diff --quiet HEAD --' "$REVIEW"
+          echo 'Reviewer DSH swarm + semantic LSP + adaptive HIGH/MAX wiring validated.'
 
       - name: Validate accepted and rejected auditor request shapes
         run: |
