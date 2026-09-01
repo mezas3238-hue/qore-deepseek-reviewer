@@ -52,7 +52,7 @@ concurrency:
 jobs:
   harness-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
 
     steps:
       - name: Checkout reviewer infrastructure
@@ -186,24 +186,13 @@ jobs:
           path: ${{ runner.temp }}/qore-dsh-install
           key: qore-dsh-${{ runner.os }}-${{ runner.arch }}-node24-0.1.1-rc.2
 
-      - name: Install pinned DeepSeek Harness on cache miss without provider credentials
-        if: steps.dsh-cache.outputs.cache-hit != 'true'
-        env:
-          DSH_VERSION: 0.1.1-rc.2
-          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
-          NODE_OPTIONS: --max-old-space-size=4096
-          NPM_CONFIG_AUDIT: "false"
-          NPM_CONFIG_FUND: "false"
-          NPM_CONFIG_PROGRESS: "false"
-          NPM_CONFIG_UPDATE_NOTIFIER: "false"
+      - name: Require warm Harness cache before API spend
         run: |
           set -euo pipefail
-          RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
-          test "$RESOLVED" = "$DSH_VERSION"
-          rm -rf "$DSH_INSTALL_ROOT"
-          mkdir -p "$DSH_INSTALL_ROOT"
-          npm install --prefix "$DSH_INSTALL_ROOT" --no-save --no-audit --no-fund \
-            "@deepseek-ai/dsh@${DSH_VERSION}"
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || {
+            echo "Exact Harness cache is not warm yet; aborting before DeepSeek API spend." >&2
+            exit 78
+          }
 
       - name: Verify exact cached Harness package and CLI boot
         env:
@@ -220,7 +209,7 @@ jobs:
           "$DSH_BIN" --help > "$RUNNER_TEMP/dsh-help.txt"
           test -s "$RUNNER_TEMP/dsh-help.txt"
           grep -q -- '--profile' "$RUNNER_TEMP/dsh-help.txt"
-          echo "Pinned Harness ready: ${INSTALLED}; cache_hit=${{ steps.dsh-cache.outputs.cache-hit }}"
+          echo "Pinned Harness ready from cache: ${INSTALLED}."
 
       - name: Prepare isolated Harness runtime
         env:
