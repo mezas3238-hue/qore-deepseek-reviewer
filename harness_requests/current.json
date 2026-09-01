@@ -1,11 +1,11 @@
 {
   "pr_number": 466,
-  "package_id": "HARNESS-BENCHMARK-PR466-5205B663-R17-DEEP-ABCD-001",
+  "package_id": "HARNESS-BENCHMARK-PR466-5205B663-R17-DEEP-ABCD-002",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "5205b663579e35a711446da03a483c57ea786476",
   "expected_synthetic": "ab8016632ca3c449c1c702e378bff95e7f2ea5ae",
   "task_path": "harness/prompts/qore-harness-auditor-deep-v3.md",
   "mode": "auditor",
   "benchmark_only": true,
-  "dispatch_nonce": "PR466-5205B663-HARNESS-AUDITOR-R17-DEEP-ABCD-001"
+  "dispatch_nonce": "PR466-5205B663-HARNESS-AUDITOR-R17-DEEP-ABCD-002"
 }
