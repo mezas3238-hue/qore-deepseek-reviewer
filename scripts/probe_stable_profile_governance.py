@@ -10,7 +10,8 @@ from pathlib import Path
 import exact_qg_evidence as qg
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "profiles" / "QORE-DEEPSEEK-V2.1.1-STABLE.json"
+ACTIVE_MANIFEST = ROOT / "profiles" / "QORE-DEEPSEEK-V2.1.2-ADAPTIVE.json"
+HISTORICAL_MANIFEST = ROOT / "profiles" / "QORE-DEEPSEEK-V2.1.1-STABLE.json"
 
 
 def _blob(path: Path) -> str:
@@ -145,27 +146,39 @@ def _probe_routing_and_manifest() -> None:
     assert 'elif _REVIEWER_PROFILE == "compact-budgeted"' in meter
     assert 'elif _REVIEWER_PROFILE == "stable"' in meter
     assert 'startswith("BENCHMARK-COMPACT-")' in meter
+    assert "deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py" in meter
 
-    stable_entry = (
-        ROOT / "scripts" / "deepseek_reviewer_v2_1_1_entrypoint.py"
-    ).read_text(encoding="utf-8")
-    assert "import exact_qg_evidence as exact_qg" in stable_entry
-    assert "v21.v13.build_baseline_evidence = _build_baseline_with_exact_qg" in stable_entry
+    historical = json.loads(HISTORICAL_MANIFEST.read_text(encoding="utf-8"))
+    assert historical["profile_id"] == "QORE-DEEPSEEK-V2.1.1-STABLE"
+    assert historical["status"] == "superseded"
+    assert historical["superseded_by"] == "QORE-DEEPSEEK-V2.1.2-ADAPTIVE"
 
-    stable_manifests = list((ROOT / "profiles").glob("*STABLE*.json"))
-    assert stable_manifests == [MANIFEST], stable_manifests
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
-    assert manifest["profile_id"] == "QORE-DEEPSEEK-V2.1.1-STABLE"
+    manifest = json.loads(ACTIVE_MANIFEST.read_text(encoding="utf-8"))
+    assert manifest["profile_id"] == "QORE-DEEPSEEK-V2.1.2-ADAPTIVE"
     assert manifest["status"] == "stable"
+    assert manifest["supersedes"] == historical["profile_id"]
     assert manifest["model"] == "deepseek-v4-pro"
-    assert manifest["entrypoint"] == "scripts/deepseek_reviewer_v2_1_1_entrypoint.py"
+    assert manifest["analysis"] == "thinking/adaptive-high-max"
+    assert manifest["reasoning_policy"]["baseline"] == "high"
+    assert manifest["reasoning_policy"]["escalation"] == "max"
+    assert manifest["entrypoint"] == "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py"
     assert manifest["meter"]["ordinary_route"] == manifest["entrypoint"]
     assert manifest["meter"]["default_profile"] == "stable"
     assert manifest["alternate_profiles"]["compact-budgeted"]["ordinary_default"] is False
 
+    expected_workflows = {
+        ".github/workflows/deepseek-auto-dispatch.yml",
+        ".github/workflows/deepseek-connection-test.yml",
+        ".github/workflows/deepseek-qore-review.yml",
+    }
+    workflows = manifest["workflows"]
+    assert set(workflows) == expected_workflows
+    assert manifest["permanent_workflow_count"] == 3
+    assert ".github/workflows/qore-orchestrator-completion-callback.yml" not in workflows
+
     paths: dict[str, str] = {}
     paths.update(manifest["engine_files"])
-    paths.update(manifest["workflows"])
+    paths.update(workflows)
     paths[manifest["meter"]["path"]] = manifest["meter"]["blob"]
     for relative, expected_blob in sorted(paths.items()):
         actual = _blob(ROOT / relative)
@@ -175,7 +188,7 @@ def _probe_routing_and_manifest() -> None:
 def main() -> int:
     _probe_exact_qg()
     _probe_routing_and_manifest()
-    print("Stable profile governance and exact-QG probes passed.")
+    print("Active adaptive profile governance and exact-QG probes passed.")
     return 0
 
 
