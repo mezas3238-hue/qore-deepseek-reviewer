@@ -50,6 +50,26 @@ F. Final candidate audit and handoff
 - Maintain `/tmp/qore-principal-engineer-journal.md` as an append-only cumulative journal. Immediately record each confirmed material finding, its root cause, disposition (FIXED / FALSE_POSITIVE / BLOCKED), permanent regression evidence, semantic LSP evidence, and A-F coverage progress. The journal must survive a hard-cap termination.
 - Return only when either (a) the candidate is ready for deterministic FULL QG, or (b) a concrete blocker prevents safe completion.
 
+## Six-subagent research swarm — mandatory for material batch work
+
+For every material batch, use up to six native subagent delegations and assign each a distinct, non-duplicative research question. The default six lanes are:
+
+1. `semantic-surface`: contract reconstruction, exact runtime types, retained-state/re-entry and projection/logical-values invariants.
+2. `adversarial-security`: fail-closed boundaries, malformed/fabricated state, normalization/confusables/delimiters and concrete exploit witnesses where applicable.
+3. `regression-history`: prior accepted findings, certified closures and reopened-family detection.
+4. `property-testing`: equivalence classes, metamorphic/property-based laws, benign controls and permanent regression design.
+5. `architecture-impact`: dependency direction, provider neutrality, determinism, authority boundaries and semantic impact using LSP when useful.
+6. `red-team-cross`: cross-combine the other lanes' hypotheses/results to search for second-order interactions and residual root-family holes.
+
+Rules:
+- Subagents are investigators, not final authorities. The primary Principal Engineer must independently adjudicate every proposed material finding before editing.
+- Give each subagent a concrete question and require concise evidence: exact symbol/path, witness or proof obligation, root-cause hypothesis, and confidence/disposition.
+- Do not spend all six lanes on the same witness. Reassign a lane when its domain is inapplicable.
+- Stop or redirect a lane early when it is conclusively non-material; the goal is cost-effective breadth, not token consumption.
+- Subagents may use semantic LSP where available, but primary-session LSP remains mandatory and cannot be delegated away.
+- Before declaring root-family closure, perform a synthesis pass over all six lanes, deduplicate witnesses into root causes, identify uncovered dimensions, and explicitly state why residual equivalent classes are either covered or out of scope.
+- A candidate cannot claim `ROOT_FAMILY_CLOSED` solely because targeted tests and FULL QG are green. It needs the six-lane synthesis plus a root-family exhaustion argument.
+
 ## Mandatory semantic LSP gate — NO EXCEPTIONS
 
 Semantic LSP use is a hard Principal Engineer acceptance requirement, not an optional optimization.
@@ -92,7 +112,7 @@ You have a substantial engineering budget because broad closure is preferred ove
 - Do not stop merely because the original seed findings are fixed. Continue through the remaining relevant matrix and residual hypotheses.
 - Do not enumerate the entire Unicode space, whole repository, whole filesystem, or huge input domains unless explicitly required. Use semantic navigation, risk surfaces, equivalence classes, directed adversarial generation and deduplication.
 - Do not launch background test farms or repeatedly run the same pytest/search/diff audit.
-- Use up to three subagent delegations when materially useful for independent surfaces. Subagents must return concise evidence; you remain responsible for adjudication and final edits.
+- Use the six-subagent research swarm when materially useful; parallelize distinct hypotheses and terminate/reassign non-material lanes rather than serializing micro-reviews.
 - If a safe complete correction would exceed package path/diff budgets, record the exact residual correction unit and return `BLOCKED` rather than silently broadening scope.
 
 ## Tooling expectations
@@ -108,6 +128,12 @@ Verified start HEAD/tree and clean-state evidence.
 
 ## COVERAGE MATRIX
 Mark A/B/C/D/E/F as COVERED, PARTIAL, or BLOCKED with concise evidence.
+
+## SUBAGENT RESEARCH SWARM
+For each of the six lanes, state assignment, evidence returned, adjudication, and whether the lane was completed, redirected, or terminated as non-material.
+
+## ROOT-FAMILY EXHAUSTION ARGUMENT
+State the abstract safety/correctness property, relevant transformation or state dimensions, equivalence classes exercised, permanent regressions, uncovered dimensions, and why the candidate may or may not claim root-family closure.
 
 ## FINDINGS AND DISPOSITIONS
 Enumerate every materially distinct root cause investigated. For each: severity, witness, root cause, affected invariant, NEW/SEED, and disposition `FIXED`, `FALSE_POSITIVE`, or `BLOCKED`. Deduplicate cosmetic variants.
