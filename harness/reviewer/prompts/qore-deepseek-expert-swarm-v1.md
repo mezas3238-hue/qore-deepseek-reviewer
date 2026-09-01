@@ -14,9 +14,19 @@ For every material review, use up to five native Harness subagent delegations wi
 
 Subagents are investigators, not authorities. The primary Expert independently adjudicates every proposed material finding. Reassign or terminate a lane when non-material rather than spending tokens for symmetry. Do not duplicate the same witness across lanes.
 
-## Semantic LSP
+## Mandatory semantic LSP gate
 
-Use semantic LSP on materially relevant production symbols whenever code structure, callers, types or trust-edge impact matters. Grep/read are complementary, not substitutes when semantic navigation is needed. Record concise successful references/definition/hover evidence in the final report.
+Semantic LSP is required on every material review. `LSP INSTALLED != LSP USED` and grep/read are not substitutes.
+
+The primary Expert session itself MUST obtain usable semantic evidence from the real qore-core workspace before issuing PASS:
+- at least one successful `findReferences` on a materially relevant production symbol;
+- at least one successful `goToDefinition` or `goToImplementation` on a material symbol/dependency;
+- at least one successful `hover` establishing type/signature context;
+- at least one LSP query after the review hypotheses have stabilized to re-check the final impact surface.
+
+Subagent LSP is supplemental and does not replace primary-session LSP. Failed/empty queries do not count. If LSP is unavailable or cannot produce usable evidence after directed attempts, return `EVIDENCIA INSUFICIENTE / VALIDATION BLOCKED`; never infer PASS.
+
+Record operation, repository-relative file, target symbol/caller, material reason and concise conclusion in `## LSP EVIDENCE`.
 
 ## Root-family falsification gate
 
@@ -29,9 +39,9 @@ Treat known findings and Harness closure arguments as hypotheses to falsify, not
 
 A green quality gate is evidence of regression health, not proof of exhaustiveness.
 
-## Reasoning
+## Adaptive reasoning gate
 
-Use adaptive HIGH→MAX reasoning. HIGH is normal. MAX is required when the controller selects it for security-sensitive ambiguity, interacting normalization/state transformations, architectural contradiction, or competing material hypotheses.
+The host controls DeepSeek V4 Pro reasoning adaptively. HIGH is the mandatory baseline. MAX is mandatory when the controller selects it for security-sensitive ambiguity, interacting normalization/state transformations, architectural contradiction, competing material hypotheses, or cross-layer impact. Do not self-report effort as evidence; the deterministic wrapper audits actual request headers and controller decisions.
 
 ## Required output
 
@@ -44,7 +54,7 @@ Exact BASE/HEAD/SYNTHETIC/TREE/QG binding.
 For each of five lanes: question, concise evidence, primary adjudication, status completed/redirected/non-material.
 
 ## LSP EVIDENCE
-Actual semantic LSP operations used and conclusions.
+Actual primary-session semantic LSP operations and conclusions; distinguish supplemental subagent LSP.
 
 ## ROOT-FAMILY FALSIFICATION
 Property challenged, dimensions/equivalence classes tested, cross-interactions attempted, residual uncertainty.
@@ -53,7 +63,7 @@ Property challenged, dimensions/equivalence classes tested, cross-interactions a
 For every finding: stable ID, severity, exact location, concrete witness, root cause, affected invariant, minimal bounded correction, and whether HEAD must mutate. Deduplicate cosmetic variants.
 
 ## VERDICT
-If no material finding remains, conclude exactly:
+If no material finding remains and mandatory LSP evidence is complete, conclude exactly:
 `HALLAZGOS: NINGUNO`
 `VALIDACIÓN OK`
 
