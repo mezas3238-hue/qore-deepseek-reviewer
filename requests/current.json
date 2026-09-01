@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-25601529-DS-EXPERT-DOUBLE-HYPHEN-R16",
+  "dispatch_nonce": "PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "256015297b4547b411ea447b27c4255962194775",
-  "expected_synthetic": "b1f5125692314ecd7888a34de91c947b527db8ec",
-  "package_id": "QORE-PR466-25601529-DS-EXPERT-DOUBLE-HYPHEN-R16",
+  "expected_head": "5205b663579e35a711446da03a483c57ea786476",
+  "expected_synthetic": "ab8016632ca3c449c1c702e378bff95e7f2ea5ae",
+  "package_id": "QORE-PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-25601529-double-hyphen-expert-r16.md",
+  "prompt_path": "prompts/qore-pr466-5205b663-extended-dash-expert-r17.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
     "coverage_total_statements": 47659,
-    "job_id": 99729553989,
-    "mypy_source_files": 748,
-    "pytest_collected": 5100,
-    "pytest_passed": 5100,
+    "job_id": 99774025076,
+    "mypy_source_files": 749,
+    "pytest_collected": 5118,
+    "pytest_passed": 5118,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33467245917
+    "run_id": 33482174441
   },
   "review_mode": "expert"
 }
