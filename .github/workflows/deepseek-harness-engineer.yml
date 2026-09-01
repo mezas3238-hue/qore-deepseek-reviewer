@@ -198,10 +198,14 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf "$DSH_HOME"
-          mkdir -p "$DSH_HOME/skills"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
           chmod 700 "$DSH_HOME"
           cp -R harness/skills/. "$DSH_HOME/skills/"
           test "$(find "$DSH_HOME/skills" -name SKILL.md -type f | wc -l)" -ge 5
+
+          # Cordis resolves named profile plugins relative to DSH_HOME/profiles/headless.
+          # Expose the already pinned/cache-verified install there without copying or reinstalling.
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
 
           PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
           cat > "$DSH_HOME/settings.yaml" <<'EOF'
@@ -233,7 +237,7 @@ jobs:
           EOF
           chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
 
-      - name: Verify profile boot and semantic Python LSP before API spend
+      - name: Verify profile package resolution and semantic Python LSP before API spend
         env:
           DSH_HOME: ${{ runner.temp }}/qore-dsh-engineer-home
           DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
@@ -242,6 +246,21 @@ jobs:
           set -euo pipefail
           DSH_BIN="$DSH_INSTALL_ROOT/node_modules/.bin/dsh"
           PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+
+          cat > "$DSH_HOME/profiles/headless/qore-lsp-profile-resolution-smoke.mjs" <<'EOF'
+          const packages = [
+            '@deepseek-ai/dsh-lsp',
+            '@deepseek-ai/dsh-lsp-stdio',
+            '@deepseek-ai/dsh-tool-lsp',
+          ];
+          const resolved = Object.fromEntries(packages.map((name) => [name, import.meta.resolve(name)]));
+          console.log(JSON.stringify({ schema: 'qore-harness-lsp-profile-resolution-v1', resolved }));
+          EOF
+          node "$DSH_HOME/profiles/headless/qore-lsp-profile-resolution-smoke.mjs" \
+            | tee harness-engineer-lsp-profile-resolution.json
+          jq -e '.schema == "qore-harness-lsp-profile-resolution-v1" and (.resolved | length) == 3' \
+            harness-engineer-lsp-profile-resolution.json >/dev/null
+
           "$DSH_BIN" --profile headless --help > "$RUNNER_TEMP/dsh-engineer-lsp-help.txt"
           test -s "$RUNNER_TEMP/dsh-engineer-lsp-help.txt"
           grep -q -- '--profile' "$RUNNER_TEMP/dsh-engineer-lsp-help.txt"
@@ -474,6 +493,7 @@ jobs:
             harness-engineer-run-metadata.json
             harness-engineer-usage.json
             harness-engineer-billing-delta.json
+            harness-engineer-lsp-profile-resolution.json
             harness-engineer-lsp-smoke.json
             harness-engineer-ruff.log
             harness-engineer-mypy.log
@@ -489,5 +509,5 @@ jobs:
         if: ${{ success() }}
         run: |
           echo "QORE Harness Engineer candidate passed deterministic scope gate and external FULL QG."
-          echo "Python semantic LSP was prevalidated before DeepSeek API spend."
+          echo "Python semantic LSP and headless-profile package resolution were prevalidated before DeepSeek API spend."
           echo "No qore-core commit, push, merge, or review publication was performed."
