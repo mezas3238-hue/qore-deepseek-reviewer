@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18B",
+  "dispatch_nonce": "PR466-CDA1EB8D-DS-EXPERT-R18B-ROOT-CLOSURE-R19",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "63ca01f3c38fd0f0be875f455d561a3fc306eceb",
-  "expected_synthetic": "588aaf98e4e3b645c790fbfbb41295d80943e441",
-  "package_id": "QORE-PR466-63CA01F3-DS-EXPERT-HARNESS-CLOSURE-R18B",
+  "expected_head": "cda1eb8d9b53dee456e7c3639d76de7e63fbd7c8",
+  "expected_synthetic": "89314a1090fca1eeb7567609cd43a1176888ec6c",
+  "package_id": "QORE-PR466-CDA1EB8D-DS-EXPERT-R18B-ROOT-CLOSURE-R19",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-63ca01f3-harness-closure-expert-r18b.md",
+  "prompt_path": "prompts/qore-pr466-cda1eb8d-r18b-root-closure-expert-r19.md",
   "qg_summary": {
     "coverage_missed_statements": 6237,
     "coverage_percent": 87,
-    "coverage_total_statements": 47699,
-    "job_id": 99953867154,
-    "mypy_source_files": 750,
-    "pytest_collected": 5287,
-    "pytest_passed": 5287,
+    "coverage_total_statements": 47700,
+    "job_id": 100005228854,
+    "mypy_source_files": 751,
+    "pytest_collected": 5357,
+    "pytest_passed": 5357,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33537066916
+    "run_id": 33552538346
   },
   "review_mode": "expert"
 }
