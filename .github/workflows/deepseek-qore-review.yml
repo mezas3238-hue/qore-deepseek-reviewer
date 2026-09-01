@@ -37,11 +37,11 @@ on:
           - coder
         default: expert
       prompt_path:
-        description: Prompt file in reviewer repository
+        description: Target-specific prompt file in reviewer repository
         required: true
         default: prompts/unr013-r8-expert.md
       benchmark_only:
-        description: Execute exact reviewer for token benchmarking without publishing to qore-core
+        description: Execute exact reviewer for benchmarking without publishing to qore-core
         required: true
         type: boolean
         default: false
@@ -53,7 +53,7 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
 
     steps:
       - name: Checkout reviewer infrastructure
@@ -67,25 +67,19 @@ jobs:
           EXPECTED_QG_SUMMARY_JSON: ${{ inputs.expected_qg_summary }}
         run: |
           set -euo pipefail
-
-          CONTRACT="$(
-            python3 scripts/qg_package_contract.py workflow \
-              "$PACKAGE_ID" "$BENCHMARK_ONLY" "$EXPECTED_QG_SUMMARY_JSON"
-          )"
+          CONTRACT="$(python3 scripts/qg_package_contract.py workflow "$PACKAGE_ID" "$BENCHMARK_ONLY" "$EXPECTED_QG_SUMMARY_JSON")"
           echo "qg_summary=$(jq -c '.qg_summary' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
           echo "benchmark_only=$(jq -r '.benchmark_only' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
           echo "publish_allowed=$(jq -r '.publish_allowed' <<<"$CONTRACT")" >>"$GITHUB_OUTPUT"
-          echo "Package routing and publication contract validated."
 
-      - name: Validate adaptive Expert Coder reasoning before API spend
+      - name: Validate DSH reviewer controls before API spend
         run: |
           set -euo pipefail
-          python3 -m py_compile \
-            scripts/deepseek_adaptive_review_reasoning.py \
-            scripts/deepseek_review_reasoning_audit.py \
-            scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py \
-            scripts/run_review_with_meter.py
-          python3 scripts/deepseek_adaptive_review_reasoning.py --self-test
+          python3 -m py_compile scripts/harness_reasoning_audit.py scripts/harness_usage_meter.py scripts/deepseek_balance_meter.py
+          node --check harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs
+          test -s harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          test -s harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
+          test -s "${{ inputs.prompt_path }}"
 
       - name: Create QORE Reviewer installation token
         id: app-token
@@ -105,24 +99,12 @@ jobs:
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
         run: |
           set -euo pipefail
-
           PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
-          LIVE_STATE="$(printf '%s' "$PR_JSON" | jq -r '.state')"
-          LIVE_MERGED="$(printf '%s' "$PR_JSON" | jq -r '.merged')"
-          LIVE_BASE="$(printf '%s' "$PR_JSON" | jq -r '.base.sha')"
-          LIVE_HEAD="$(printf '%s' "$PR_JSON" | jq -r '.head.sha')"
-          LIVE_SYNTHETIC="$(printf '%s' "$PR_JSON" | jq -r '.merge_commit_sha')"
-
-          echo "PR state: ${LIVE_STATE}; merged=${LIVE_MERGED}"
-          echo "BASE: ${LIVE_BASE}"
-          echo "HEAD: ${LIVE_HEAD}"
-          echo "SYNTHETIC: ${LIVE_SYNTHETIC}"
-
-          test "$LIVE_STATE" = "open"
-          test "$LIVE_MERGED" = "false"
-          test "$LIVE_BASE" = "$EXPECTED_BASE"
-          test "$LIVE_HEAD" = "$EXPECTED_HEAD"
-          test "$LIVE_SYNTHETIC" = "$EXPECTED_SYNTHETIC"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
 
       - name: Checkout exact qore-core HEAD
         uses: actions/checkout@v4
@@ -143,60 +125,243 @@ jobs:
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
         run: |
           set -euo pipefail
-
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           git cat-file -e "${EXPECTED_BASE}^{commit}"
-
-          git fetch origin \
-            "refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/qore-review-merge"
-
-          LIVE_SYNTHETIC="$(git rev-parse refs/remotes/origin/qore-review-merge)"
-          test "$LIVE_SYNTHETIC" = "$EXPECTED_SYNTHETIC"
-
-          PARENTS="$(git show -s --format=%P "$EXPECTED_SYNTHETIC")"
-          test "$PARENTS" = "$EXPECTED_BASE $EXPECTED_HEAD"
-
+          git fetch origin "refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/qore-review-merge"
+          test "$(git rev-parse refs/remotes/origin/qore-review-merge)" = "$EXPECTED_SYNTHETIC"
+          test "$(git show -s --format=%P "$EXPECTED_SYNTHETIC")" = "$EXPECTED_BASE $EXPECTED_HEAD"
           HEAD_TREE="$(git show -s --format=%T "$EXPECTED_HEAD")"
           SYNTHETIC_TREE="$(git show -s --format=%T "$EXPECTED_SYNTHETIC")"
           test "$HEAD_TREE" = "$SYNTHETIC_TREE"
+          echo "$HEAD_TREE" > "$GITHUB_WORKSPACE/deepseek-review-tree.txt"
+          git diff --name-status "$EXPECTED_BASE" "$EXPECTED_HEAD" > "$GITHUB_WORKSPACE/deepseek-review-changed-files.txt"
+          git diff --stat "$EXPECTED_BASE" "$EXPECTED_HEAD" > "$GITHUB_WORKSPACE/deepseek-review-diff-stat.txt"
 
-          echo "Frozen binding verified."
-          git diff --name-status "$EXPECTED_BASE" "$EXPECTED_HEAD"
-          git diff --stat "$EXPECTED_BASE" "$EXPECTED_HEAD"
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Run independent DeepSeek reviewer with spend meter
-        id: reviewer
+      - name: Install qore-core development dependencies for semantic LSP
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore exact DSH plus LSP cache
+        id: dsh-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Require warm exact DSH plus LSP cache before API spend
+        run: |
+          set -euo pipefail
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || exit 78
+          ROOT="${{ runner.temp }}/qore-dsh-engineer-lsp-install"
+          test "$(node -p "require('${ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")" = "0.1.1-rc.2"
+          test "$(node -p "require('${ROOT}/node_modules/pyright/package.json').version")" = "1.1.413"
+          test -x "$ROOT/node_modules/.bin/dsh"
+          test -x "$ROOT/node_modules/.bin/pyright-langserver"
+
+      - name: Prepare DSH reviewer runtime, QORE Skills, LSP, subagents and adaptive reasoning
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-reviewer-home
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+        run: |
+          set -euo pipefail
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
+          chmod 700 "$DSH_HOME"
+          cp -R harness/skills/. "$DSH_HOME/skills/"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          REASONING_PLUGIN="$DSH_HOME/profiles/headless/qore-adaptive-reasoning-controller.mjs"
+          cp harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs "$REASONING_PLUGIN"
+
+          cat > "$DSH_HOME/settings.yaml" <<'YAML'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: high
+          YAML
+
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          - insert:
+              - id: qore-adaptive-reasoning-controller
+                name: '${REASONING_PLUGIN}'
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
+
+          cat > "$DSH_HOME/profiles/headless/qore-resolution-smoke.mjs" <<'EOF'
+          const names=['@deepseek-ai/dsh-lsp','@deepseek-ai/dsh-lsp-stdio','@deepseek-ai/dsh-tool-lsp'];
+          console.log(JSON.stringify(Object.fromEntries(names.map(n=>[n,import.meta.resolve(n)]))));
+          EOF
+          node "$DSH_HOME/profiles/headless/qore-resolution-smoke.mjs" > deepseek-review-lsp-resolution.json
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" > deepseek-review-lsp-smoke.json
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' deepseek-review-lsp-smoke.json >/dev/null
+
+      - name: Seal qore-core publication authority before model execution
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          git remote remove origin || true
+          test -z "$(git remote)"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Capture DeepSeek balance baseline
         env:
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          QORE_ROOT: ${{ github.workspace }}/workspace/qore-core
-          PR_NUMBER: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py snapshot "$RUNNER_TEMP/deepseek-reviewer-before.json"
+
+      - name: Run independent DSH Expert or Coder swarm reviewer
+        id: reviewer
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-reviewer-home
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          DSH_BIN: ${{ runner.temp }}/qore-dsh-engineer-lsp-install/node_modules/.bin/dsh
+          REVIEW_MODE: ${{ inputs.review_mode }}
+          TARGET_PROMPT_PATH: ${{ github.workspace }}/${{ inputs.prompt_path }}
           PACKAGE_ID: ${{ inputs.package_id }}
           EXPECTED_BASE: ${{ inputs.expected_base }}
           EXPECTED_HEAD: ${{ inputs.expected_head }}
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
           EXPECTED_QG_SUMMARY_JSON: ${{ steps.package-contract.outputs.qg_summary }}
-          REVIEW_MODE: ${{ inputs.review_mode }}
-          PROMPT_PATH: ${{ github.workspace }}/${{ inputs.prompt_path }}
-          REVIEW_OUTPUT: ${{ github.workspace }}/deepseek-review.md
-          DEEPSEEK_REASONING_AUDIT: ${{ github.workspace }}/deepseek-reasoning-effort.jsonl
-          DEEPSEEK_MODEL: deepseek-v4-pro
-          DEEPSEEK_MAX_MANDATORY_CHANGED_CHARS: "600000"
-          DEEPSEEK_MAX_FINAL_EVIDENCE_CHARS: "650000"
         run: |
           set -euo pipefail
-          python3 scripts/run_review_with_meter.py
+          if test "$REVIEW_MODE" = "expert"; then
+            SWARM_PROMPT="$GITHUB_WORKSPACE/harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md"
+          else
+            SWARM_PROMPT="$GITHUB_WORKSPACE/harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md"
+          fi
+          BASE_PROMPT="$(cat "$SWARM_PROMPT")"
+          TARGET_PROMPT="$(cat "$TARGET_PROMPT_PATH")"
+          TREE="$(cat "$GITHUB_WORKSPACE/deepseek-review-tree.txt")"
+          TASK="$(cat <<EOF
+          ${BASE_PROMPT}
 
-      - name: Verify adaptive HIGH MAX reasoning evidence
+          # TARGET-SPECIFIC REVIEW PACKAGE
+          ${TARGET_PROMPT}
+
+          # IMMUTABLE BINDING
+          package_id=${PACKAGE_ID}
+          review_mode=${REVIEW_MODE}
+          expected_base=${EXPECTED_BASE}
+          expected_head=${EXPECTED_HEAD}
+          expected_synthetic=${EXPECTED_SYNTHETIC}
+          expected_tree=${TREE}
+          expected_qg_summary=${EXPECTED_QG_SUMMARY_JSON}
+
+          Work only against this exact frozen checkout. Use native subagents according to your role mandate. Semantic LSP in the primary session is mandatory. The host adaptively controls reasoning effort: HIGH baseline, MAX for material complexity/risk. You have up to 60 minutes but should finish as soon as the review is genuinely complete. No repository edits, commit, remote, push, merge, publication, network research, Production authority or real-capital action.
+          EOF
+          )"
+
+          mkdir -p "$RUNNER_TEMP/qore-reviewer-process-home"
+          START_EPOCH="$(date +%s)"
+          set +e
+          env -i \
+            PATH="$DSH_INSTALL_ROOT/node_modules/.bin:$PATH" \
+            HOME="$RUNNER_TEMP/qore-reviewer-process-home" \
+            TMPDIR="$RUNNER_TEMP" \
+            LANG=C.UTF-8 LC_ALL=C.UTF-8 CI=true \
+            DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+            DSH_HOME="$DSH_HOME" \
+            DSH_PERMISSION_MODE=workspace-write \
+            QORE_REASONING_AUDIT_PATH=/tmp/qore-reviewer-reasoning-controller.jsonl \
+            NODE_OPTIONS=--max-old-space-size=4096 \
+            PYTHONDONTWRITEBYTECODE=1 \
+            timeout --signal=TERM --kill-after=30s 60m \
+              "$DSH_BIN" --profile headless "$TASK" \
+              | tee "$GITHUB_WORKSPACE/deepseek-review.md"
+          STATUS="${PIPESTATUS[0]}"
+          set -e
+          END_EPOCH="$(date +%s)"
+          printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/deepseek-reviewer-ai-seconds.txt"
+          test "$STATUS" -eq 0
+          test -s "$GITHUB_WORKSPACE/deepseek-review.md"
+          grep -q '^## SUBAGENT SWARM' "$GITHUB_WORKSPACE/deepseek-review.md"
+          grep -q '^## LSP EVIDENCE' "$GITHUB_WORKSPACE/deepseek-review.md"
+          grep -Eq 'VALIDACIÓN OK|EVIDENCIA INSUFICIENTE|VALIDATION BLOCKED|## MATERIAL FINDINGS' "$GITHUB_WORKSPACE/deepseek-review.md"
+
+      - name: Measure DSH reviewer usage
+        if: ${{ always() }}
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-reviewer-home
+        run: |
+          set -euo pipefail
+          if find "$DSH_HOME/sessions" -type f -name session.jsonl -print -quit 2>/dev/null | grep -q .; then
+            python3 scripts/harness_usage_meter.py --sessions "$DSH_HOME/sessions" --output deepseek-reviewer-usage.json
+          else
+            printf '%s\n' '{"measurement_available":false,"reason":"no session.jsonl produced"}' > deepseek-reviewer-usage.json
+          fi
+
+      - name: Enforce adaptive HIGH to MAX reasoning evidence
         if: ${{ steps.reviewer.outcome == 'success' }}
         env:
-          REVIEW_MODE: ${{ inputs.review_mode }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-reviewer-home
         run: |
           set -euo pipefail
-          python3 scripts/deepseek_review_reasoning_audit.py \
-            --audit deepseek-reasoning-effort.jsonl \
-            --mode "$REVIEW_MODE" \
+          python3 scripts/harness_reasoning_audit.py \
+            --sessions "$DSH_HOME/sessions" \
+            --controller-audit /tmp/qore-reviewer-reasoning-controller.jsonl \
             --output deepseek-reasoning-audit.json
+
+      - name: Enforce immutable read-only candidate after reviewer
+        if: ${{ steps.reviewer.outcome == 'success' }}
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git remote)"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Capture DeepSeek balance delta
+        if: ${{ always() }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          if test -s "$RUNNER_TEMP/deepseek-reviewer-before.json"; then
+            python3 scripts/deepseek_balance_meter.py delta "$RUNNER_TEMP/deepseek-reviewer-before.json" deepseek-reviewer-billing-delta.json
+          else
+            printf '%s\n' '{"measurement_available":false,"reason":"baseline not captured"}' > deepseek-reviewer-billing-delta.json
+          fi
 
       - name: Revalidate complete frozen PR immediately before publication
         env:
@@ -207,27 +372,16 @@ jobs:
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
         run: |
           set -euo pipefail
-
           PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
           test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
           test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
           test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
           test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
           test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
-
-          SYNTHETIC_JSON="$(
-            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}"
-          )"
-          HEAD_JSON="$(
-            gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}"
-          )"
-          PARENTS="$(jq -r '[.parents[].sha] | join(" ")' <<<"$SYNTHETIC_JSON")"
-          SYNTHETIC_TREE="$(jq -r '.tree.sha' <<<"$SYNTHETIC_JSON")"
-          HEAD_TREE="$(jq -r '.tree.sha' <<<"$HEAD_JSON")"
-
-          test "$PARENTS" = "$EXPECTED_BASE $EXPECTED_HEAD"
-          test "$SYNTHETIC_TREE" = "$HEAD_TREE"
-          echo "Complete pre-publication freeze revalidated."
+          SYNTHETIC_JSON="$(gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_SYNTHETIC}")"
+          HEAD_JSON="$(gh api "repos/mezas3238-hue/qore-core/git/commits/${EXPECTED_HEAD}")"
+          test "$(jq -r '[.parents[].sha] | join(" ")' <<<"$SYNTHETIC_JSON")" = "$EXPECTED_BASE $EXPECTED_HEAD"
+          test "$(jq -r '.tree.sha' <<<"$SYNTHETIC_JSON")" = "$(jq -r '.tree.sha' <<<"$HEAD_JSON")"
 
       - name: Publish DeepSeek review on exact HEAD
         if: ${{ steps.package-contract.outputs.publish_allowed == 'true' }}
@@ -238,122 +392,34 @@ jobs:
           PACKAGE_ID: ${{ inputs.package_id }}
         run: |
           set -euo pipefail
-
           python3 - <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
-
-          review = Path("deepseek-review.md").read_text(encoding="utf-8")
-          body = (
-              f"<!-- QORE-DEEPSEEK-REVIEW package={os.environ['PACKAGE_ID']} "
-              f"head={os.environ['EXPECTED_HEAD']} -->\n\n" + review
-          )
-          payload = {
-              "body": body,
-              "event": "COMMENT",
-              "commit_id": os.environ["EXPECTED_HEAD"],
-          }
-          Path("review-payload.json").write_text(
-              json.dumps(payload), encoding="utf-8"
-          )
+          review = Path('deepseek-review.md').read_text(encoding='utf-8')
+          body = f"<!-- QORE-DEEPSEEK-REVIEW package={os.environ['PACKAGE_ID']} head={os.environ['EXPECTED_HEAD']} -->\n\n" + review
+          Path('review-payload.json').write_text(json.dumps({'body': body, 'event': 'COMMENT', 'commit_id': os.environ['EXPECTED_HEAD']}), encoding='utf-8')
           PY
+          gh api --method POST "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}/reviews" --input review-payload.json --jq '{id: .id, state: .state, user: .user.login, commit_id: .commit_id}'
 
-          gh api \
-            --method POST \
-            "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}/reviews" \
-            --input review-payload.json \
-            --jq '{id: .id, state: .state, user: .user.login, commit_id: .commit_id}'
-
-      - name: Upload benchmark evidence
-        if: ${{ always() && steps.package-contract.outputs.benchmark_only == 'true' }}
+      - name: Upload DSH reviewer evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: deepseek-${{ inputs.package_id }}
+          name: deepseek-dsh-${{ inputs.package_id }}
           path: |
             deepseek-review.md
-            deepseek-usage.jsonl
-            deepseek-reasoning-effort.jsonl
+            deepseek-review-tree.txt
+            deepseek-review-changed-files.txt
+            deepseek-review-diff-stat.txt
+            deepseek-review-lsp-resolution.json
+            deepseek-review-lsp-smoke.json
+            deepseek-reviewer-usage.json
             deepseek-reasoning-audit.json
+            deepseek-reviewer-billing-delta.json
           if-no-files-found: warn
           retention-days: 30
-
-      - name: Record benchmark telemetry
-        if: ${{ always() && steps.package-contract.outputs.benchmark_only == 'true' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PACKAGE_ID: ${{ inputs.package_id }}
-          EXPECTED_HEAD: ${{ inputs.expected_head }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          set -euo pipefail
-
-          python3 - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          review_path = Path("deepseek-review.md")
-          usage_path = Path("deepseek-usage.jsonl")
-          review = review_path.read_text(encoding="utf-8") if review_path.is_file() else ""
-          match = re.search(r"<!-- QORE-DEEPSEEK-USAGE (\{.*?\}) -->", review, re.S)
-          telemetry = match.group(1) if match else "{}"
-
-          if telemetry == "{}" and usage_path.is_file():
-              totals = {
-                  "api_calls": 0,
-                  "prompt_tokens": 0,
-                  "prompt_cache_hit_tokens": 0,
-                  "prompt_cache_miss_tokens": 0,
-                  "completion_tokens": 0,
-                  "reasoning_tokens": 0,
-              }
-              for line in usage_path.read_text(encoding="utf-8").splitlines():
-                  if not line.strip():
-                      continue
-                  row = json.loads(line)
-                  totals["api_calls"] += 1
-                  for key in tuple(totals)[1:]:
-                      totals[key] += int(row.get(key, 0) or 0)
-              telemetry = json.dumps(totals, sort_keys=True, separators=(",", ":"))
-
-          verdict_lines = []
-          if review:
-              for line in review.splitlines():
-                  stripped = line.strip()
-                  if (
-                      stripped.startswith("HALLAZGOS")
-                      or "VALIDACIÓN" in stripped
-                      or stripped.startswith("EVIDENCIA INSUFICIENTE")
-                  ):
-                      verdict_lines.append(stripped)
-              verdict_lines = verdict_lines[-8:]
-
-          body = [
-              f"## Benchmark `{os.environ['PACKAGE_ID']}`",
-              "",
-              f"- HEAD: `{os.environ['EXPECTED_HEAD']}`",
-              f"- workflow job status: `{os.environ['JOB_STATUS']}`",
-              f"- run: {os.environ['RUN_URL']}",
-              "",
-              "### Telemetry",
-              "```json",
-              telemetry,
-              "```",
-          ]
-          if verdict_lines:
-              body.extend(["", "### Verdict markers", *[f"- {line}" for line in verdict_lines]])
-          body.extend(["", "Full review and JSONL telemetry are retained as the run artifact."])
-          Path("benchmark-comment.md").write_text("\n".join(body) + "\n", encoding="utf-8")
-          PY
-
-          gh issue comment 5 \
-            --repo mezas3238-hue/qore-deepseek-reviewer \
-            --body-file benchmark-comment.md
 
       - name: Review complete
         if: ${{ always() }}
         run: |
-          echo "DeepSeek workflow completed; benchmark_only=${{ steps.package-contract.outputs.benchmark_only }}."
+          echo "DSH DeepSeek workflow completed; mode=${{ inputs.review_mode }} benchmark_only=${{ steps.package-contract.outputs.benchmark_only }}."
