@@ -85,6 +85,8 @@ jobs:
           test -s harness-principal-engineer-package.json
           test -f "${{ inputs.task_path }}"
           test -f harness/engineer/prompts/qore-harness-principal-engineer-v2.md
+          test -f harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs
+          test -f scripts/harness_reasoning_audit.py
 
           CURRENT="$(python3 scripts/harness_engineer_package_contract.py request harness_principal_engineer_requests/current.json)"
           GENERATED="$(cat harness-principal-engineer-package.json)"
@@ -143,7 +145,9 @@ jobs:
             scripts/harness_engineer_package_contract.py \
             scripts/harness_engineer_gate.py \
             scripts/harness_usage_meter.py \
+            scripts/harness_reasoning_audit.py \
             scripts/deepseek_balance_meter.py
+          node --check harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs
 
       - name: Set up Node 24
         uses: actions/setup-node@v4
@@ -167,7 +171,7 @@ jobs:
           test -x "$ROOT/node_modules/.bin/dsh"
           test -x "$ROOT/node_modules/.bin/pyright-langserver"
 
-      - name: Prepare Principal Engineer runtime, QORE Skills, and LSP
+      - name: Prepare Principal Engineer runtime, QORE Skills, LSP, and adaptive reasoning
         env:
           DSH_HOME: ${{ runner.temp }}/qore-dsh-principal-home
           DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
@@ -181,6 +185,10 @@ jobs:
           ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
 
           PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          REASONING_PLUGIN="$DSH_HOME/profiles/headless/qore-adaptive-reasoning-controller.mjs"
+          cp harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs "$REASONING_PLUGIN"
+          test -s "$REASONING_PLUGIN"
+
           cat > "$DSH_HOME/settings.yaml" <<'YAML'
           agent-default-model:
             provider: deepseek-official
@@ -194,6 +202,8 @@ jobs:
               compression: none
               packChunks: false
           - insert:
+              - id: qore-adaptive-reasoning-controller
+                name: '${REASONING_PLUGIN}'
               - id: qore-lsp
                 name: '@deepseek-ai/dsh-lsp'
               - id: qore-lsp-stdio
@@ -273,7 +283,7 @@ jobs:
           max_changed_files=${MAX_CHANGED_FILES}
           max_added_plus_deleted_lines=${MAX_DIFF_LINES}
 
-          You have up to 40 minutes of AI wall time. Use the time for broad A-F discovery, batch correction, permanent regressions, targeted pytest/probes, semantic LSP and useful subagents. Maintain /tmp/qore-principal-engineer-journal.md continuously. The deterministic wrapper will run candidate scope gate + FULL QG after you return CANDIDATE_READY_FOR_FULL_QG. No commit, Git remote, push, merge, PR publication, or network research.
+          You have up to 40 minutes of AI wall time. Use the time for broad A-F discovery, batch correction, permanent regressions, targeted pytest/probes, semantic LSP and useful subagents. Maintain /tmp/qore-principal-engineer-journal.md continuously. The host adaptively controls DeepSeek V4 Pro reasoning effort: high is the normal baseline and max is selected for materially complex/risky evidence. Do not try to game or self-report the effort; solve the engineering problem from evidence. The deterministic wrapper will run reasoning/LSP/candidate gates + FULL QG after you return CANDIDATE_READY_FOR_FULL_QG. No commit, Git remote, push, merge, PR publication, or network research.
           EOF
           )"
 
@@ -288,6 +298,7 @@ jobs:
             DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
             DSH_HOME="$DSH_HOME" \
             DSH_PERMISSION_MODE=workspace-write \
+            QORE_REASONING_AUDIT_PATH=/tmp/qore-principal-reasoning-controller.jsonl \
             NODE_OPTIONS=--max-old-space-size=4096 \
             PYTHONDONTWRITEBYTECODE=1 \
             COVERAGE_FILE="$RUNNER_TEMP/qore-principal-agent.coverage" \
@@ -317,6 +328,17 @@ jobs:
           else
             printf '%s\n' '{"measurement_available":false,"reason":"no session.jsonl produced"}' > harness-principal-usage.json
           fi
+
+      - name: Enforce adaptive high-to-max reasoning evidence
+        if: ${{ steps.harness.outcome == 'success' }}
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-principal-home
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_reasoning_audit.py \
+            --sessions "$DSH_HOME/sessions" \
+            --controller-audit /tmp/qore-principal-reasoning-controller.jsonl \
+            --output harness-principal-reasoning-audit.json
 
       - name: Capture DeepSeek balance delta
         if: ${{ always() }}
@@ -398,7 +420,10 @@ jobs:
             'run_attempt':int(os.environ['RUN_ATTEMPT']),
             'job_status':os.environ['JOB_STATUS'],
             'model':'deepseek-v4-pro',
-            'reasoning_effort':'high',
+            'reasoning_effort_baseline':'high',
+            'reasoning_effort_escalation':'max',
+            'adaptive_reasoning_enabled':True,
+            'adaptive_reasoning_policy':'qore-adaptive-reasoning-controller-v1',
             'permission_mode':'workspace-write',
             'artifact_only':True,
             'lsp_enabled':True,
@@ -427,6 +452,7 @@ jobs:
             harness-principal-gate.json
             harness-principal-run-metadata.json
             harness-principal-usage.json
+            harness-principal-reasoning-audit.json
             harness-principal-billing-delta.json
             harness-principal-lsp-resolution.json
             harness-principal-lsp-smoke.json
@@ -438,11 +464,12 @@ jobs:
             harness-principal-changed-files.txt
             harness-principal-diff-stat.txt
             /tmp/qore-principal-engineer-journal.md
+            /tmp/qore-principal-reasoning-controller.jsonl
             ${{ runner.temp }}/harness-principal-ai-seconds.txt
             ${{ runner.temp }}/qore-dsh-principal-home/sessions/**/session.jsonl
 
       - name: Principal Engineer completion
         if: ${{ success() }}
         run: |
-          echo "Harness Principal Engineer candidate passed deterministic scope gate and canonical FULL QG."
+          echo "Harness Principal Engineer candidate passed adaptive reasoning evidence, deterministic scope gate and canonical FULL QG."
           echo "Candidate remains artifact-only; no commit, push, merge, PR publication, or Production authority was exposed."
