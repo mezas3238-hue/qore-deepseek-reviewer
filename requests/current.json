@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-7F4F3C71-DS-CODER-COMBINING-MARK-R14B",
+  "dispatch_nonce": "PR466-A872D12D-DS-EXPERT-DOUBLE-OBLIQUE-HYPHEN-R15",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "7f4f3c7138b04ec26c7d4b2c448046dd5b2a164f",
-  "expected_synthetic": "02b1ec1f851289d54e911e8a008a9d54494d1648",
-  "package_id": "QORE-PR466-7F4F3C71-DS-CODER-COMBINING-MARK-R14B",
+  "expected_head": "a872d12db02690b25fb5b66f4f116baa2ad0085e",
+  "expected_synthetic": "935c086bcffbfe9f2d8f63a0f968aa7e2f02d393",
+  "package_id": "QORE-PR466-A872D12D-DS-EXPERT-DOUBLE-OBLIQUE-HYPHEN-R15",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-7f4f3c71-combining-mark-coder-r14b.md",
+  "prompt_path": "prompts/qore-pr466-a872d12d-double-oblique-hyphen-expert-r15.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
     "coverage_total_statements": 47659,
-    "job_id": 99699183309,
-    "mypy_source_files": 746,
-    "pytest_collected": 5082,
-    "pytest_passed": 5082,
+    "job_id": 99718811673,
+    "mypy_source_files": 747,
+    "pytest_collected": 5091,
+    "pytest_passed": 5091,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33457065357
+    "run_id": 33463612935
   },
-  "review_mode": "coder"
+  "review_mode": "expert"
 }
