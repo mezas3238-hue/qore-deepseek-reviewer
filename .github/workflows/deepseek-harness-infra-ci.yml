@@ -1,0 +1,88 @@
+name: DeepSeek Harness infrastructure CI
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/deepseek-harness-*.yml
+      - harness/**
+      - harness_requests/**
+      - scripts/harness_package_contract.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Compile package contract
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/harness_package_contract.py
+
+      - name: Validate accepted and rejected request shapes
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_package_contract.py request \
+            harness_requests/example.json > /tmp/harness-valid.json
+          jq -e '.benchmark_only == true and .mode == "auditor"' /tmp/harness-valid.json >/dev/null
+
+          jq '.benchmark_only = false' harness_requests/example.json > /tmp/harness-not-benchmark.json
+          if python3 scripts/harness_package_contract.py request /tmp/harness-not-benchmark.json; then
+            echo "Contract accepted benchmark_only=false." >&2
+            exit 1
+          fi
+
+          jq '.package_id = "QORE-NOT-HARNESS"' harness_requests/example.json > /tmp/harness-bad-package.json
+          if python3 scripts/harness_package_contract.py request /tmp/harness-bad-package.json; then
+            echo "Contract accepted invalid package prefix." >&2
+            exit 1
+          fi
+
+          jq '.task_path = "../escape.md"' harness_requests/example.json > /tmp/harness-bad-path.json
+          if python3 scripts/harness_package_contract.py request /tmp/harness-bad-path.json; then
+            echo "Contract accepted unsafe task path." >&2
+            exit 1
+          fi
+
+          jq '.mode = "engineer"' harness_requests/example.json > /tmp/harness-bad-mode.json
+          if python3 scripts/harness_package_contract.py request /tmp/harness-bad-mode.json; then
+            echo "Contract accepted a write-capable mode in Phase 1." >&2
+            exit 1
+          fi
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install and boot exact Harness CLI without provider credentials
+        env:
+          DSH_VERSION: 0.1.1-rc.2
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-infra-ci
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -euo pipefail
+          RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
+          test "$RESOLVED" = "$DSH_VERSION"
+          rm -rf "$DSH_HOME" "$DSH_INSTALL_ROOT"
+          mkdir -p "$DSH_HOME" "$DSH_INSTALL_ROOT"
+          npm install --prefix "$DSH_INSTALL_ROOT" --no-save \
+            "@deepseek-ai/dsh@${DSH_VERSION}"
+          INSTALLED="$(node -p \
+            "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")"
+          test "$INSTALLED" = "$DSH_VERSION"
+          DSH_BIN="$DSH_INSTALL_ROOT/node_modules/.bin/dsh"
+          test -x "$DSH_BIN"
+          "$DSH_BIN" --help >/tmp/dsh-help.txt
+          test -s /tmp/dsh-help.txt
+          grep -q -- '--profile' /tmp/dsh-help.txt
+          echo "Harness package ${INSTALLED} and CLI contract validated without provider I/O."

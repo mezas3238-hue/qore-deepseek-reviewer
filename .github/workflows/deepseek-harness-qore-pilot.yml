@@ -1,0 +1,349 @@
+name: DeepSeek Harness QORE pilot
+run-name: DeepSeek Harness pilot · ${{ inputs.package_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: qore-core pull request number
+        required: true
+        type: string
+      package_id:
+        description: Immutable HARNESS-BENCHMARK package identifier
+        required: true
+        type: string
+      expected_base:
+        description: Exact frozen BASE SHA
+        required: true
+        type: string
+      expected_head:
+        description: Exact frozen HEAD SHA
+        required: true
+        type: string
+      expected_synthetic:
+        description: Exact frozen synthetic PR merge SHA
+        required: true
+        type: string
+      task_path:
+        description: Read-only Harness task under harness/prompts/
+        required: true
+        default: harness/prompts/qore-harness-auditor-v1.md
+        type: string
+      mode:
+        description: Experimental Harness mode
+        required: true
+        default: auditor
+        type: choice
+        options:
+          - auditor
+      dispatch_nonce:
+        description: Immutable dispatch nonce carried from the package
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deepseek-harness-${{ inputs.package_id }}
+  cancel-in-progress: false
+
+jobs:
+  harness-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate immutable Harness package
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_package_contract.py workflow \
+            "${{ inputs.pr_number }}" \
+            "${{ inputs.package_id }}" \
+            "${{ inputs.expected_base }}" \
+            "${{ inputs.expected_head }}" \
+            "${{ inputs.expected_synthetic }}" \
+            "${{ inputs.task_path }}" \
+            "${{ inputs.mode }}" \
+            "${{ inputs.dispatch_nonce }}" \
+            > harness-package.json
+          test -s harness-package.json
+          test -f "${{ inputs.task_path }}"
+
+      - name: Reject duplicate package dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          DUPLICATES="$(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-qore-pilot.yml/runs?event=workflow_dispatch&per_page=100" \
+              --jq ".workflow_runs[] | select(.display_title == \"DeepSeek Harness pilot · ${PACKAGE_ID}\" and .id != ${CURRENT_RUN_ID}) | .id"
+          )"
+          if test -n "$DUPLICATES"; then
+            echo "Package ${PACKAGE_ID} already has a distinct Harness workflow run: ${DUPLICATES}" >&2
+            echo "Re-run the existing workflow attempt instead of redispatching the immutable package." >&2
+            exit 1
+          fi
+          echo "No prior distinct Harness run exists for ${PACKAGE_ID}."
+
+      - name: Verify live qore-core PR binding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+        run: |
+          set -euo pipefail
+          PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
+          echo "Live PR binding matches frozen package."
+
+      - name: Checkout exact qore-core HEAD without persistent credentials
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ inputs.expected_head }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact git binding and synthetic tree
+        working-directory: workspace/qore-core
+        env:
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git cat-file -e "${EXPECTED_BASE}^{commit}"
+          git fetch --no-tags https://github.com/mezas3238-hue/qore-core.git \
+            "refs/pull/${PR_NUMBER}/merge:refs/remotes/qore-harness-merge"
+          test "$(git rev-parse refs/remotes/qore-harness-merge)" = "$EXPECTED_SYNTHETIC"
+          test "$(git show -s --format=%P "$EXPECTED_SYNTHETIC")" = "$EXPECTED_BASE $EXPECTED_HEAD"
+          test "$(git show -s --format=%T "$EXPECTED_SYNTHETIC")" = "$(git show -s --format=%T "$EXPECTED_HEAD")"
+          git diff --name-status "$EXPECTED_BASE" "$EXPECTED_HEAD" > "$RUNNER_TEMP/qore-changed-files.txt"
+          git diff --stat "$EXPECTED_BASE" "$EXPECTED_HEAD" > "$RUNNER_TEMP/qore-diff-stat.txt"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install pinned DeepSeek Harness without provider credentials
+        env:
+          DSH_VERSION: 0.1.1-rc.2
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          set -euo pipefail
+          RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
+          test "$RESOLVED" = "$DSH_VERSION"
+          rm -rf "$DSH_INSTALL_ROOT"
+          mkdir -p "$DSH_INSTALL_ROOT"
+          npm install --prefix "$DSH_INSTALL_ROOT" --no-save \
+            "@deepseek-ai/dsh@${DSH_VERSION}"
+          INSTALLED="$(node -p \
+            "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")"
+          test "$INSTALLED" = "$DSH_VERSION"
+          DSH_BIN="$DSH_INSTALL_ROOT/node_modules/.bin/dsh"
+          test -x "$DSH_BIN"
+          "$DSH_BIN" --help > "$RUNNER_TEMP/dsh-help.txt"
+          test -s "$RUNNER_TEMP/dsh-help.txt"
+          grep -q -- '--profile' "$RUNNER_TEMP/dsh-help.txt"
+          echo "Pinned Harness package installed and booted without provider credentials: ${INSTALLED}"
+
+      - name: Prepare isolated Harness runtime
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-home
+        run: |
+          set -euo pipefail
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME"
+          chmod 700 "$DSH_HOME"
+          cat > "$DSH_HOME/settings.yaml" <<'YAML'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: max
+          YAML
+          chmod 600 "$DSH_HOME/settings.yaml"
+
+      - name: Seal workspace against Git writes and snapshot state
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          git remote remove origin || true
+          test -z "$(git remote)"
+          git status --porcelain=v1 --untracked-files=all > "$RUNNER_TEMP/qore-pre-harness-status.txt"
+
+      - name: Run DeepSeek Harness headless auditor
+        id: harness
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-home
+          DSH_BIN: ${{ runner.temp }}/qore-dsh-install/node_modules/.bin/dsh
+          NODE_OPTIONS: --max-old-space-size=4096
+          PACKAGE_ID: ${{ inputs.package_id }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+          TASK_PATH: ${{ github.workspace }}/${{ inputs.task_path }}
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-harness.coverage
+        run: |
+          set -euo pipefail
+          test -x "$DSH_BIN"
+          BASE_TASK="$(cat "$TASK_PATH")"
+          TASK="$(cat <<EOF
+          ${BASE_TASK}
+
+          EXACT FROZEN PACKAGE FOR THIS RUN
+          package_id=${PACKAGE_ID}
+          qore_core_pr=${PR_NUMBER}
+          expected_base=${EXPECTED_BASE}
+          expected_head=${EXPECTED_HEAD}
+          expected_synthetic=${EXPECTED_SYNTHETIC}
+
+          Treat these hashes as immutable assertions. Verify them locally before relying on evidence. This is an experimental benchmark-only run and your result is NOT an authoritative QORE review.
+          EOF
+          )"
+          "$DSH_BIN" --profile headless "$TASK" \
+            | tee "$GITHUB_WORKSPACE/harness-output.md"
+          test -s "$GITHUB_WORKSPACE/harness-output.md"
+
+      - name: Verify Harness did not mutate tracked Core state
+        if: ${{ always() }}
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+
+          # Rebuild the index from frozen HEAD so assume-unchanged, skip-worktree,
+          # staging changes, or removed index entries cannot conceal workspace edits.
+          git reset --mixed HEAD
+          while IFS= read -r -d '' path; do
+            git update-index --no-assume-unchanged --no-skip-worktree -- "$path"
+          done < <(git ls-files -z)
+
+          git diff --exit-code --no-ext-diff HEAD --
+          git diff --cached --exit-code --no-ext-diff HEAD --
+          git status --porcelain=v1 --untracked-files=all > "$RUNNER_TEMP/qore-post-harness-status.txt"
+          echo "Tracked qore-core state is byte-equivalent to frozen HEAD."
+
+      - name: Revalidate frozen PR after Harness
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+        run: |
+          set -euo pipefail
+          PR_JSON="$(gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$PR_JSON")" = "open"
+          test "$(jq -r '.merged' <<<"$PR_JSON")" = "false"
+          test "$(jq -r '.base.sha' <<<"$PR_JSON")" = "$EXPECTED_BASE"
+          test "$(jq -r '.head.sha' <<<"$PR_JSON")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.merge_commit_sha' <<<"$PR_JSON")" = "$EXPECTED_SYNTHETIC"
+          echo "Post-run freeze revalidated."
+
+      - name: Write Harness run metadata
+        if: ${{ always() }}
+        env:
+          PACKAGE_ID: ${{ inputs.package_id }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          EXPECTED_BASE: ${{ inputs.expected_base }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+          EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
+          DISPATCH_NONCE: ${{ inputs.dispatch_nonce }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              "package_id": os.environ["PACKAGE_ID"],
+              "pr_number": int(os.environ["PR_NUMBER"]),
+              "expected_base": os.environ["EXPECTED_BASE"],
+              "expected_head": os.environ["EXPECTED_HEAD"],
+              "expected_synthetic": os.environ["EXPECTED_SYNTHETIC"],
+              "dispatch_nonce": os.environ["DISPATCH_NONCE"],
+              "benchmark_only": True,
+              "mode": "auditor",
+              "dsh_package": "@deepseek-ai/dsh@0.1.1-rc.2",
+              "model": "deepseek-v4-pro",
+              "reasoning_effort": "max",
+              "node_options": "--max-old-space-size=4096",
+              "run_id": int(os.environ["RUN_ID"]),
+              "run_attempt": int(os.environ["RUN_ATTEMPT"]),
+              "job_status": os.environ["JOB_STATUS"],
+          }
+          Path("harness-run-metadata.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload Harness benchmark evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-${{ inputs.package_id }}
+          path: |
+            harness-package.json
+            harness-output.md
+            harness-run-metadata.json
+            ${{ runner.temp }}/qore-changed-files.txt
+            ${{ runner.temp }}/qore-diff-stat.txt
+            ${{ runner.temp }}/qore-pre-harness-status.txt
+            ${{ runner.temp }}/qore-post-harness-status.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Pilot complete
+        if: ${{ always() }}
+        run: |
+          echo "DeepSeek Harness pilot completed in benchmark-only auditor mode."
+          echo "No qore-core review was published and no write credential was exposed to Harness."

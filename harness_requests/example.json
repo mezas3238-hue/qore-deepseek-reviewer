@@ -1,0 +1,11 @@
+{
+  "pr_number": 1,
+  "package_id": "HARNESS-BENCHMARK-EXAMPLE-DO-NOT-DISPATCH",
+  "expected_base": "0000000000000000000000000000000000000000",
+  "expected_head": "1111111111111111111111111111111111111111",
+  "expected_synthetic": "2222222222222222222222222222222222222222",
+  "task_path": "harness/prompts/qore-harness-auditor-v1.md",
+  "mode": "auditor",
+  "benchmark_only": true,
+  "dispatch_nonce": "EXAMPLE-ONLY"
+}

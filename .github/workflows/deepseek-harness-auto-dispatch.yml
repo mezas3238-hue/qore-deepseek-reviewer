@@ -1,0 +1,68 @@
+name: DeepSeek Harness auto dispatch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - harness_requests/current.json
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: deepseek-harness-auto-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate request and dispatch Harness pilot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST: harness_requests/current.json
+        run: |
+          set -euo pipefail
+          VALIDATED="$(python3 scripts/harness_package_contract.py request "$REQUEST")"
+
+          PR_NUMBER="$(jq -r '.pr_number' <<<"$VALIDATED")"
+          PACKAGE_ID="$(jq -r '.package_id' <<<"$VALIDATED")"
+          EXPECTED_BASE="$(jq -r '.expected_base' <<<"$VALIDATED")"
+          EXPECTED_HEAD="$(jq -r '.expected_head' <<<"$VALIDATED")"
+          EXPECTED_SYNTHETIC="$(jq -r '.expected_synthetic' <<<"$VALIDATED")"
+          TASK_PATH="$(jq -r '.task_path' <<<"$VALIDATED")"
+          MODE="$(jq -r '.mode' <<<"$VALIDATED")"
+          DISPATCH_NONCE="$(jq -r '.dispatch_nonce' <<<"$VALIDATED")"
+
+          test -f "$TASK_PATH"
+
+          EXISTING="$(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-qore-pilot.yml/runs?event=workflow_dispatch&per_page=100" \
+              --jq '.workflow_runs[].display_title' 2>/dev/null || true
+          )"
+          if grep -Fqx "DeepSeek Harness pilot · ${PACKAGE_ID}" <<<"$EXISTING"; then
+            echo "Refusing duplicate Harness dispatch for package ${PACKAGE_ID}." >&2
+            exit 1
+          fi
+
+          gh workflow run deepseek-harness-qore-pilot.yml \
+            --ref main \
+            -f "pr_number=${PR_NUMBER}" \
+            -f "package_id=${PACKAGE_ID}" \
+            -f "expected_base=${EXPECTED_BASE}" \
+            -f "expected_head=${EXPECTED_HEAD}" \
+            -f "expected_synthetic=${EXPECTED_SYNTHETIC}" \
+            -f "task_path=${TASK_PATH}" \
+            -f "mode=${MODE}" \
+            -f "dispatch_nonce=${DISPATCH_NONCE}"
+
+          echo "DeepSeek Harness benchmark dispatch accepted for ${PACKAGE_ID}."
