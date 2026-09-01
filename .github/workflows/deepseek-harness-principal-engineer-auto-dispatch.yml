@@ -1,0 +1,72 @@
+name: DeepSeek Harness Principal Engineer auto dispatch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - harness_principal_engineer_requests/current.json
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: deepseek-harness-principal-engineer-auto-dispatch
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate immutable Principal Engineer request and dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST: harness_principal_engineer_requests/current.json
+          REQUEST_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          VALIDATED="$(python3 scripts/harness_engineer_package_contract.py request "$REQUEST")"
+
+          PACKAGE_ID="$(jq -r '.package_id' <<<"$VALIDATED")"
+          EXPECTED_START="$(jq -r '.expected_start' <<<"$VALIDATED")"
+          EXPECTED_TREE="$(jq -r '.expected_tree' <<<"$VALIDATED")"
+          TASK_PATH="$(jq -r '.task_path' <<<"$VALIDATED")"
+          MODE="$(jq -r '.mode' <<<"$VALIDATED")"
+          DISPATCH_NONCE="$(jq -r '.dispatch_nonce' <<<"$VALIDATED")"
+          ALLOWED_PATHS_JSON="$(jq -c '.allowed_paths' <<<"$VALIDATED")"
+          MAX_CHANGED_FILES="$(jq -r '.max_changed_files' <<<"$VALIDATED")"
+          MAX_DIFF_LINES="$(jq -r '.max_diff_lines' <<<"$VALIDATED")"
+
+          test -f "$TASK_PATH"
+          test -f harness/engineer/prompts/qore-harness-principal-engineer-v2.md
+
+          EXISTING="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-principal-engineer.yml/runs?event=workflow_dispatch&per_page=100" \
+            --jq '.workflow_runs[].display_title' 2>/dev/null || true)"
+          if grep -Fqx "DeepSeek Harness Principal Engineer · ${PACKAGE_ID}" <<<"$EXISTING"; then
+            echo "Refusing duplicate Principal Engineer dispatch for package ${PACKAGE_ID}." >&2
+            exit 1
+          fi
+
+          gh workflow run deepseek-harness-principal-engineer.yml \
+            --ref main \
+            -f "request_commit=${REQUEST_COMMIT}" \
+            -f "package_id=${PACKAGE_ID}" \
+            -f "expected_start=${EXPECTED_START}" \
+            -f "expected_tree=${EXPECTED_TREE}" \
+            -f "task_path=${TASK_PATH}" \
+            -f "mode=${MODE}" \
+            -f "dispatch_nonce=${DISPATCH_NONCE}" \
+            -f "allowed_paths_json=${ALLOWED_PATHS_JSON}" \
+            -f "max_changed_files=${MAX_CHANGED_FILES}" \
+            -f "max_diff_lines=${MAX_DIFF_LINES}"
+
+          echo "Principal Engineer dispatch accepted for ${PACKAGE_ID}."
