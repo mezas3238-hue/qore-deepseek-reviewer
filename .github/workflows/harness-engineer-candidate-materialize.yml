@@ -61,7 +61,6 @@ jobs:
           owner: mezas3238-hue
           repositories: qore-core
           permission-contents: write
-          permission-pull-requests: read
 
       - name: Verify live PR binding before artifact handling
         env:
