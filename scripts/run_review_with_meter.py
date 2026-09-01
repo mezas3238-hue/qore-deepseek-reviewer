@@ -13,7 +13,9 @@ from typing import Any
 
 API_KEY = os.environ["DEEPSEEK_API_KEY"]
 BALANCE_URL = "https://api.deepseek.com/user/balance"
-_STABLE_REVIEWER = Path(__file__).with_name("deepseek_reviewer_v2_1_1_entrypoint.py")
+_STABLE_REVIEWER = Path(__file__).with_name(
+    "deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py"
+)
 _COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_v2_1_2_candidate_entrypoint.py"
 )
