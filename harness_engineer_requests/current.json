@@ -1,16 +1,18 @@
 {
-  "package_id": "HARNESS-ENGINEER-HIST-URLUSERINFO-NFKC-20260901-003",
-  "expected_start": "7e24bc07bf74f879ffe7655fe9217db7ff6600de",
-  "expected_tree": "c20aecedb5f4ee97ec151fa20daa0b09482f0738",
-  "task_path": "harness/engineer/tasks/historical-url-userinfo-nfkc-001.md",
+  "package_id": "HARNESS-ENGINEER-PR466-CDA1EB8D-R19-MARK-URL-BOUNDARY-006",
+  "expected_start": "cda1eb8d9b53dee456e7c3639d76de7e63fbd7c8",
+  "expected_tree": "ec80768a9c6c5c585bf743fdfcd1ee50e8b871e3",
+  "task_path": "harness/engineer/tasks/pr466-r19-printable-mark-url-boundary-006.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "harness-engineer-hist-urluserinfo-nfkc-20260901-003-3f33bfad",
+  "dispatch_nonce": "pr466-cda1eb8d-r19-mark-url-boundary-006-20260901",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
-    "tests/infrastructure/test_instrument_universe_registry_multi_authority_userinfo.py"
+    "tests/infrastructure",
+    "docs/architecture",
+    "docs/audits"
   ],
-  "max_changed_files": 2,
-  "max_diff_lines": 600,
+  "max_changed_files": 6,
+  "max_diff_lines": 1200,
   "run_full_qg": true
 }
