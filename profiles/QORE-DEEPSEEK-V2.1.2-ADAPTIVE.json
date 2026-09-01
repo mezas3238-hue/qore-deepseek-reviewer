@@ -107,7 +107,7 @@
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "c84b3e05f997fe1063a7444f46e15caf636629c9"
+    ".github/workflows/deepseek-qore-review.yml": "a5888e18bef261631d84b7534116b16c45da98ae"
   },
   "permanent_workflow_count": 3,
   "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts, adds mode-specific HIGH/MAX thinking selection with deterministic reasoning audit, and now includes one explicit bounded retry only for broken authoritative-response transport. HTTP errors are not retried, there is no sleep/backoff, and the transport helper self-tests before paid reviewer execution. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
