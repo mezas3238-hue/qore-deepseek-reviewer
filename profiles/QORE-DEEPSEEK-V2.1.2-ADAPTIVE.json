@@ -20,6 +20,17 @@
     ],
     "fail_closed": "a successful reviewer run must contain exactly one authoritative final-analysis thinking request with recorded HIGH or MAX effort"
   },
+  "transport_resilience": {
+    "helper": "scripts/deepseek_transport.py",
+    "helper_blob": "c7ae5e371bd56bbadede8c44ffb5dd7a50aca17a",
+    "max_attempts_per_logical_authoritative_request": 2,
+    "retry_scope": "broken transport only: IncompleteRead, URL/connection/timeout failures, or malformed/truncated JSON body",
+    "http_error_retry": false,
+    "sleep_or_backoff": false,
+    "self_test_before_paid_reviewer": true,
+    "self_test_gate": "scripts/run_review_with_meter.py invokes deepseek_transport.py --self-test before the reviewer subprocess",
+    "recovery_audit": "a recovered transport retry is appended to reasoning audit reasons as transport-retry-recovered:N"
+  },
   "verdict_emission": "same-model non-thinking extractor only when authoritative adaptive HIGH/MAX analysis lacks a complete visible verdict",
   "flash_substitution": false,
   "cot_continuation": false,
@@ -50,7 +61,7 @@
   },
   "meter": {
     "path": "scripts/run_review_with_meter.py",
-    "blob": "3034b84276cecd58258bda712e40c8abd1d9a813",
+    "blob": "5024c84b2620d1ae4d9f554a7b8a388e46db70a3",
     "ordinary_route": "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py",
     "default_profile": "stable",
     "ordinary_model": "deepseek-v4-pro",
@@ -84,19 +95,20 @@
     "scripts/deepseek_reviewer_v2_0_entrypoint.py": "1d80422bb1182468e0e59304268bb3c7768e69a8",
     "scripts/deepseek_reviewer_v2_1_entrypoint.py": "ba22f63f4281bc2f2659aebc0d13fea7bf27f6ad",
     "scripts/deepseek_reviewer_v2_1_1_entrypoint.py": "2b27c0ac07c172dfdf9bd01d4551ad0fb130ee54",
-    "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py": "d37e8882d20b8c0e246a6e0a1525b3f4742c09c8",
+    "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py": "c6f6e1bdbbadbc48aa03e3d99cddca4268b2a433",
     "scripts/deepseek_adaptive_review_reasoning.py": "d96e0ffc0f3a11b34db63554fbadbccda355189a",
     "scripts/deepseek_review_reasoning_audit.py": "f055114160f1fff3acd3b31ae5de052538787f5e",
+    "scripts/deepseek_transport.py": "c7ae5e371bd56bbadede8c44ffb5dd7a50aca17a",
     "scripts/exact_qg_evidence.py": "14d0bd26fdd09375d96b5a72836fbd77fc16b5f9",
     "scripts/qg_package_contract.py": "b8fef9e7e29ad8e43ed395b35e498a9270df70c7"
   },
   "entrypoint": "scripts/deepseek_reviewer_v2_1_2_adaptive_reasoning_entrypoint.py",
-  "entrypoint_blob": "d37e8882d20b8c0e246a6e0a1525b3f4742c09c8",
+  "entrypoint_blob": "c6f6e1bdbbadbc48aa03e3d99cddca4268b2a433",
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
     ".github/workflows/deepseek-qore-review.yml": "c84b3e05f997fe1063a7444f46e15caf636629c9"
   },
   "permanent_workflow_count": 3,
-  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts and changes only authoritative thinking-effort selection plus deterministic reasoning audit. HIGH remains the cost-controlled baseline; MAX is selected only by mode-specific materiality signals. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
+  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts, adds mode-specific HIGH/MAX thinking selection with deterministic reasoning audit, and now includes one explicit bounded retry only for broken authoritative-response transport. HTTP errors are not retried, there is no sleep/backoff, and the transport helper self-tests before paid reviewer execution. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
 }
