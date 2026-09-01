@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-PR466-5205B663-ACCEPTED-CLOSURE-004",
-  "expected_start": "5205b663579e35a711446da03a483c57ea786476",
-  "expected_tree": "0a949120777c43362620fc4d5f047b1d9f5d2d0f",
-  "task_path": "harness/engineer/tasks/pr466-ia-accepted-closure-retention-004.md",
+  "package_id": "HARNESS-ENGINEER-PR466-63CA01F3-R18B-URL-BOUNDARY-005",
+  "expected_start": "63ca01f3c38fd0f0be875f455d561a3fc306eceb",
+  "expected_tree": "3427fdff0acc321d6309ff9223c53f9ba2a7f7d6",
+  "task_path": "harness/engineer/tasks/pr466-r18b-url-boundary-retention-005.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "PR466-5205B663-PRINCIPAL-ENGINEER-ACCEPTED-CLOSURE-004",
+  "dispatch_nonce": "PR466-63CA01F3-PRINCIPAL-ENGINEER-R18B-URL-BOUNDARY-005",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
     "tests/infrastructure",
