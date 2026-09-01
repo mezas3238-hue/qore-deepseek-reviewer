@@ -205,6 +205,22 @@ jobs:
           test -x "$DSH_BIN"
           test -x "$PYRIGHT_LANGSERVER"
 
+          mkdir -p "$DSH_HOME/profiles/headless"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          cat > "$DSH_HOME/profiles/headless/qore-lsp-profile-resolution-smoke.mjs" <<'EOF'
+          const packages = [
+            '@deepseek-ai/dsh-lsp',
+            '@deepseek-ai/dsh-lsp-stdio',
+            '@deepseek-ai/dsh-tool-lsp',
+          ];
+          const resolved = Object.fromEntries(packages.map((name) => [name, import.meta.resolve(name)]));
+          console.log(JSON.stringify({ schema: 'qore-harness-lsp-profile-resolution-v1', resolved }));
+          EOF
+          node "$DSH_HOME/profiles/headless/qore-lsp-profile-resolution-smoke.mjs" \
+            | tee /tmp/qore-harness-lsp-profile-resolution.json
+          jq -e '.schema == "qore-harness-lsp-profile-resolution-v1" and (.resolved | length) == 3' \
+            /tmp/qore-harness-lsp-profile-resolution.json >/dev/null
+
           cat > "$DSH_HOME/cordis.patch.yml" <<EOF
           - insert:
               - id: qore-lsp
@@ -232,4 +248,4 @@ jobs:
           jq -e '.schema == "qore-harness-lsp-smoke-v1" and .definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' \
             /tmp/qore-harness-lsp-smoke.json >/dev/null
 
-          echo "Harness ${DSH_VERSION} + LSP stack + Pyright ${PYRIGHT_VERSION} validated without provider I/O."
+          echo "Harness ${DSH_VERSION} + profile-resolved LSP stack + Pyright ${PYRIGHT_VERSION} validated without provider I/O."
