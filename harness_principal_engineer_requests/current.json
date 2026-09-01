@@ -1,18 +1,18 @@
 {
-  "package_id": "HARNESS-ENGINEER-PR466-5205B663-BROAD-CLOSURE-001",
+  "package_id": "HARNESS-ENGINEER-PR466-5205B663-IA-REVISION-002",
   "expected_start": "5205b663579e35a711446da03a483c57ea786476",
   "expected_tree": "0a949120777c43362620fc4d5f047b1d9f5d2d0f",
-  "task_path": "harness/engineer/tasks/pr466-principal-closure-f1-f4-plus-001.md",
+  "task_path": "harness/engineer/tasks/pr466-ia-revised-candidate-f1-f3-f4-f5-002.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "PR466-5205B663-PRINCIPAL-ENGINEER-BROAD-CLOSURE-001",
+  "dispatch_nonce": "PR466-5205B663-PRINCIPAL-ENGINEER-IA-REVISION-002",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
     "tests/infrastructure",
     "docs/architecture",
     "docs/audits"
   ],
-  "max_changed_files": 30,
-  "max_diff_lines": 8000,
+  "max_changed_files": 12,
+  "max_diff_lines": 4000,
   "run_full_qg": true
 }
