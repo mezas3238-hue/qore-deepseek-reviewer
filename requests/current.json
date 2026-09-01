@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR466-7F4F3C71-DS-EXPERT-COMBINING-MARK-R13",
+  "dispatch_nonce": "PR466-7F4F3C71-DS-CODER-COMBINING-MARK-R14",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "7f4f3c7138b04ec26c7d4b2c448046dd5b2a164f",
   "expected_synthetic": "02b1ec1f851289d54e911e8a008a9d54494d1648",
-  "package_id": "QORE-PR466-7F4F3C71-DS-EXPERT-COMBINING-MARK-R13",
+  "package_id": "QORE-PR466-7F4F3C71-DS-CODER-COMBINING-MARK-R14",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-7f4f3c71-combining-mark-expert-r13.md",
+  "prompt_path": "prompts/qore-pr466-7f4f3c71-combining-mark-coder-r14.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
@@ -18,5 +18,5 @@
     "ruff_passed": true,
     "run_id": 33457065357
   },
-  "review_mode": "expert"
+  "review_mode": "coder"
 }
