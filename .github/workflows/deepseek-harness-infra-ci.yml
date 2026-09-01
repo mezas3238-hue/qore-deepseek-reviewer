@@ -15,7 +15,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,13 +69,17 @@ jobs:
           DSH_HOME: ${{ runner.temp }}/qore-dsh-infra-ci
           DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-install
           NODE_OPTIONS: --max-old-space-size=4096
+          NPM_CONFIG_AUDIT: "false"
+          NPM_CONFIG_FUND: "false"
+          NPM_CONFIG_PROGRESS: "false"
+          NPM_CONFIG_UPDATE_NOTIFIER: "false"
         run: |
           set -euo pipefail
           RESOLVED="$(npm view "@deepseek-ai/dsh@${DSH_VERSION}" version)"
           test "$RESOLVED" = "$DSH_VERSION"
           rm -rf "$DSH_HOME" "$DSH_INSTALL_ROOT"
           mkdir -p "$DSH_HOME" "$DSH_INSTALL_ROOT"
-          npm install --prefix "$DSH_INSTALL_ROOT" --no-save \
+          npm install --prefix "$DSH_INSTALL_ROOT" --no-save --no-audit --no-fund \
             "@deepseek-ai/dsh@${DSH_VERSION}"
           INSTALLED="$(node -p \
             "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")"
