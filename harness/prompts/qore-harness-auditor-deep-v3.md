@@ -26,6 +26,16 @@ A finding is NOT a stopping condition. After reproducing a material finding, rec
 
 Known findings are seed evidence, not the end of the mission. Reproduce/falsify them quickly, then search for ADDITIONAL materially distinct defects. Do not spend the run repeatedly proving the same mechanism with cosmetic variants.
 
+## Mandatory cumulative finding journal
+
+Maintain `/tmp/qore-harness-findings.md` throughout the run. Create it immediately after binding verification.
+
+Whenever a material finding becomes reproducible, append a compact checkpoint to that file BEFORE continuing the audit. Each checkpoint must contain: finding ID, severity, NEW vs known-seed-equivalent, affected file/line when available, one concrete witness, root cause, affected invariant, and the next audit surface to inspect.
+
+Also append an A/B/C/D coverage checkpoint whenever one matrix class changes from NOT_STARTED to PARTIAL or COVERED. Never wait until the final answer to record already-established findings. The journal is append-only during the run and is evidence recovery if the wall-clock cap terminates the agent before the final report.
+
+Do not write private chain-of-thought to the journal. Record only concise conclusions and reproducible evidence.
+
 ### Required audit matrix
 
 Cover each relevant class systematically:
