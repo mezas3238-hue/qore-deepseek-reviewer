@@ -52,7 +52,7 @@ concurrency:
 jobs:
   harness-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
 
     steps:
       - name: Checkout reviewer infrastructure
@@ -255,7 +255,7 @@ jobs:
           python3 scripts/deepseek_balance_meter.py \
             snapshot "$RUNNER_TEMP/deepseek-balance-before.json"
 
-      - name: Run bounded DeepSeek Harness FAST auditor
+      - name: Run bounded DeepSeek Harness auditor
         id: harness
         working-directory: workspace/qore-core
         env:
@@ -278,6 +278,19 @@ jobs:
           CHANGED_FILES="$(cat "$RUNNER_TEMP/qore-changed-files.txt")"
           DIFF_STAT="$(cat "$RUNNER_TEMP/qore-diff-stat.txt")"
           QG_SUMMARY="$(cat "$RUNNER_TEMP/qore-quality-summary.json")"
+          IS_DEEP="false"
+          if [[ "$TASK_PATH" == *"qore-harness-auditor-deep-v3.md" ]]; then
+            IS_DEEP="true"
+          fi
+          if test "$IS_DEEP" = "true"; then
+            AI_CAP="30m"
+            POLICY_LABEL="DEEP"
+            POLICY_TEXT="Do not run repository-wide pytest, coverage, full mypy, or full ruff. Use targeted probes/tests. You have up to 30 minutes of AI wall time. Maintain /tmp/qore-harness-findings.md as an append-only cumulative finding/coverage journal so established findings survive a hard-cap termination."
+          else
+            AI_CAP="12m"
+            POLICY_LABEL="FAST"
+            POLICY_TEXT="Do not run repository-wide pytest, coverage, full mypy, or full ruff. Use only targeted probes/tests needed for concrete hypotheses. The external process will terminate this agent after 12 minutes of AI wall time."
+          fi
           TASK="$(cat <<EOF
           ${BASE_TASK}
 
@@ -297,8 +310,8 @@ jobs:
           EXACT-HEAD QORE QUALITY CHECK (mechanical evidence only)
           ${QG_SUMMARY}
 
-          FAST POLICY REMINDER
-          Do not run repository-wide pytest, coverage, full mypy, or full ruff. Use only targeted probes/tests needed for concrete hypotheses. The external process will terminate this agent after 12 minutes of AI wall time.
+          ${POLICY_LABEL} POLICY REMINDER
+          ${POLICY_TEXT}
 
           Treat the hashes as immutable assertions. Verify local binding before relying on evidence. This is experimental benchmark-only output and NOT an authoritative QORE review.
           EOF
@@ -306,7 +319,7 @@ jobs:
 
           START_EPOCH="$(date +%s)"
           set +e
-          timeout --signal=TERM --kill-after=30s 12m \
+          timeout --signal=TERM --kill-after=30s "$AI_CAP" \
             "$DSH_BIN" --profile headless "$TASK" \
             | tee "$GITHUB_WORKSPACE/harness-output.md"
           DSH_STATUS="${PIPESTATUS[0]}"
@@ -315,7 +328,7 @@ jobs:
           printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/harness-ai-seconds.txt"
 
           if test "$DSH_STATUS" -eq 124; then
-            printf '\nHarness FAST auditor reached the 12-minute hard cap.\n' >> "$GITHUB_WORKSPACE/harness-output.md"
+            printf '\nHarness %s auditor reached the %s hard cap.\n' "$POLICY_LABEL" "$AI_CAP" >> "$GITHUB_WORKSPACE/harness-output.md"
             exit 124
           fi
           test "$DSH_STATUS" -eq 0
@@ -395,6 +408,7 @@ jobs:
           EXPECTED_HEAD: ${{ inputs.expected_head }}
           EXPECTED_SYNTHETIC: ${{ inputs.expected_synthetic }}
           DISPATCH_NONCE: ${{ inputs.dispatch_nonce }}
+          TASK_PATH: ${{ inputs.task_path }}
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
           JOB_STATUS: ${{ job.status }}
@@ -408,6 +422,7 @@ jobs:
 
           seconds_path = Path(os.environ["AI_SECONDS_FILE"])
           ai_seconds = int(seconds_path.read_text().strip()) if seconds_path.is_file() else None
+          is_deep = os.environ["TASK_PATH"].endswith("qore-harness-auditor-deep-v3.md")
           payload = {
               "package_id": os.environ["PACKAGE_ID"],
               "pr_number": int(os.environ["PR_NUMBER"]),
@@ -416,13 +431,13 @@ jobs:
               "expected_synthetic": os.environ["EXPECTED_SYNTHETIC"],
               "dispatch_nonce": os.environ["DISPATCH_NONCE"],
               "benchmark_only": True,
-              "mode": "auditor-fast-v2",
+              "mode": "auditor-deep-v3" if is_deep else "auditor-fast-v2",
               "dsh_package": "@deepseek-ai/dsh@0.1.1-rc.2",
               "dsh_cache_key": "qore-dsh-linux-x64-node24-0.1.1-rc.2",
               "dsh_cache_hit": os.environ.get("CACHE_HIT") == "true",
               "model": "deepseek-v4-pro",
               "reasoning_effort": "high",
-              "ai_wall_cap_seconds": 720,
+              "ai_wall_cap_seconds": 1800 if is_deep else 720,
               "ai_wall_seconds": ai_seconds,
               "full_qg_inside_agent": False,
               "node_options": "--max-old-space-size=4096",
@@ -449,6 +464,7 @@ jobs:
             harness-run-metadata.json
             harness-usage.json
             harness-billing-delta.json
+            /tmp/qore-harness-findings.md
             ${{ runner.temp }}/qore-dsh-home/sessions/**/session.jsonl
             ${{ runner.temp }}/qore-changed-files.txt
             ${{ runner.temp }}/qore-diff-stat.txt
@@ -462,5 +478,5 @@ jobs:
       - name: Pilot complete
         if: ${{ always() }}
         run: |
-          echo "DeepSeek Harness FAST pilot completed in benchmark-only auditor mode."
+          echo "DeepSeek Harness pilot completed in benchmark-only auditor mode."
           echo "No qore-core review was published and no write credential was exposed to Harness."
