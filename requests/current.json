@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17",
+  "dispatch_nonce": "PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17B",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "5205b663579e35a711446da03a483c57ea786476",
   "expected_synthetic": "ab8016632ca3c449c1c702e378bff95e7f2ea5ae",
-  "package_id": "QORE-PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17",
+  "package_id": "QORE-PR466-5205B663-DS-EXPERT-EXTENDED-DASH-R17B",
   "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-5205b663-extended-dash-expert-r17.md",
+  "prompt_path": "prompts/qore-pr466-5205b663-extended-dash-expert-r17b.md",
   "qg_summary": {
     "coverage_missed_statements": 6236,
     "coverage_percent": 87,
