@@ -58,7 +58,7 @@ concurrency:
 jobs:
   principal-engineer:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 180
 
     steps:
       - name: Checkout exact reviewer request commit
@@ -283,7 +283,7 @@ jobs:
           max_changed_files=${MAX_CHANGED_FILES}
           max_added_plus_deleted_lines=${MAX_DIFF_LINES}
 
-          You have up to 40 minutes of AI wall time. Use the time for broad A-F discovery, batch correction, permanent regressions, targeted pytest/probes, semantic LSP and useful subagents. Maintain /tmp/qore-principal-engineer-journal.md continuously. The host adaptively controls DeepSeek V4 Pro reasoning effort: high is the normal baseline and max is selected for materially complex/risky evidence. Do not try to game or self-report the effort; solve the engineering problem from evidence. The deterministic wrapper will run reasoning/LSP/candidate gates + FULL QG after you return CANDIDATE_READY_FOR_FULL_QG. No commit, Git remote, push, merge, PR publication, or network research.
+          You have up to 120 minutes of AI wall time. Use the time for coherent batch discovery and correction, cumulative invariant retention, permanent regressions, targeted pytest/probes, semantic LSP and useful subagents. Maintain /tmp/qore-principal-engineer-journal.md continuously. The host adaptively controls DeepSeek V4 Pro reasoning effort: high is the normal baseline and max is selected for materially complex/risky evidence. Do not try to game or self-report the effort; solve the engineering problem from evidence. The deterministic wrapper will run reasoning/LSP/candidate gates + FULL QG after you return CANDIDATE_READY_FOR_FULL_QG. No commit, Git remote, push, merge, PR publication, or network research.
           EOF
           )"
 
@@ -302,7 +302,7 @@ jobs:
             NODE_OPTIONS=--max-old-space-size=4096 \
             PYTHONDONTWRITEBYTECODE=1 \
             COVERAGE_FILE="$RUNNER_TEMP/qore-principal-agent.coverage" \
-            timeout --signal=TERM --kill-after=30s 40m \
+            timeout --signal=TERM --kill-after=30s 120m \
               "$DSH_BIN" --profile headless "$TASK" \
               | tee "$GITHUB_WORKSPACE/harness-principal-engineer-output.md"
           DSH_STATUS="${PIPESTATUS[0]}"
@@ -310,7 +310,7 @@ jobs:
           END_EPOCH="$(date +%s)"
           printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/harness-principal-ai-seconds.txt"
           if test "$DSH_STATUS" -eq 124; then
-            printf '\nPrincipal Engineer reached the 40-minute hard cap; inspect cumulative journal.\n' >> "$GITHUB_WORKSPACE/harness-principal-engineer-output.md"
+            printf '\nPrincipal Engineer reached the 120-minute hard cap; inspect cumulative journal.\n' >> "$GITHUB_WORKSPACE/harness-principal-engineer-output.md"
             exit 124
           fi
           test "$DSH_STATUS" -eq 0
@@ -431,7 +431,7 @@ jobs:
             'subagents_allowed':3,
             'full_qg_external':True,
             'full_qg_commands':['ruff check .','mypy src tests','pytest --cov=src/qore --cov-report=term-missing'],
-            'ai_wall_cap_seconds':2400,
+            'ai_wall_cap_seconds':7200,
             'ai_wall_seconds':int(p.read_text().strip()) if p.is_file() else None,
             'dsh_cache_hit':os.environ.get('CACHE_HIT')=='true',
           }
