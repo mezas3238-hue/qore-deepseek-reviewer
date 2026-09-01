@@ -22,6 +22,7 @@ _COMPACT_CANDIDATE_REVIEWER = Path(__file__).with_name(
 _COMPACT_BUDGETED_REVIEWER = Path(__file__).with_name(
     "deepseek_reviewer_compact_budgeted_v20.py"
 )
+_TRANSPORT_SELFTEST = Path(__file__).with_name("deepseek_transport.py")
 _PACKAGE_ID = os.environ.get("PACKAGE_ID", "")
 _REVIEWER_PROFILE = os.environ.get("DEEPSEEK_REVIEWER_PROFILE", "stable")
 
@@ -140,6 +141,15 @@ def render_balance(payload: dict[str, Any]) -> str:
 
 
 def main() -> int:
+    transport_test = subprocess.run(
+        [sys.executable, str(_TRANSPORT_SELFTEST), "--self-test"],
+        check=False,
+    )
+    if transport_test.returncode != 0:
+        print("DeepSeek transport self-test failed; refusing paid reviewer execution.")
+        return transport_test.returncode
+    print("DeepSeek transport self-test passed before API spend.")
+
     before_payload = fetch_balance()
     print("DeepSeek balance captured before review.")
     print(f"Reviewer entrypoint: {REVIEWER.name}")
