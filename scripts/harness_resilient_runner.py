@@ -114,6 +114,15 @@ def _recovery_prompt(
     pending: list[int],
     primary_exit: int,
 ) -> str:
+    post_lane_instruction = (
+        "All six lanes are already durable COMPLETED carry-forward evidence. Do not relaunch any lane. "
+        "Resume only the unfinished post-lane synthesis, implementation, validation, LSP-after, "
+        "Root-Family Exhaustion, diff audit, and final report gates. "
+        if not pending
+        else
+        "Run only pending/recovery-required lanes, then synthesize all six using inherited evidence. "
+        "If a pending lane was merely delayed, consume its result if available; otherwise relaunch only that lane. "
+    )
     return (
         base_prompt
         + "\n\n# HOST-ENFORCED RECOVERY GENERATION\n"
@@ -123,8 +132,7 @@ def _recovery_prompt(
         + f"pending_or_recovery_lanes={pending}\n\n"
         + "This is a continuation of the SAME immutable package and SAME disposable workspace. "
         + "Completed lanes are certified carry-forward work: DO NOT relaunch, repeat, or reconstruct them. "
-        + "Run only pending/recovery-required lanes, then synthesize all six using inherited evidence. "
-        + "If a pending lane was merely delayed, consume its result if available; otherwise relaunch only that lane. "
+        + post_lane_instruction
         + "Before any new long operation append a checkpoint with QORE_LANE_STATE entries. "
         + "A wait/pause response is not a valid terminal response: continue until COMPLETE, MATERIAL_BLOCKED, or the host timeout.\n\n"
         + "# DURABLE CHECKPOINT TAIL\n"
@@ -167,16 +175,7 @@ def main() -> int:
             terminal_reason = "MATERIAL_BLOCKED_FROM_CHECKPOINT"
             final_rc = 2
             break
-        if before.all_complete and generation > 1:
-            prompt = _recovery_prompt(
-                base_prompt,
-                generation=generation,
-                checkpoints=args.checkpoints,
-                completed=before.completed,
-                pending=before.pending,
-                primary_exit=0,
-            )
-        elif generation == 1:
+        if generation == 1:
             prompt = base_prompt
         else:
             prompt = _recovery_prompt(
@@ -243,9 +242,9 @@ def main() -> int:
             final_rc = 0
             break
 
-        # A nonzero model exit, a pause/wait response, or an incomplete zero exit is recoverable
-        # as long as durable state is valid and at least one lane remains unfinished.
-        if after.pending:
+        # Incomplete lanes are recoverable. So is a post-lane interruption: reaching six
+        # COMPLETED lanes does not make unfinished synthesis/implementation/finalization expendable.
+        if after.pending or after.all_complete:
             if stagnant > args.max_stagnant_generations:
                 terminal_reason = "RECOVERY_STAGNATED"
                 final_rc = 75
