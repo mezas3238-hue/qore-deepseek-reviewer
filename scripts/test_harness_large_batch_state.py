@@ -5,7 +5,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from harness_large_batch_state import StateError, parse_checkpoint_text, write_initial
+from harness_large_batch_state import (
+    StateError,
+    parse_checkpoint_file,
+    parse_checkpoint_text,
+    write_initial,
+)
+
+START = "a" * 40
+TREE = "b" * 40
+PACKAGE = "PKG"
 
 
 def cp(*lane_lines: str) -> str:
@@ -19,6 +28,14 @@ def cp(*lane_lines: str) -> str:
             "QORE_CHECKPOINT_END",
             "",
         ]
+    )
+
+
+def bound_cp(*lane_lines: str, package: str = PACKAGE, start: str = START, tree: str = TREE) -> str:
+    return cp(
+        f"package_id: {package}",
+        f"binding: START={start} TREE={tree}",
+        *lane_lines,
     )
 
 
@@ -86,11 +103,66 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
     def test_initialization_is_non_destructive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "journal.md"
-            write_initial(path, "PKG", "a" * 40, "b" * 40)
+            write_initial(path, PACKAGE, START, TREE)
             first = path.read_text(encoding="utf-8")
             self.assertIn("lane=6 state=NOT_STARTED", first)
             with self.assertRaises(StateError):
-                write_initial(path, "PKG", "a" * 40, "b" * 40)
+                write_initial(path, PACKAGE, START, TREE)
+
+    def test_bound_production_journal_retains_package_start_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "journal.md"
+            write_initial(path, PACKAGE, START, TREE)
+            state = parse_checkpoint_file(path)
+            self.assertEqual(state.package_id, PACKAGE)
+            self.assertEqual(state.start, START)
+            self.assertEqual(state.tree, TREE)
+
+    def test_package_binding_change_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
+        text += bound_cp(
+            "QORE_LANE_STATE lane=2 state=RUNNING generation=2",
+            package="OTHER",
+        )
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
+
+    def test_start_binding_change_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
+        text += bound_cp(
+            "QORE_LANE_STATE lane=2 state=RUNNING generation=2",
+            start="c" * 40,
+        )
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
+
+    def test_tree_binding_change_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
+        text += bound_cp(
+            "QORE_LANE_STATE lane=2 state=RUNNING generation=2",
+            tree="d" * 40,
+        )
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
+
+    def test_required_binding_missing_fails_closed(self) -> None:
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(
+                cp("QORE_LANE_STATE lane=1 state=RUNNING generation=1"),
+                require_binding=True,
+            )
+
+    def test_durable_lane_state_outside_checkpoint_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
+        text += "QORE_LANE_STATE lane=2 state=RUNNING generation=2\n"
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
+
+    def test_binding_outside_checkpoint_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
+        text += f"binding: START={START} TREE={TREE}\n"
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
 
 
 if __name__ == "__main__":
