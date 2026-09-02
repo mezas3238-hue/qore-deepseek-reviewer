@@ -15,10 +15,6 @@ BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
 RESUME_COMPLETE = "## RESUME STATE\nCOMPLETE"
 
 
-class RunnerError(RuntimeError):
-    pass
-
-
 def _run_once(
     *,
     dsh_bin: Path,
@@ -106,9 +102,11 @@ def main() -> int:
     attempts: list[dict[str, object]] = []
     terminal_reason = "GENERATIONS_EXHAUSTED"
     final_rc = 70
+    last_valid = parse_checkpoint_file(args.checkpoints)
 
     for generation in range(1, args.max_generations + 1):
         before = parse_checkpoint_file(args.checkpoints)
+        last_valid = before
         if before.blocked:
             terminal_reason = "MATERIAL_BLOCKED_FROM_CHECKPOINT"
             final_rc = 2
@@ -154,9 +152,12 @@ def main() -> int:
         except StateError as exc:
             terminal_reason = f"CORRUPT_CHECKPOINT:{exc}"
             final_rc = 65
-            attempts.append({"generation": generation, "exit_code": rc, "checkpoint_error": str(exc)})
+            attempts.append(
+                {"generation": generation, "exit_code": rc, "checkpoint_error": str(exc)}
+            )
             break
 
+        last_valid = after
         signature = (
             after.checkpoint_count,
             tuple(after.completed),
@@ -205,7 +206,13 @@ def main() -> int:
         final_rc = 76
         break
 
-    final = parse_checkpoint_file(args.checkpoints)
+    try:
+        final = parse_checkpoint_file(args.checkpoints)
+    except StateError:
+        # Corruption is already a fail-closed terminal condition. Preserve the last verified
+        # durable snapshot in metadata rather than crashing before evidence can be uploaded.
+        final = last_valid
+
     metadata = {
         "schema": "qore-harness-resilient-runner-v1",
         "terminal_reason": terminal_reason,
@@ -220,7 +227,9 @@ def main() -> int:
         "all_complete": final.all_complete,
         "recovery_generations_used": max(0, len(attempts) - 1),
     }
-    args.metadata.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    args.metadata.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(json.dumps(metadata, sort_keys=True))
     return final_rc
 
