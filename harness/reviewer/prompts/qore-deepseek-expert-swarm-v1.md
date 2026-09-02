@@ -47,7 +47,9 @@ The host controls DeepSeek V4 Pro reasoning adaptively. HIGH is the mandatory ba
 
 The review must survive quota loss, timeout, cancellation, runner failure, or model interruption without discarding already-completed technical work.
 
-Do not wait until the final report to record evidence. The primary Expert MUST append an incremental checkpoint to `../../deepseek-review-checkpoints.md` from the qore-core workspace:
+The host supplies an exact absolute `checkpoint_path` under a platform temporary root writable by the DSH sandbox. Do not substitute another path and do not attempt to write checkpoint evidence into a parent directory outside the qore-core workspace.
+
+Do not wait until the final report to record evidence. The primary Expert MUST append an incremental checkpoint to the exact host-supplied `checkpoint_path`:
 - immediately after exact binding/resume-context verification;
 - immediately after consuming each subagent lane result;
 - after each material witness is reproduced or rejected;
