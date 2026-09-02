@@ -169,13 +169,29 @@ class HarnessResilientRunnerTests(unittest.TestCase):
     def test_timeout_terminates_entire_generation_process_group(self) -> None:
         proc = MagicMock()
         proc.pid = 4242
-        proc.poll.return_value = None
         proc.wait.side_effect = [subprocess.TimeoutExpired(cmd="dsh", timeout=5), 0]
-        with patch.object(runner.os, "killpg") as killpg:
+        with (
+            patch.object(runner, "_process_group_exists", side_effect=[True, True]),
+            patch.object(runner.os, "killpg") as killpg,
+        ):
             runner._terminate_process_group(proc)
         self.assertEqual(
             killpg.call_args_list,
             [call(4242, signal.SIGTERM), call(4242, signal.SIGKILL)],
+        )
+
+    def test_parent_exit_does_not_leave_surviving_subagent_group(self) -> None:
+        proc = MagicMock()
+        proc.pid = 4343
+        proc.wait.side_effect = [0, 0]
+        with (
+            patch.object(runner, "_process_group_exists", side_effect=[True, True]),
+            patch.object(runner.os, "killpg") as killpg,
+        ):
+            runner._terminate_process_group(proc)
+        self.assertEqual(
+            killpg.call_args_list,
+            [call(4343, signal.SIGTERM), call(4343, signal.SIGKILL)],
         )
 
     def test_run_once_starts_isolated_session(self) -> None:
