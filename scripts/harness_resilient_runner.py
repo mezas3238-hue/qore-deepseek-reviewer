@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -13,6 +14,50 @@ from harness_large_batch_state import StateError, parse_checkpoint_file
 READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"
 BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
 RESUME_COMPLETE = "## RESUME STATE\nCOMPLETE"
+
+
+def _append_generation_output(
+    output_path: Path,
+    *,
+    generation: int,
+    text: str,
+    rc: int,
+    timed_out: bool,
+) -> None:
+    with output_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"\n\n<!-- QORE_RECOVERY_GENERATION {generation} BEGIN -->\n")
+        handle.write(text)
+        if text and not text.endswith("\n"):
+            handle.write("\n")
+        if timed_out:
+            handle.write(
+                f"Harness recovery generation {generation} reached its bounded timeout; "
+                "the isolated process group was terminated before recovery continued.\n"
+            )
+        handle.write(
+            f"<!-- QORE_RECOVERY_GENERATION {generation} END rc={rc} "
+            f"timed_out={str(timed_out).lower()} -->\n"
+        )
+
+
+def _terminate_process_group(proc: subprocess.Popen[str]) -> None:
+    """Terminate the whole DSH generation, including native subagent descendants."""
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+    try:
+        proc.wait(timeout=5)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    proc.wait(timeout=5)
 
 
 def _run_once(
@@ -25,23 +70,34 @@ def _run_once(
     generation: int,
 ) -> tuple[int, str]:
     env = os.environ.copy()
-    proc = subprocess.run(
+    proc = subprocess.Popen(
         [str(dsh_bin), "--profile", profile, prompt],
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        timeout=timeout_seconds,
-        check=False,
         env=env,
+        start_new_session=True,
     )
-    text = proc.stdout or ""
-    with output_path.open("a", encoding="utf-8") as handle:
-        handle.write(f"\n\n<!-- QORE_RECOVERY_GENERATION {generation} BEGIN -->\n")
-        handle.write(text)
-        if not text.endswith("\n"):
-            handle.write("\n")
-        handle.write(f"<!-- QORE_RECOVERY_GENERATION {generation} END rc={proc.returncode} -->\n")
-    return proc.returncode, text
+    timed_out = False
+    try:
+        text, _ = proc.communicate(timeout=timeout_seconds)
+        rc = int(proc.returncode or 0)
+    except subprocess.TimeoutExpired as exc:
+        timed_out = True
+        partial = exc.stdout if isinstance(exc.stdout, str) else ""
+        _terminate_process_group(proc)
+        remainder, _ = proc.communicate()
+        text = partial + (remainder or "")
+        rc = 124
+
+    _append_generation_output(
+        output_path,
+        generation=generation,
+        text=text or "",
+        rc=rc,
+        timed_out=timed_out,
+    )
+    return rc, text or ""
 
 
 def _checkpoint_tail(path: Path, limit: int = 14000) -> str:
@@ -132,20 +188,14 @@ def main() -> int:
                 primary_exit=int(attempts[-1]["exit_code"]),
             )
 
-        try:
-            rc, text = _run_once(
-                dsh_bin=args.dsh_bin,
-                profile=args.profile,
-                prompt=prompt,
-                timeout_seconds=args.generation_timeout_seconds,
-                output_path=args.output,
-                generation=generation,
-            )
-        except subprocess.TimeoutExpired as exc:
-            rc = 124
-            text = (exc.stdout or "") if isinstance(exc.stdout, str) else ""
-            with args.output.open("a", encoding="utf-8") as handle:
-                handle.write(f"\nHarness recovery generation {generation} reached its bounded timeout.\n")
+        rc, text = _run_once(
+            dsh_bin=args.dsh_bin,
+            profile=args.profile,
+            prompt=prompt,
+            timeout_seconds=args.generation_timeout_seconds,
+            output_path=args.output,
+            generation=generation,
+        )
 
         try:
             after = parse_checkpoint_file(args.checkpoints)
