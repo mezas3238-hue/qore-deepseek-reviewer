@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-PR466-9C5A5F6-F-CODER-001-BATCH-009-RECOVERY-001",
+  "package_id": "HARNESS-ENGINEER-PR466-9C5A5F6-F-CODER-001-BATCH-009-RECOVERY-002",
   "expected_start": "9c5a5f6c2befb62396563bac74ddd8a87760d23f",
   "expected_tree": "1c2b06effe269aec2b06c77d4344581c8d382d25",
-  "task_path": "harness/engineer/tasks/pr466-coder-r21-f-coder-001-batch-009-recovery-001.md",
+  "task_path": "harness/engineer/tasks/pr466-coder-r21-f-coder-001-batch-009-recovery-002.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "pr466-9c5a5f6-f-coder-001-batch-009-recovery-001-20260902",
+  "dispatch_nonce": "pr466-9c5a5f6-f-coder-001-batch-009-recovery-002-20260902",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
     "tests/infrastructure",
