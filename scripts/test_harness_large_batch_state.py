@@ -39,6 +39,14 @@ def bound_cp(*lane_lines: str, package: str = PACKAGE, start: str = START, tree:
     )
 
 
+def annotated_bound_cp(annotation: str, *lane_lines: str) -> str:
+    return cp(
+        f"package_id: {PACKAGE}",
+        f"binding: START={START} TREE={TREE} {annotation}",
+        *lane_lines,
+    )
+
+
 class HarnessLargeBatchStateTests(unittest.TestCase):
     def test_delayed_lane_does_not_invalidate_completed_lanes(self) -> None:
         text = cp(
@@ -117,6 +125,40 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
             self.assertEqual(state.package_id, PACKAGE)
             self.assertEqual(state.start, START)
             self.assertEqual(state.tree, TREE)
+
+    def test_verified_exact_binding_annotation_is_accepted(self) -> None:
+        state = parse_checkpoint_text(
+            annotated_bound_cp(
+                "VERIFIED_EXACT",
+                "QORE_LANE_STATE lane=1 state=COMPLETED generation=1",
+            ),
+            require_binding=True,
+        )
+        self.assertEqual(state.start, START)
+        self.assertEqual(state.tree, TREE)
+        self.assertEqual(state.completed, [1])
+
+    def test_unchanged_binding_annotation_is_accepted(self) -> None:
+        state = parse_checkpoint_text(
+            annotated_bound_cp(
+                "(unchanged)",
+                "QORE_LANE_STATE lane=2 state=RUNNING generation=1",
+            ),
+            require_binding=True,
+        )
+        self.assertEqual(state.start, START)
+        self.assertEqual(state.tree, TREE)
+        self.assertEqual(state.generations[2], 1)
+
+    def test_unknown_binding_annotation_fails_closed(self) -> None:
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(
+                annotated_bound_cp(
+                    "TRUST_ME",
+                    "QORE_LANE_STATE lane=1 state=RUNNING generation=1",
+                ),
+                require_binding=True,
+            )
 
     def test_package_binding_change_fails_closed(self) -> None:
         text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
