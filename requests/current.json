@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR478-BDEB7525-DS-EXPERT-R1-001",
+  "dispatch_nonce": "PR478-BDEB7525-DS-CODER-R1-001",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_head": "bdeb7525a1249f4f328bc618249f1df80c804f56",
   "expected_synthetic": "6ea11290b501c4276a4da7db0d8ea01668042e3b",
-  "package_id": "QORE-PR478-TRADER-CATALOG-31-RECOVERY-DS-EXPERT-R1-001",
+  "package_id": "QORE-PR478-TRADER-CATALOG-31-RECOVERY-DS-CODER-R1-001",
   "pr_number": 478,
-  "prompt_path": "prompts/qore-pr478-trader-catalog-31-recovery-expert-r1.md",
+  "prompt_path": "prompts/qore-pr478-trader-catalog-31-recovery-coder-r1.md",
   "qg_summary": {
     "coverage_missed_statements": 6234,
     "coverage_percent": 87,
@@ -18,5 +18,5 @@
     "ruff_passed": true,
     "run_id": 33681607355
   },
-  "review_mode": "expert"
+  "review_mode": "coder"
 }
