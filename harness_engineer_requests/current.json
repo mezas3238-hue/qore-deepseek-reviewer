@@ -1,18 +1,22 @@
 {
-  "package_id": "HARNESS-ENGINEER-PR466-9C5A5F6-F-CODER-001-BATCH-009-RECOVERY-002",
-  "expected_start": "9c5a5f6c2befb62396563bac74ddd8a87760d23f",
-  "expected_tree": "1c2b06effe269aec2b06c77d4344581c8d382d25",
-  "task_path": "harness/engineer/tasks/pr466-coder-r21-f-coder-001-batch-009-recovery-002.md",
+  "package_id": "HARNESS-ENGINEER-QORE-DEMO-INTELLIGENCE-SLICE-001-BATCH-001",
+  "expected_start": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
+  "expected_tree": "5e2b37b23b01fe23fd373d39b01573e9607a73ad",
+  "task_path": "harness/engineer/tasks/qore-demo-intelligence-slice-001-batch-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "pr466-9c5a5f6-f-coder-001-batch-009-recovery-002-20260902",
+  "dispatch_nonce": "qore-demo-intelligence-slice-001-batch-001-20260902",
   "allowed_paths": [
-    "src/qore/infrastructure/instrument_universe_registry.py",
+    "src/qore/infrastructure",
+    "src/qore/modules/trader",
+    "src/qore/modules/cibo",
     "tests/infrastructure",
+    "tests/modules/trader",
+    "tests/modules/cibo",
     "docs/architecture",
     "docs/audits"
   ],
-  "max_changed_files": 8,
-  "max_diff_lines": 1200,
+  "max_changed_files": 24,
+  "max_diff_lines": 5000,
   "run_full_qg": true
 }
