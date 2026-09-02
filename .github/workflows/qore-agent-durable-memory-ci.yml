@@ -67,14 +67,14 @@ jobs:
           done
 
           grep -q 'deepseek-review-checkpoints.md' "$REVIEW"
-          grep -q "grep -c '^QORE_CHECKPOINT_BEGIN'" "$REVIEW"
+          grep -Fq "grep -c '^QORE_CHECKPOINT_BEGIN" "$REVIEW"
           grep -q 'DURABLE JOURNAL SUMMARY' "$REVIEW"
           grep -q 'RESUME STATE' "$REVIEW"
 
           grep -q 'harness-engineer-checkpoints.md' "$ENGINEER"
           grep -q 'harness-engineer-candidate.patch' "$ENGINEER"
           grep -q 'harness_recovery_snapshot.py' "$ENGINEER"
-          grep -q "grep -c '^QORE_CHECKPOINT_BEGIN'" "$ENGINEER"
+          grep -Fq "grep -c '^QORE_CHECKPOINT_BEGIN" "$ENGINEER"
           grep -q 'DURABLE JOURNAL SUMMARY' "$ENGINEER"
           grep -q 'RESUME STATE' "$ENGINEER"
 
