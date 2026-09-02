@@ -107,8 +107,8 @@
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "a5888e18bef261631d84b7534116b16c45da98ae"
+    ".github/workflows/deepseek-qore-review.yml": "d8656ccb9be0f2d94c2b608a5c38eb86bcf41fc9"
   },
   "permanent_workflow_count": 3,
-  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts, adds mode-specific HIGH/MAX thinking selection with deterministic reasoning audit, and now includes one explicit bounded retry only for broken authoritative-response transport. HTTP errors are not retried, there is no sleep/backoff, and the transport helper self-tests before paid reviewer execution. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
+  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE remains the ordinary stable Expert/Coder certification profile. The authorized DeepSeek review workflow now additionally enforces durable engineering checkpoints and interruption recovery: a host checkpoint is created before model execution, successful reviews require agent-authored incremental checkpoints, and checkpoint artifacts are preserved on terminal failure/cancellation for bounded resume. These controls do not expose private chain-of-thought, do not relax frozen-candidate/LSP/subagent/HIGH-MAX/read-only gates, do not broaden workflow authority, and do not grant implementation, merge, Production, real-capital, or Risk-bypass authority. Existing bounded broken-transport retry behavior remains unchanged."
 }
