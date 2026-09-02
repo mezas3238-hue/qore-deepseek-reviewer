@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -11,7 +12,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import harness_resilient_runner as runner
-from harness_large_batch_state import write_initial
+from harness_large_batch_state import StateError, parse_checkpoint_file, write_initial
 
 
 def append_checkpoint(path: Path, seq: int, states: dict[int, str], generation: int) -> None:
@@ -211,6 +212,102 @@ class HarnessResilientRunnerTests(unittest.TestCase):
                 )
             self.assertEqual((rc, text), (0, "done"))
             self.assertTrue(popen.call_args.kwargs["start_new_session"])
+
+    def test_workspace_checkpoint_harvest_advances_host_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            host = root / "host" / "journal.md"
+            host.parent.mkdir()
+            write_initial(host, "PKG", "a" * 40, "b" * 40)
+            agent = root / "workspace" / runner.AGENT_RECOVERY_DIR / "checkpoints.md"
+            expected = runner._prepare_agent_checkpoint(host, agent)
+            append_checkpoint(agent, 1, {1: "COMPLETED", 2: "RECOVERY_REQUIRED"}, 1)
+
+            harvested = runner._harvest_agent_checkpoint(
+                host_checkpoint=host,
+                agent_checkpoint=agent,
+                expected=expected,
+            )
+
+            self.assertEqual(harvested.completed, [1])
+            self.assertEqual(harvested.pending, [2, 3, 4, 5, 6])
+            self.assertEqual(parse_checkpoint_file(host), harvested)
+
+    def test_cross_package_workspace_checkpoint_is_rejected_without_erasing_host(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            host = root / "host.md"
+            write_initial(host, "PKG", "a" * 40, "b" * 40)
+            original = host.read_text(encoding="utf-8")
+            agent = root / "workspace" / runner.AGENT_RECOVERY_DIR / "checkpoints.md"
+            agent.parent.mkdir(parents=True)
+            write_initial(agent, "OTHER", "a" * 40, "b" * 40)
+            expected = parse_checkpoint_file(host)
+
+            with self.assertRaisesRegex(StateError, "binding mismatch"):
+                runner._harvest_agent_checkpoint(
+                    host_checkpoint=host,
+                    agent_checkpoint=agent,
+                    expected=expected,
+                )
+
+            self.assertEqual(host.read_text(encoding="utf-8"), original)
+
+    def test_durable_prompt_paths_are_localized_into_workspace(self) -> None:
+        prompt = (
+            "# DURABLE RECOVERY TARGETS\n"
+            "checkpoint_path=/home/runner/work/_temp/harness-engineer-checkpoints.md\n"
+            "recovery_patch_path=/home/runner/work/_temp/harness-engineer-candidate.patch\n"
+        )
+        localized = runner._localize_durable_prompt_paths(
+            prompt,
+            agent_checkpoint=Path(runner.AGENT_RECOVERY_DIR) / "checkpoints.md",
+            agent_patch=Path(runner.AGENT_RECOVERY_DIR) / "candidate.patch",
+        )
+        self.assertIn(
+            f"checkpoint_path={runner.AGENT_RECOVERY_DIR}/checkpoints.md",
+            localized,
+        )
+        self.assertIn(
+            f"recovery_patch_path={runner.AGENT_RECOVERY_DIR}/candidate.patch",
+            localized,
+        )
+        self.assertNotIn("/home/runner/work/_temp/harness-engineer-checkpoints.md", localized)
+
+    def test_workspace_write_redirects_external_coverage_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            previous = Path.cwd()
+            proc = MagicMock()
+            proc.communicate.return_value = ("done", None)
+            proc.returncode = 0
+            try:
+                os.chdir(workspace)
+                with (
+                    patch.dict(
+                        os.environ,
+                        {
+                            "DSH_PERMISSION_MODE": "workspace-write",
+                            "COVERAGE_FILE": "/home/runner/work/_temp/qore.coverage",
+                        },
+                        clear=False,
+                    ),
+                    patch.object(runner.subprocess, "Popen", return_value=proc) as popen,
+                ):
+                    runner._run_once(
+                        dsh_bin=Path("/fake/dsh"),
+                        profile="headless",
+                        prompt="PROMPT",
+                        timeout_seconds=60,
+                        output_path=workspace / "out.md",
+                        generation=1,
+                    )
+            finally:
+                os.chdir(previous)
+
+            coverage_file = Path(popen.call_args.kwargs["env"]["COVERAGE_FILE"])
+            self.assertTrue(runner._is_within(coverage_file, workspace))
+            self.assertEqual(coverage_file.name, "agent.coverage")
 
 
 if __name__ == "__main__":
