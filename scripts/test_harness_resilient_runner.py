@@ -84,6 +84,33 @@ class HarnessResilientRunnerTests(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(len(meta["attempts"]), 2)
 
+    def test_post_lane_interruption_recovers_without_relaunching_any_lane(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoints = root / "journal.md"
+            write_initial(checkpoints, "PKG", "a" * 40, "b" * 40)
+            calls: list[str] = []
+
+            def fake(**kwargs):
+                calls.append(kwargs["prompt"])
+                if len(calls) == 1:
+                    append_checkpoint(
+                        checkpoints,
+                        1,
+                        {lane: "COMPLETED" for lane in range(1, 7)},
+                        1,
+                    )
+                    return 31, "all lanes complete; interrupted before synthesis"
+                return 0, "## RESUME STATE\nCOMPLETE\n## ENGINEER VERDICT\nCANDIDATE_READY_FOR_EXTERNAL_QG\n"
+
+            rc, meta = self._invoke(fake, checkpoints, root)
+            self.assertEqual(rc, 0)
+            self.assertEqual(meta["recovery_generations_used"], 1)
+            self.assertIn("inherited_completed_lanes=[1, 2, 3, 4, 5, 6]", calls[1])
+            self.assertIn("pending_or_recovery_lanes=[]", calls[1])
+            self.assertIn("Do not relaunch any lane", calls[1])
+            self.assertIn("previous_primary_exit=31", calls[1])
+
     def test_second_interruption_remains_resumable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
