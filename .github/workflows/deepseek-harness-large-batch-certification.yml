@@ -22,19 +22,34 @@ jobs:
       - name: Compile deterministic controls
         run: |
           set -euo pipefail
-          python3 -m py_compile scripts/harness_large_batch_state.py scripts/harness_resilient_runner.py scripts/test_harness_large_batch_state.py scripts/test_harness_resilient_runner.py
-      - name: Run adversarial state-machine tests
+          python3 -m py_compile \
+            scripts/harness_large_batch_state.py \
+            scripts/harness_resilient_runner.py \
+            scripts/test_harness_large_batch_state.py \
+            scripts/test_harness_resilient_runner.py
+      - name: Run adversarial state-machine and runner tests
         working-directory: scripts
         run: |
           set -euo pipefail
           python3 test_harness_large_batch_state.py
           python3 test_harness_resilient_runner.py
+      - name: Certify large-batch invariants and six-lane authority
+        run: |
+          set -euo pipefail
+          grep -q 'PENDING LANE != BATCH FAILURE' docs/harness-large-batch-resilience-001.md
+          grep -q 'ONE LANE INTERRUPTION != RESTART ALL LANES' docs/harness-large-batch-resilience-001.md
+          grep -q 'DURABLE COMPLETED LANE != REPEATABLE WORK' docs/harness-large-batch-resilience-001.md
+          grep -q 'RECOVERABLE MODEL EXIT != MATERIAL FAILURE' docs/harness-large-batch-resilience-001.md
+          grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
+          ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
       - name: Certify routing and fail-closed gates
         run: |
           set -euo pipefail
-          grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
-          grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'harness_resilient_runner.py' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'qore-harness-engineer-v2.md' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'all_complete == true' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'max-generations 4' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'Require warm LSP cache before API spend' .github/workflows/deepseek-harness-engineer-resilient.yml
