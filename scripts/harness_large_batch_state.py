@@ -20,6 +20,9 @@ TERMINAL_STATES = {"COMPLETED", "MATERIAL_BLOCKED"}
 LANE_RE = re.compile(
     r"^QORE_LANE_STATE\s+lane=(?P<lane>[1-6])\s+state=(?P<state>[A-Z_]+)(?:\s+generation=(?P<generation>\d+))?\s*$"
 )
+BINDING_RE = re.compile(
+    r"^binding:\s*START=(?P<start>[0-9a-fA-F]{7,64})\s+TREE=(?P<tree>[0-9a-fA-F]{7,64})\s*$"
+)
 BEGIN = "QORE_CHECKPOINT_BEGIN"
 END = "QORE_CHECKPOINT_END"
 
@@ -33,6 +36,9 @@ class Snapshot:
     checkpoint_count: int
     lanes: dict[int, str]
     generations: dict[int, int]
+    package_id: str | None = None
+    start: str | None = None
+    tree: str | None = None
 
     @property
     def completed(self) -> list[int]:
@@ -54,6 +60,9 @@ class Snapshot:
         return {
             "schema": "qore-harness-large-batch-state-v1",
             "checkpoint_count": self.checkpoint_count,
+            "package_id": self.package_id,
+            "start": self.start,
+            "tree": self.tree,
             "lanes": {str(k): self.lanes[k] for k in LANES},
             "lane_generations": {str(k): self.generations[k] for k in LANES},
             "completed_lanes": self.completed,
@@ -63,45 +72,102 @@ class Snapshot:
         }
 
 
-def parse_checkpoint_text(text: str) -> Snapshot:
-    begin_count = sum(1 for line in text.splitlines() if line.strip() == BEGIN)
-    end_count = sum(1 for line in text.splitlines() if line.strip() == END)
-    if begin_count != end_count:
-        raise StateError(
-            f"checkpoint markers are unbalanced: begin={begin_count} end={end_count}"
-        )
-    if begin_count < 1:
+def _checkpoint_blocks(text: str) -> list[list[str]]:
+    blocks: list[list[str]] = []
+    current: list[str] | None = None
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if stripped == BEGIN:
+            if current is not None:
+                raise StateError("nested checkpoint begin")
+            current = []
+            continue
+        if stripped == END:
+            if current is None:
+                raise StateError("checkpoint end without begin")
+            blocks.append(current)
+            current = None
+            continue
+        if current is not None:
+            current.append(raw)
+        elif stripped.startswith("QORE_LANE_STATE") or stripped.startswith("binding:") or stripped.startswith("package_id:"):
+            raise StateError("durable state material exists outside a checkpoint block")
+    if current is not None:
+        raise StateError("unterminated checkpoint")
+    if not blocks:
         raise StateError("checkpoint journal contains no complete checkpoint")
+    return blocks
 
+
+def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapshot:
+    blocks = _checkpoint_blocks(text)
     lanes = {lane: "NOT_STARTED" for lane in LANES}
     generations = {lane: 0 for lane in LANES}
     seen_completed: set[int] = set()
+    package_id: str | None = None
+    start: str | None = None
+    tree: str | None = None
 
-    for raw in text.splitlines():
-        match = LANE_RE.match(raw.strip())
-        if not match:
-            continue
-        lane = int(match.group("lane"))
-        state = match.group("state")
-        if state not in STATES:
-            raise StateError(f"unknown lane state for lane {lane}: {state}")
-        generation = int(match.group("generation") or generations[lane])
-        if generation < generations[lane]:
-            raise StateError(f"lane {lane} generation regressed")
-        if lane in seen_completed and state != "COMPLETED":
-            raise StateError(f"completed lane {lane} regressed to {state}")
-        lanes[lane] = state
-        generations[lane] = generation
-        if state == "COMPLETED":
-            seen_completed.add(lane)
+    for block in blocks:
+        for raw in block:
+            stripped = raw.strip()
+            if stripped.startswith("package_id:"):
+                candidate = stripped.split(":", 1)[1].strip()
+                if not candidate:
+                    raise StateError("empty package_id in checkpoint")
+                if package_id is not None and package_id != candidate:
+                    raise StateError("checkpoint package_id binding changed")
+                package_id = candidate
+                continue
 
-    return Snapshot(begin_count, lanes, generations)
+            binding_match = BINDING_RE.match(stripped)
+            if binding_match:
+                candidate_start = binding_match.group("start").lower()
+                candidate_tree = binding_match.group("tree").lower()
+                if start is not None and start != candidate_start:
+                    raise StateError("checkpoint START binding changed")
+                if tree is not None and tree != candidate_tree:
+                    raise StateError("checkpoint TREE binding changed")
+                start = candidate_start
+                tree = candidate_tree
+                continue
+            if stripped.startswith("binding:"):
+                raise StateError(f"invalid checkpoint binding line: {stripped}")
+
+            match = LANE_RE.match(stripped)
+            if not match:
+                continue
+            lane = int(match.group("lane"))
+            state = match.group("state")
+            if state not in STATES:
+                raise StateError(f"unknown lane state for lane {lane}: {state}")
+            generation = int(match.group("generation") or generations[lane])
+            if generation < generations[lane]:
+                raise StateError(f"lane {lane} generation regressed")
+            if lane in seen_completed and state != "COMPLETED":
+                raise StateError(f"completed lane {lane} regressed to {state}")
+            lanes[lane] = state
+            generations[lane] = generation
+            if state == "COMPLETED":
+                seen_completed.add(lane)
+
+    if require_binding and (package_id is None or start is None or tree is None):
+        raise StateError("checkpoint journal is missing immutable package/START/TREE binding")
+
+    return Snapshot(
+        checkpoint_count=len(blocks),
+        lanes=lanes,
+        generations=generations,
+        package_id=package_id,
+        start=start,
+        tree=tree,
+    )
 
 
 def parse_checkpoint_file(path: Path) -> Snapshot:
     if not path.is_file():
         raise StateError(f"checkpoint journal missing: {path}")
-    return parse_checkpoint_text(path.read_text(encoding="utf-8"))
+    return parse_checkpoint_text(path.read_text(encoding="utf-8"), require_binding=True)
 
 
 def write_initial(path: Path, package_id: str, start: str, tree: str) -> None:
