@@ -11,6 +11,7 @@ on:
       - harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
       - harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
       - harness/reviewer/prompts/qore-claude-final-review-v1.md
+      - scripts/deepseek_balance_meter.py
       - scripts/harness_recovery_snapshot.py
   workflow_dispatch:
 
@@ -109,6 +110,34 @@ jobs:
           git -C "$ROOT" apply /tmp/qore-recovery.patch
           test "$(cat "$ROOT/src/example.py")" = 'VALUE = 2'
           grep -Fq 'def test_new' "$ROOT/tests/test_new.py"
+
+      - name: Exercise fail-closed balance preflight without provider I/O
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from decimal import Decimal
+          from scripts.deepseek_balance_meter import _require_minimum_balance
+
+          floor = Decimal("5.00")
+          _require_minimum_balance(
+              {"currency": "USD", "total_balance": "5.00", "is_available": True},
+              floor,
+          )
+
+          rejected = [
+              {"currency": "USD", "total_balance": "4.99", "is_available": True},
+              {"currency": "USD", "total_balance": "10.00", "is_available": False},
+              {"currency": "EUR", "total_balance": "100.00", "is_available": True},
+              {"currency": "USD", "total_balance": "NaN", "is_available": True},
+          ]
+          for case in rejected:
+              try:
+                  _require_minimum_balance(case, floor)
+              except (RuntimeError, ValueError):
+                  continue
+              raise SystemExit(f"balance preflight accepted rejected case: {case!r}")
+          print("DeepSeek balance preflight fail-closed cases: PASS")
+          PY
 
       - name: Compile changed workflow support scripts
         run: |
