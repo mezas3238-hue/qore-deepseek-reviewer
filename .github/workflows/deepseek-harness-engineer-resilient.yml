@@ -1,0 +1,379 @@
+name: DeepSeek Harness QORE Engineer Resilient
+run-name: DeepSeek Harness Engineer · ${{ inputs.package_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_commit:
+        required: true
+        type: string
+      package_id:
+        required: true
+        type: string
+      expected_start:
+        required: true
+        type: string
+      expected_tree:
+        required: true
+        type: string
+      task_path:
+        required: true
+        type: string
+      mode:
+        required: true
+        default: engineer
+        type: choice
+        options: [engineer]
+      dispatch_nonce:
+        required: true
+        type: string
+      allowed_paths_json:
+        required: true
+        type: string
+      max_changed_files:
+        required: true
+        type: string
+      max_diff_lines:
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deepseek-harness-engineer-resilient-${{ inputs.package_id }}
+  cancel-in-progress: false
+
+jobs:
+  engineer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 190
+    steps:
+      - name: Checkout exact reviewer request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.request_commit }}
+          persist-credentials: false
+
+      - name: Validate immutable package and resilience controls
+        env:
+          REQUEST_COMMIT: ${{ inputs.request_commit }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$REQUEST_COMMIT"
+          python3 scripts/harness_engineer_package_contract.py workflow \
+            "${{ inputs.package_id }}" \
+            "${{ inputs.expected_start }}" \
+            "${{ inputs.expected_tree }}" \
+            "${{ inputs.task_path }}" \
+            "${{ inputs.mode }}" \
+            "${{ inputs.dispatch_nonce }}" \
+            '${{ inputs.allowed_paths_json }}' \
+            "${{ inputs.max_changed_files }}" \
+            "${{ inputs.max_diff_lines }}" > harness-engineer-package.json
+          CURRENT="$(python3 scripts/harness_engineer_package_contract.py request harness_engineer_requests/current.json)"
+          test "$CURRENT" = "$(cat harness-engineer-package.json)"
+          test -f "${{ inputs.task_path }}"
+          python3 -m py_compile \
+            scripts/harness_large_batch_state.py \
+            scripts/harness_resilient_runner.py \
+            scripts/harness_engineer_gate.py \
+            scripts/harness_recovery_snapshot.py \
+            scripts/harness_usage_meter.py \
+            scripts/deepseek_balance_meter.py
+          python3 scripts/test_harness_large_batch_state.py
+          grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
+
+      - name: Reject duplicate resilient package dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          DUPLICATES="$(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-engineer-resilient.yml/runs?event=workflow_dispatch&per_page=100" \
+              --jq ".workflow_runs[] | select(.display_title == \"DeepSeek Harness Engineer · ${PACKAGE_ID}\" and .id != ${CURRENT_RUN_ID}) | .id"
+          )"
+          test -z "$DUPLICATES" || { echo "Duplicate resilient package run: $DUPLICATES" >&2; exit 1; }
+
+      - name: Checkout exact qore-core start
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ inputs.expected_start }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact qore-core binding
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_START: ${{ inputs.expected_start }}
+          EXPECTED_TREE: ${{ inputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore exact Harness LSP cache
+        id: dsh-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Require warm LSP cache before API spend
+        run: |
+          set -euo pipefail
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || exit 78
+
+      - name: Prepare isolated DSH runtime and semantic LSP
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-engineer-home
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+        run: |
+          set -euo pipefail
+          for PACKAGE in dsh dsh-lsp dsh-lsp-stdio dsh-tool-lsp; do
+            test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/${PACKAGE}/package.json').version")" = "0.1.1-rc.2"
+          done
+          test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/pyright/package.json').version")" = "1.1.413"
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
+          chmod 700 "$DSH_HOME"
+          cp -R harness/skills/. "$DSH_HOME/skills/"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          cat > "$DSH_HOME/settings.yaml" <<'EOF'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: high
+          EOF
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          - insert:
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" | tee harness-engineer-lsp-smoke.json
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' harness-engineer-lsp-smoke.json >/dev/null
+
+      - name: Seal qore-core publication authority
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_START: ${{ inputs.expected_start }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_START"
+          git remote remove origin || true
+          test -z "$(git remote)"
+          git config --local user.name "QORE Harness Engineer - NO COMMIT"
+          git config --local user.email "no-commit@qore.invalid"
+
+      - name: Capture DeepSeek balance baseline
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py snapshot "$RUNNER_TEMP/deepseek-engineer-balance-before.json"
+
+      - name: Initialize durable six-lane state and prompt
+        env:
+          PACKAGE_ID: ${{ inputs.package_id }}
+          EXPECTED_START: ${{ inputs.expected_start }}
+          EXPECTED_TREE: ${{ inputs.expected_tree }}
+          TASK_PATH: ${{ inputs.task_path }}
+          ALLOWED_PATHS_JSON: ${{ inputs.allowed_paths_json }}
+          MAX_CHANGED_FILES: ${{ inputs.max_changed_files }}
+          MAX_DIFF_LINES: ${{ inputs.max_diff_lines }}
+        run: |
+          set -euo pipefail
+          CHECKPOINT_PATH="$RUNNER_TEMP/harness-engineer-checkpoints.md"
+          RECOVERY_PATCH_PATH="$RUNNER_TEMP/harness-engineer-candidate.patch"
+          python3 scripts/harness_large_batch_state.py init \
+            --checkpoints "$CHECKPOINT_PATH" \
+            --package-id "$PACKAGE_ID" --start "$EXPECTED_START" --tree "$EXPECTED_TREE"
+          : > "$RECOVERY_PATCH_PATH"
+          ALLOWED_PATHS="$(jq -r '.[] | "- " + .' <<<"$ALLOWED_PATHS_JSON")"
+          cat harness/engineer/prompts/qore-harness-engineer-v2.md > "$RUNNER_TEMP/harness-engineer-prompt.md"
+          cat >> "$RUNNER_TEMP/harness-engineer-prompt.md" <<EOF
+
+          # WORK PACKAGE
+          $(cat "$TASK_PATH")
+
+          # IMMUTABLE EXECUTION BINDING
+          package_id=${PACKAGE_ID}
+          expected_start=${EXPECTED_START}
+          expected_tree=${EXPECTED_TREE}
+
+          # ALLOWED REPOSITORY PATH SCOPES
+          ${ALLOWED_PATHS}
+
+          # HARD CHANGE BUDGETS
+          max_changed_files=${MAX_CHANGED_FILES}
+          max_added_plus_deleted_lines=${MAX_DIFF_LINES}
+
+          # DURABLE RECOVERY TARGETS
+          checkpoint_path=${CHECKPOINT_PATH}
+          recovery_patch_path=${RECOVERY_PATCH_PATH}
+          host_recovery_generation=1
+
+          Python semantic LSP is available. The host owns external FULL QG. Do not commit, add a remote, or use network research.
+          EOF
+
+      - name: Run resilient multi-generation Harness Engineer
+        id: harness
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-engineer-home
+          DSH_PERMISSION_MODE: workspace-write
+          NODE_OPTIONS: --max-old-space-size=4096
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-engineer-agent.coverage
+        run: |
+          set -euo pipefail
+          START_EPOCH="$(date +%s)"
+          set +e
+          python3 ../../scripts/harness_resilient_runner.py \
+            --dsh-bin "$RUNNER_TEMP/qore-dsh-engineer-lsp-install/node_modules/.bin/dsh" \
+            --profile headless \
+            --prompt-file "$RUNNER_TEMP/harness-engineer-prompt.md" \
+            --checkpoints "$RUNNER_TEMP/harness-engineer-checkpoints.md" \
+            --output "$GITHUB_WORKSPACE/harness-engineer-output.md" \
+            --metadata "$GITHUB_WORKSPACE/harness-engineer-resilience.json" \
+            --max-generations 4 \
+            --generation-timeout-seconds 2100 \
+            --max-stagnant-generations 1
+          STATUS=$?
+          set -e
+          END_EPOCH="$(date +%s)"
+          printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/harness-engineer-ai-seconds.txt"
+          exit "$STATUS"
+
+      - name: Collect durable recovery evidence
+        if: ${{ always() }}
+        run: |
+          set +e
+          cp "$RUNNER_TEMP/harness-engineer-checkpoints.md" harness-engineer-checkpoints.md 2>/dev/null || true
+          cp "$RUNNER_TEMP/harness-engineer-candidate.patch" harness-engineer-candidate.patch 2>/dev/null || true
+          if test -d workspace/qore-core/.git; then
+            python3 scripts/harness_recovery_snapshot.py --workspace workspace/qore-core --output harness-engineer-candidate.patch || true
+          fi
+          python3 scripts/harness_large_batch_state.py snapshot --checkpoints "$RUNNER_TEMP/harness-engineer-checkpoints.md" > harness-engineer-lane-state.json || true
+
+      - name: Deterministic candidate scope and patch gate
+        if: ${{ steps.harness.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          jq -e '.all_complete == true and (.pending_lanes | length) == 0' harness-engineer-lane-state.json >/dev/null
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0' harness-engineer-resilience.json >/dev/null
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package harness-engineer-package.json \
+            --patch harness-engineer-candidate.patch \
+            --metadata harness-engineer-gate.json
+
+      - name: Run external canonical FULL QORE quality gate
+        if: ${{ steps.harness.outcome == 'success' }}
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-engineer-full-qg.coverage
+        run: |
+          set -euo pipefail
+          ruff check . | tee "$GITHUB_WORKSPACE/harness-engineer-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/harness-engineer-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/harness-engineer-pytest.log"
+
+      - name: Revalidate candidate after FULL QG
+        if: ${{ steps.harness.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package harness-engineer-package.json \
+            --patch harness-engineer-candidate.patch \
+            --metadata harness-engineer-gate.json
+
+      - name: Measure usage and billing
+        if: ${{ always() }}
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-engineer-home
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set +e
+          if find "$DSH_HOME/sessions" -type f -name session.jsonl -print -quit 2>/dev/null | grep -q .; then
+            python3 scripts/harness_usage_meter.py --sessions "$DSH_HOME/sessions" --output harness-engineer-usage.json
+          fi
+          python3 scripts/deepseek_balance_meter.py delta "$RUNNER_TEMP/deepseek-engineer-balance-before.json" harness-engineer-billing-delta.json || true
+
+      - name: Upload Harness Engineer evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-engineer-${{ inputs.package_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            harness-engineer-package.json
+            harness-engineer-output.md
+            harness-engineer-checkpoints.md
+            harness-engineer-candidate.patch
+            harness-engineer-lane-state.json
+            harness-engineer-resilience.json
+            harness-engineer-gate.json
+            harness-engineer-usage.json
+            harness-engineer-billing-delta.json
+            harness-engineer-lsp-smoke.json
+            harness-engineer-ruff.log
+            harness-engineer-mypy.log
+            harness-engineer-pytest.log
+            ${{ runner.temp }}/harness-engineer-ai-seconds.txt
+            ${{ runner.temp }}/qore-dsh-engineer-home/sessions/**/session.jsonl
+
+      - name: Resilient artifact-only completion
+        if: ${{ success() }}
+        run: |
+          echo "Harness large-batch candidate completed with all six durable lanes, deterministic scope gate and FULL QG."
