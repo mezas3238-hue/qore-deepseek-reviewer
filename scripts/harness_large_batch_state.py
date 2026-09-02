@@ -21,7 +21,7 @@ LANE_RE = re.compile(
     r"^QORE_LANE_STATE\s+lane=(?P<lane>[1-6])\s+state=(?P<state>[A-Z_]+)(?:\s+generation=(?P<generation>\d+))?\s*$"
 )
 BINDING_RE = re.compile(
-    r"^binding:\s*START=(?P<start>[0-9a-fA-F]{7,64})\s+TREE=(?P<tree>[0-9a-fA-F]{7,64})\s*$"
+    r"^binding:\s*START=(?P<start>[0-9a-fA-F]{7,64})\s+TREE=(?P<tree>[0-9a-fA-F]{7,64})(?:\s+(?P<annotation>VERIFIED_EXACT|\(unchanged\)))?\s*$"
 )
 BEGIN = "QORE_CHECKPOINT_BEGIN"
 END = "QORE_CHECKPOINT_END"
