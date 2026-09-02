@@ -1,19 +1,19 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXECUTIVE-001-BATCH-006",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001-CORRECTION-001",
   "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
   "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-executive-001-batch-006.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-trader-development-manager-001-correction-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-executive-001-batch-006-20260902",
+  "dispatch_nonce": "qore-cibo-trader-development-manager-001-correction-001-20260902",
   "allowed_paths": [
-    "src/qore/modules/cibo",
-    "src/qore/infrastructure",
-    "tests/modules/cibo",
-    "tests/infrastructure",
-    "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md"
+    "src/qore/infrastructure/cibo_trader_manager.py",
+    "src/qore/infrastructure/cibo_trader_development_review.py",
+    "tests/infrastructure/test_cibo_trader_manager.py",
+    "tests/infrastructure/test_cibo_trader_development_review.py",
+    "docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md"
   ],
-  "max_changed_files": 15,
-  "max_diff_lines": 4300,
+  "max_changed_files": 7,
+  "max_diff_lines": 1400,
   "run_full_qg": true
 }
