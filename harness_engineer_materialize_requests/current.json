@@ -3,19 +3,17 @@
   "repository": "mezas3238-hue/qore-core",
   "pr_number": 466,
   "target_branch": "agent/qore-umi14-corr-umi13-recursive-revalidation-001",
-  "package_id": "HARNESS-ENGINEER-PR466-CDA1EB8D-R19-MARK-URL-BOUNDARY-006",
-  "run_id": 33557284802,
-  "artifact_id": 9820582376,
-  "artifact_digest": "sha256:2836170b66170d6b9b3eca1b24873e228d3a8eceaab9a509b01c3ec4d0142ae9",
-  "patch_sha256": "4212250c821b093be8fd91fcf523f7326dd58e00a84425e232a992e9e53d7a1c",
-  "expected_head": "cda1eb8d9b53dee456e7c3639d76de7e63fbd7c8",
-  "expected_tree": "ec80768a9c6c5c585bf743fdfcd1ee50e8b871e3",
-  "expected_pytest_passed": 5469,
+  "package_id": "HARNESS-ENGINEER-PR466-C079BB5-R20-ROOT-FAMILY-BATCH-008",
+  "run_id": 33576783638,
+  "artifact_id": 9828583305,
+  "artifact_digest": "sha256:95bd1217b57b54c2315c066b7bf9ee2bec48d74e7a7ad9a57270ddbda8be3857",
+  "patch_sha256": "ec0a78d54fa0143f65a8eb0c0c67d4b20a7678b19de04a1a631dad53b1098944",
+  "expected_head": "c079bb5fc8d201db8e0eeb05bc35a59884d371f7",
+  "expected_tree": "d2f686c4a4c47f7f501c9667a2106016174f19fe",
+  "expected_pytest_passed": 5537,
   "expected_changed_files": [
-    "docs/audits/UMI14-UMI13-DEEPSEEK-EXPERT-R19-FOLLOWUP.md",
     "src/qore/infrastructure/instrument_universe_registry.py",
+    "tests/infrastructure/test_instrument_universe_registry_r20_root_family.py",
     "tests/infrastructure/test_instrument_universe_registry_url_boundary_mark.py"
   ]
 }
-
-
