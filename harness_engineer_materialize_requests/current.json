@@ -3,17 +3,17 @@
   "repository": "mezas3238-hue/qore-core",
   "pr_number": 466,
   "target_branch": "agent/qore-umi14-corr-umi13-recursive-revalidation-001",
-  "package_id": "HARNESS-ENGINEER-PR466-C079BB5-R20-ROOT-FAMILY-BATCH-008",
-  "run_id": 33576783638,
-  "artifact_id": 9828583305,
-  "artifact_digest": "sha256:95bd1217b57b54c2315c066b7bf9ee2bec48d74e7a7ad9a57270ddbda8be3857",
-  "patch_sha256": "ec0a78d54fa0143f65a8eb0c0c67d4b20a7678b19de04a1a631dad53b1098944",
-  "expected_head": "c079bb5fc8d201db8e0eeb05bc35a59884d371f7",
-  "expected_tree": "d2f686c4a4c47f7f501c9667a2106016174f19fe",
-  "expected_pytest_passed": 5537,
+  "package_id": "HARNESS-ENGINEER-PR466-9C5A5F6-F-CODER-001-BATCH-009-RECOVERY-002",
+  "run_id": 33633261484,
+  "artifact_id": 9849360009,
+  "artifact_digest": "sha256:603859a263f139fcbf0ad0dd3cdbb65f2dbce560ca6a037aaa5b7244b0fbfa67",
+  "patch_sha256": "008d25dcd3494c7816a69125b70980ac2d25109de77f39719c8e03e3301477a0",
+  "expected_head": "9c5a5f6c2befb62396563bac74ddd8a87760d23f",
+  "expected_tree": "1c2b06effe269aec2b06c77d4344581c8d382d25",
+  "expected_pytest_passed": 5597,
   "expected_changed_files": [
+    "docs/architecture/QORE-UMI-13-INSTRUMENT-UNIVERSE-REGISTRY-001.md",
     "src/qore/infrastructure/instrument_universe_registry.py",
-    "tests/infrastructure/test_instrument_universe_registry_r20_root_family.py",
-    "tests/infrastructure/test_instrument_universe_registry_url_boundary_mark.py"
+    "tests/infrastructure/test_instrument_universe_registry_confusable_assignment_prefix.py"
   ]
 }
