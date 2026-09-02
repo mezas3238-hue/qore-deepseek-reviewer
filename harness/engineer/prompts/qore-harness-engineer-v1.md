@@ -32,7 +32,7 @@ Exactly six native subagent delegations are required on every Harness Engineer p
 
 Harness work must survive quota loss, timeout, cancellation, runner failure, or model interruption without losing the work already completed.
 
-Do **not** wait until the final report to record evidence. From the qore-core workspace, append incremental checkpoints to `../../harness-engineer-output.md` throughout execution. Checkpoint immediately:
+Do **not** wait until the final report to record evidence. From the qore-core workspace, append incremental checkpoints to `../../harness-engineer-checkpoints.md` throughout execution. Never overwrite or truncate that file. The host creates checkpoint sequence 0 before model execution; Harness begins at sequence 1. Checkpoint immediately:
 - after exact binding / resume-context verification;
 - after consuming each of the six subagent lane results;
 - after each reproduced/rejected material witness;
