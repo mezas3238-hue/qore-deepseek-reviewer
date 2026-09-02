@@ -1,18 +1,18 @@
 {
-  "package_id": "HARNESS-ENGINEER-PR466-C079BB5-R20-ROOT-FAMILY-BATCH-008",
-  "expected_start": "c079bb5fc8d201db8e0eeb05bc35a59884d371f7",
-  "expected_tree": "d2f686c4a4c47f7f501c9667a2106016174f19fe",
-  "task_path": "harness/engineer/tasks/pr466-r20-expert-root-family-batch-008.md",
+  "package_id": "HARNESS-ENGINEER-PR466-9C5A5F6-F-CODER-001-BATCH-009",
+  "expected_start": "9c5a5f6c2befb62396563bac74ddd8a87760d23f",
+  "expected_tree": "1c2b06effe269aec2b06c77d4344581c8d382d25",
+  "task_path": "harness/engineer/tasks/pr466-coder-r21-f-coder-001-batch-009.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "pr466-c079bb5-r20-root-family-batch-008-20260901",
+  "dispatch_nonce": "pr466-9c5a5f6-f-coder-001-batch-009-20260902",
   "allowed_paths": [
     "src/qore/infrastructure/instrument_universe_registry.py",
     "tests/infrastructure",
     "docs/architecture",
     "docs/audits"
   ],
-  "max_changed_files": 10,
-  "max_diff_lines": 2200,
+  "max_changed_files": 8,
+  "max_diff_lines": 1200,
   "run_full_qg": true
 }
