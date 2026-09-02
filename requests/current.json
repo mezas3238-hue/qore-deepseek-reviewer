@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR480-576803FB-DS-EXPERT-R1-001",
+  "dispatch_nonce": "PR481-5D25445F-DS-EXPERT-R1-001",
   "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_head": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
-  "expected_synthetic": "3e203d32d05bd33cc509fd8aef82b9a42729dd90",
-  "package_id": "QORE-PR480-CIBO-TRADER-DEVELOPMENT-MANAGER-DS-EXPERT-R1-001",
-  "pr_number": 480,
-  "prompt_path": "prompts/qore-pr480-cibo-trader-development-manager-recovery-expert-r1.md",
+  "expected_head": "5d25445faf57fa83410b57faf5eaf1f437949129",
+  "expected_synthetic": "f7d05fc855607107b4129dec4330ca25bf89ee13",
+  "package_id": "QORE-PR481-TRADER-LAB-DS-EXPERT-R1-001",
+  "pr_number": 481,
+  "prompt_path": "prompts/qore-pr481-trader-lab-recovery-expert-r1.md",
   "qg_summary": {
-    "coverage_missed_statements": 6329,
+    "coverage_missed_statements": 6418,
     "coverage_percent": 87,
-    "coverage_total_statements": 48175,
-    "job_id": 100454612540,
-    "mypy_source_files": 746,
-    "pytest_collected": 4909,
-    "pytest_passed": 4909,
+    "coverage_total_statements": 48429,
+    "job_id": 100454652055,
+    "mypy_source_files": 752,
+    "pytest_collected": 4901,
+    "pytest_passed": 4901,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33692651521
+    "run_id": 33692663886
   },
   "review_mode": "expert"
 }
