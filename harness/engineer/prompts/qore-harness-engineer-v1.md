@@ -32,7 +32,9 @@ Exactly six native subagent delegations are required on every Harness Engineer p
 
 Harness work must survive quota loss, timeout, cancellation, runner failure, or model interruption without losing the work already completed.
 
-Do **not** wait until the final report to record evidence. From the qore-core workspace, append incremental checkpoints to `../../harness-engineer-checkpoints.md` throughout execution. Never overwrite or truncate that file. The host creates checkpoint sequence 0 before model execution; Harness begins at sequence 1. Checkpoint immediately:
+The host supplies exact absolute `checkpoint_path` and `recovery_patch_path` values under a platform temporary root writable by the DSH sandbox. Do not substitute other paths and do not attempt to write recovery evidence into parent directories outside the qore-core workspace.
+
+Do **not** wait until the final report to record evidence. Append incremental checkpoints to the exact host-supplied `checkpoint_path` throughout execution. Never overwrite or truncate that file. The host creates checkpoint sequence 0 before model execution; Harness begins at sequence 1. Checkpoint immediately:
 - after exact binding / resume-context verification;
 - after consuming each of the six subagent lane results;
 - after each reproduced/rejected material witness;
@@ -55,7 +57,7 @@ Every checkpoint must use the literal markers `QORE_CHECKPOINT_BEGIN` and `QORE_
 
 ### Mandatory partial patch snapshot
 
-Narrative memory is not enough for Harness because it edits code. After **every coherent code/test/doc edit**, refresh the recoverable candidate patch at `../../harness-engineer-candidate.patch` from the current working tree. Include untracked implementation/test/doc files in the snapshot when applicable. The patch is recovery evidence if execution is interrupted and may later be replaced by the deterministic final gate on successful completion.
+Narrative memory is not enough for Harness because it edits code. After **every coherent code/test/doc edit**, refresh the exact host-supplied `recovery_patch_path` from the current working tree. Include untracked implementation/test/doc files in the snapshot when applicable. The patch is recovery evidence if execution is interrupted and may later be replaced by the deterministic host snapshot on successful completion or cleanup.
 
 Do not claim an edit checkpoint complete until the corresponding patch snapshot has been refreshed.
 
