@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 import pathlib
+import sys
 
 MODULE_PATH = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "harness_swarm_recovery.py"
 spec = importlib.util.spec_from_file_location("harness_swarm_recovery", MODULE_PATH)
 assert spec and spec.loader
 mod = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = mod
 spec.loader.exec_module(mod)
 
 START = "5a158ef0fb2e21db95f2be0685373780bf1ab197"
