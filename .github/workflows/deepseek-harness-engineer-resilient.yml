@@ -83,22 +83,28 @@ jobs:
             scripts/harness_usage_meter.py \
             scripts/deepseek_balance_meter.py
           python3 scripts/test_harness_large_batch_state.py
+          python3 scripts/test_harness_resilient_runner.py
           grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
 
-      - name: Reject duplicate resilient package dispatch
+      - name: Reject duplicate package dispatch across legacy and resilient Harness
         env:
           GH_TOKEN: ${{ github.token }}
           PACKAGE_ID: ${{ inputs.package_id }}
           CURRENT_RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          DUPLICATES="$(
-            gh api --paginate \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-engineer-resilient.yml/runs?event=workflow_dispatch&per_page=100" \
-              --jq ".workflow_runs[] | select(.display_title == \"DeepSeek Harness Engineer · ${PACKAGE_ID}\" and .id != ${CURRENT_RUN_ID}) | .id"
-          )"
-          test -z "$DUPLICATES" || { echo "Duplicate resilient package run: $DUPLICATES" >&2; exit 1; }
+          for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
+            DUPLICATES="$(
+              gh api --paginate \
+                "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
+                --jq ".workflow_runs[] | select(.display_title == \"DeepSeek Harness Engineer · ${PACKAGE_ID}\" and .id != ${CURRENT_RUN_ID}) | .id"
+            )"
+            test -z "$DUPLICATES" || {
+              echo "Duplicate Harness package ${PACKAGE_ID} found in ${WORKFLOW}: ${DUPLICATES}" >&2
+              exit 1
+            }
+          done
 
       - name: Checkout exact qore-core start
         uses: actions/checkout@v4
