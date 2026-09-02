@@ -4,16 +4,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import time
 from pathlib import Path
 
-from harness_large_batch_state import StateError, parse_checkpoint_file
+from harness_large_batch_state import Snapshot, StateError, parse_checkpoint_file
 
 READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"
 BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
 RESUME_COMPLETE = "## RESUME STATE\nCOMPLETE"
+AGENT_RECOVERY_DIR = ".qore-harness-recovery"
 
 
 def _append_generation_output(
@@ -63,8 +65,6 @@ def _terminate_process_group(proc: subprocess.Popen[str]) -> None:
     except subprocess.TimeoutExpired:
         pass
 
-    # The coordinator may exit on SIGTERM while a descendant ignores it. Probe the process
-    # group itself, not merely the parent process, before allowing another recovery generation.
     if _process_group_exists(pgid):
         try:
             os.killpg(pgid, signal.SIGKILL)
@@ -74,6 +74,95 @@ def _terminate_process_group(proc: subprocess.Popen[str]) -> None:
         proc.wait(timeout=5)
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("Harness generation process group did not terminate") from exc
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _workspace_recovery_paths(workspace_root: Path) -> tuple[Path, Path, Path]:
+    recovery_dir = workspace_root / AGENT_RECOVERY_DIR
+    return (
+        recovery_dir / "checkpoints.md",
+        recovery_dir / "candidate.patch",
+        recovery_dir / "agent.coverage",
+    )
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}")
+    temporary.write_text(text, encoding="utf-8")
+    temporary.replace(path)
+
+
+def _snapshot_binding(snapshot: Snapshot) -> tuple[str | None, str | None, str | None]:
+    return snapshot.package_id, snapshot.start, snapshot.tree
+
+
+def _prepare_agent_checkpoint(
+    host_checkpoint: Path,
+    agent_checkpoint: Path,
+) -> Snapshot:
+    host = parse_checkpoint_file(host_checkpoint)
+    _atomic_write(agent_checkpoint, host_checkpoint.read_text(encoding="utf-8"))
+    return host
+
+
+def _harvest_agent_checkpoint(
+    *,
+    host_checkpoint: Path,
+    agent_checkpoint: Path,
+    expected: Snapshot,
+) -> Snapshot:
+    """Validate sandbox-written state before atomically publishing it to the host journal."""
+    candidate = parse_checkpoint_file(agent_checkpoint)
+    if _snapshot_binding(candidate) != _snapshot_binding(expected):
+        raise StateError("agent checkpoint immutable package/START/TREE binding mismatch")
+    if candidate.checkpoint_count < expected.checkpoint_count:
+        raise StateError("agent checkpoint count regressed")
+    _atomic_write(host_checkpoint, agent_checkpoint.read_text(encoding="utf-8"))
+    return candidate
+
+
+def _localize_durable_prompt_paths(
+    prompt: str,
+    *,
+    agent_checkpoint: Path,
+    agent_patch: Path,
+) -> str:
+    """Replace host-only durable targets with paths writable by workspace-write DSH."""
+    localized: list[str] = []
+    for raw in prompt.splitlines():
+        stripped = raw.strip()
+        indentation = raw[: len(raw) - len(raw.lstrip())]
+        if stripped.startswith("checkpoint_path="):
+            localized.append(f"{indentation}checkpoint_path={agent_checkpoint}")
+        elif stripped.startswith("recovery_patch_path="):
+            localized.append(f"{indentation}recovery_patch_path={agent_patch}")
+        else:
+            localized.append(raw)
+    suffix = "\n" if prompt.endswith("\n") else ""
+    return "\n".join(localized) + suffix
+
+
+def _localize_coverage_env(env: dict[str, str]) -> None:
+    if env.get("DSH_PERMISSION_MODE") != "workspace-write":
+        return
+    coverage = env.get("COVERAGE_FILE")
+    if not coverage:
+        return
+    workspace_root = Path.cwd().resolve()
+    coverage_path = Path(coverage)
+    if _is_within(coverage_path, workspace_root):
+        return
+    _, _, agent_coverage = _workspace_recovery_paths(workspace_root)
+    agent_coverage.parent.mkdir(parents=True, exist_ok=True)
+    env["COVERAGE_FILE"] = str(agent_coverage)
 
 
 def _run_once(
@@ -86,6 +175,7 @@ def _run_once(
     generation: int,
 ) -> tuple[int, str]:
     env = os.environ.copy()
+    _localize_coverage_env(env)
     proc = subprocess.Popen(
         [str(dsh_bin), "--profile", profile, prompt],
         text=True,
@@ -174,7 +264,7 @@ def main() -> int:
     if args.generation_timeout_seconds < 60:
         parser.error("generation timeout is too small")
 
-    base_prompt = args.prompt_file.read_text(encoding="utf-8")
+    raw_base_prompt = args.prompt_file.read_text(encoding="utf-8")
     args.output.write_text("", encoding="utf-8")
     started = time.monotonic()
     previous_signature: tuple[object, ...] | None = None
@@ -184,98 +274,148 @@ def main() -> int:
     final_rc = 70
     last_valid = parse_checkpoint_file(args.checkpoints)
 
-    for generation in range(1, args.max_generations + 1):
-        before = parse_checkpoint_file(args.checkpoints)
-        last_valid = before
-        if before.blocked:
-            terminal_reason = "MATERIAL_BLOCKED_FROM_CHECKPOINT"
-            final_rc = 2
-            break
-        if generation == 1:
-            prompt = base_prompt
-        else:
-            prompt = _recovery_prompt(
-                base_prompt,
-                generation=generation,
-                checkpoints=args.checkpoints,
-                completed=before.completed,
-                pending=before.pending,
-                primary_exit=int(attempts[-1]["exit_code"]),
-            )
+    workspace_root = Path.cwd().resolve()
+    sandbox_localized = os.environ.get("DSH_PERMISSION_MODE") == "workspace-write"
+    recovery_dir: Path | None = None
+    agent_checkpoint = args.checkpoints
+    base_prompt = raw_base_prompt
 
-        rc, text = _run_once(
-            dsh_bin=args.dsh_bin,
-            profile=args.profile,
-            prompt=prompt,
-            timeout_seconds=args.generation_timeout_seconds,
-            output_path=args.output,
-            generation=generation,
+    if sandbox_localized:
+        agent_checkpoint, agent_patch, _ = _workspace_recovery_paths(workspace_root)
+        recovery_dir = agent_checkpoint.parent
+        _prepare_agent_checkpoint(args.checkpoints, agent_checkpoint)
+        base_prompt = _localize_durable_prompt_paths(
+            raw_base_prompt,
+            agent_checkpoint=Path(AGENT_RECOVERY_DIR) / agent_checkpoint.name,
+            agent_patch=Path(AGENT_RECOVERY_DIR) / agent_patch.name,
         )
 
-        try:
-            after = parse_checkpoint_file(args.checkpoints)
-        except StateError as exc:
-            terminal_reason = f"CORRUPT_CHECKPOINT:{exc}"
-            final_rc = 65
-            attempts.append(
-                {"generation": generation, "exit_code": rc, "checkpoint_error": str(exc)}
-            )
-            break
-
-        last_valid = after
-        signature = (
-            after.checkpoint_count,
-            tuple(after.completed),
-            tuple(after.pending),
-            tuple(after.blocked),
-        )
-        if signature == previous_signature:
-            stagnant += 1
-        else:
-            stagnant = 0
-        previous_signature = signature
-
-        attempts.append(
-            {
-                "generation": generation,
-                "exit_code": rc,
-                "checkpoint_count": after.checkpoint_count,
-                "completed_lanes": after.completed,
-                "pending_lanes": after.pending,
-                "blocked_lanes": after.blocked,
-                "candidate_ready_marker": READY in text,
-                "resume_complete_marker": RESUME_COMPLETE in text,
-            }
-        )
-
-        if after.blocked or BLOCKED in text:
-            terminal_reason = "MATERIAL_BLOCKED"
-            final_rc = 2
-            break
-
-        if after.all_complete and READY in text and RESUME_COMPLETE in text and rc == 0:
-            terminal_reason = "CANDIDATE_COMPLETE"
-            final_rc = 0
-            break
-
-        # Incomplete lanes are recoverable. So is a post-lane interruption: reaching six
-        # COMPLETED lanes does not make unfinished synthesis/implementation/finalization expendable.
-        if after.pending or after.all_complete:
-            if stagnant > args.max_stagnant_generations:
-                terminal_reason = "RECOVERY_STAGNATED"
-                final_rc = 75
+    try:
+        for generation in range(1, args.max_generations + 1):
+            before = parse_checkpoint_file(args.checkpoints)
+            last_valid = before
+            if before.blocked:
+                terminal_reason = "MATERIAL_BLOCKED_FROM_CHECKPOINT"
+                final_rc = 2
                 break
-            continue
 
-        terminal_reason = "INVALID_TERMINAL_OUTPUT"
-        final_rc = 76
-        break
+            if sandbox_localized:
+                _prepare_agent_checkpoint(args.checkpoints, agent_checkpoint)
+
+            if generation == 1:
+                prompt = base_prompt
+            else:
+                prompt = _recovery_prompt(
+                    base_prompt,
+                    generation=generation,
+                    checkpoints=agent_checkpoint if sandbox_localized else args.checkpoints,
+                    completed=before.completed,
+                    pending=before.pending,
+                    primary_exit=int(attempts[-1]["exit_code"]),
+                )
+
+            rc, text = _run_once(
+                dsh_bin=args.dsh_bin,
+                profile=args.profile,
+                prompt=prompt,
+                timeout_seconds=args.generation_timeout_seconds,
+                output_path=args.output,
+                generation=generation,
+            )
+
+            if sandbox_localized:
+                try:
+                    _harvest_agent_checkpoint(
+                        host_checkpoint=args.checkpoints,
+                        agent_checkpoint=agent_checkpoint,
+                        expected=before,
+                    )
+                except StateError as exc:
+                    terminal_reason = f"CHECKPOINT_PUBLICATION_FAILED:{exc}"
+                    final_rc = 66
+                    attempts.append(
+                        {
+                            "generation": generation,
+                            "exit_code": rc,
+                            "checkpoint_error": str(exc),
+                            "checkpoint_publication_failed": True,
+                        }
+                    )
+                    with args.output.open("a", encoding="utf-8") as handle:
+                        handle.write(
+                            "\n\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT BEGIN -->\n"
+                        )
+                        if agent_checkpoint.is_file():
+                            handle.write(agent_checkpoint.read_text(encoding="utf-8"))
+                        handle.write(
+                            "\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT END -->\n"
+                        )
+                    break
+
+            try:
+                after = parse_checkpoint_file(args.checkpoints)
+            except StateError as exc:
+                terminal_reason = f"CORRUPT_CHECKPOINT:{exc}"
+                final_rc = 65
+                attempts.append(
+                    {"generation": generation, "exit_code": rc, "checkpoint_error": str(exc)}
+                )
+                break
+
+            last_valid = after
+            signature = (
+                after.checkpoint_count,
+                tuple(after.completed),
+                tuple(after.pending),
+                tuple(after.blocked),
+            )
+            if signature == previous_signature:
+                stagnant += 1
+            else:
+                stagnant = 0
+            previous_signature = signature
+
+            attempts.append(
+                {
+                    "generation": generation,
+                    "exit_code": rc,
+                    "checkpoint_count": after.checkpoint_count,
+                    "completed_lanes": after.completed,
+                    "pending_lanes": after.pending,
+                    "blocked_lanes": after.blocked,
+                    "candidate_ready_marker": READY in text,
+                    "resume_complete_marker": RESUME_COMPLETE in text,
+                    "sandbox_checkpoint_localized": sandbox_localized,
+                }
+            )
+
+            if after.blocked or BLOCKED in text:
+                terminal_reason = "MATERIAL_BLOCKED"
+                final_rc = 2
+                break
+
+            if after.all_complete and READY in text and RESUME_COMPLETE in text and rc == 0:
+                terminal_reason = "CANDIDATE_COMPLETE"
+                final_rc = 0
+                break
+
+            if after.pending or after.all_complete:
+                if stagnant > args.max_stagnant_generations:
+                    terminal_reason = "RECOVERY_STAGNATED"
+                    final_rc = 75
+                    break
+                continue
+
+            terminal_reason = "INVALID_TERMINAL_OUTPUT"
+            final_rc = 76
+            break
+    finally:
+        if recovery_dir is not None:
+            shutil.rmtree(recovery_dir, ignore_errors=True)
 
     try:
         final = parse_checkpoint_file(args.checkpoints)
     except StateError:
-        # Corruption is already a fail-closed terminal condition. Preserve the last verified
-        # durable snapshot in metadata rather than crashing before evidence can be uploaded.
         final = last_valid
 
     metadata = {
@@ -291,6 +431,7 @@ def main() -> int:
         "checkpoint_count": final.checkpoint_count,
         "all_complete": final.all_complete,
         "recovery_generations_used": max(0, len(attempts) - 1),
+        "sandbox_checkpoint_localized": sandbox_localized,
     }
     args.metadata.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
