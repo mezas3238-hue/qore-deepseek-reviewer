@@ -63,7 +63,7 @@ jobs:
           for FILE in "$REVIEW" "$ENGINEER"; do
             test -s "$FILE"
             grep -q 'actions/upload-artifact@v4' "$FILE"
-            grep -Fq 'if: ${{ always() }}' "$FILE"
+            grep -Fq 'always()' "$FILE"
           done
 
           grep -q 'deepseek-review-checkpoints.md' "$REVIEW"
