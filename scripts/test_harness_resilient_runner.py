@@ -274,6 +274,85 @@ class HarnessResilientRunnerTests(unittest.TestCase):
         )
         self.assertNotIn("/home/runner/work/_temp/harness-engineer-checkpoints.md", localized)
 
+    def test_workspace_write_main_harvests_progress_instead_of_stagnating(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            host = root / "host" / "journal.md"
+            host.parent.mkdir()
+            write_initial(host, "PKG", "a" * 40, "b" * 40)
+            prompt = root / "prompt.md"
+            prompt.write_text(
+                "# DURABLE RECOVERY TARGETS\n"
+                f"checkpoint_path={host}\n"
+                f"recovery_patch_path={root / 'host' / 'candidate.patch'}\n",
+                encoding="utf-8",
+            )
+            output = root / "out.md"
+            metadata = root / "meta.json"
+            argv = [
+                "harness_resilient_runner.py",
+                "--dsh-bin",
+                str(root / "fake-dsh"),
+                "--prompt-file",
+                str(prompt),
+                "--checkpoints",
+                str(host),
+                "--output",
+                str(output),
+                "--metadata",
+                str(metadata),
+                "--max-generations",
+                "2",
+                "--generation-timeout-seconds",
+                "60",
+            ]
+            previous = Path.cwd()
+
+            def fake(**kwargs):
+                checkpoint_line = next(
+                    line
+                    for line in kwargs["prompt"].splitlines()
+                    if line.strip().startswith("checkpoint_path=")
+                )
+                localized = Path(checkpoint_line.split("=", 1)[1])
+                self.assertFalse(localized.is_absolute())
+                append_checkpoint(
+                    localized,
+                    1,
+                    {lane: "COMPLETED" for lane in range(1, 7)},
+                    1,
+                )
+                return (
+                    0,
+                    "## RESUME STATE\nCOMPLETE\n"
+                    "## ENGINEER VERDICT\nCANDIDATE_READY_FOR_EXTERNAL_QG\n",
+                )
+
+            try:
+                os.chdir(workspace)
+                with (
+                    patch.dict(
+                        os.environ,
+                        {"DSH_PERMISSION_MODE": "workspace-write"},
+                        clear=False,
+                    ),
+                    patch.object(sys, "argv", argv),
+                    patch.object(runner, "_run_once", side_effect=fake),
+                ):
+                    rc = runner.main()
+            finally:
+                os.chdir(previous)
+
+            self.assertEqual(rc, 0)
+            state = parse_checkpoint_file(host)
+            self.assertTrue(state.all_complete)
+            meta = json.loads(metadata.read_text(encoding="utf-8"))
+            self.assertEqual(meta["terminal_reason"], "CANDIDATE_COMPLETE")
+            self.assertTrue(meta["sandbox_checkpoint_localized"])
+            self.assertFalse((workspace / runner.AGENT_RECOVERY_DIR).exists())
+
     def test_workspace_write_redirects_external_coverage_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             workspace = Path(tmp)
