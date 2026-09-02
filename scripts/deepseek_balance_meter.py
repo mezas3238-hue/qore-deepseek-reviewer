@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 BALANCE_URL = "https://api.deepseek.com/user/balance"
-DEFAULT_MINIMUM_BALANCE_USD = Decimal("5.00")
+DEFAULT_MINIMUM_BALANCE_USD = Decimal("1.00")
 
 
 def fetch_balance() -> dict[str, Any]:
