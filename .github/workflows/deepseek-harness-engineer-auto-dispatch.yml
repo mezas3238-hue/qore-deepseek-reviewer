@@ -26,7 +26,7 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Validate immutable Engineer request and dispatch
+      - name: Validate immutable Engineer request and dispatch resilient workflow
         env:
           GH_TOKEN: ${{ github.token }}
           REQUEST: harness_engineer_requests/current.json
@@ -47,17 +47,19 @@ jobs:
 
           test -f "$TASK_PATH"
 
-          EXISTING="$(
-            gh api --paginate \
-              "repos/${GITHUB_REPOSITORY}/actions/workflows/deepseek-harness-engineer.yml/runs?event=workflow_dispatch&per_page=100" \
-              --jq '.workflow_runs[].display_title' 2>/dev/null || true
-          )"
-          if grep -Fqx "DeepSeek Harness Engineer · ${PACKAGE_ID}" <<<"$EXISTING"; then
-            echo "Refusing duplicate Harness Engineer dispatch for package ${PACKAGE_ID}." >&2
-            exit 1
-          fi
+          for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
+            EXISTING="$(
+              gh api --paginate \
+                "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
+                --jq '.workflow_runs[].display_title' 2>/dev/null || true
+            )"
+            if grep -Fqx "DeepSeek Harness Engineer · ${PACKAGE_ID}" <<<"$EXISTING"; then
+              echo "Refusing duplicate Harness Engineer dispatch for package ${PACKAGE_ID}; found in ${WORKFLOW}." >&2
+              exit 1
+            fi
+          done
 
-          gh workflow run deepseek-harness-engineer.yml \
+          gh workflow run deepseek-harness-engineer-resilient.yml \
             --ref main \
             -f "request_commit=${REQUEST_COMMIT}" \
             -f "package_id=${PACKAGE_ID}" \
@@ -70,4 +72,4 @@ jobs:
             -f "max_changed_files=${MAX_CHANGED_FILES}" \
             -f "max_diff_lines=${MAX_DIFF_LINES}"
 
-          echo "DeepSeek Harness Engineer dispatch accepted for ${PACKAGE_ID}."
+          echo "Resilient DeepSeek Harness Engineer dispatch accepted for ${PACKAGE_ID}."
