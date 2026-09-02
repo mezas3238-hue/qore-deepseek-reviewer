@@ -1,0 +1,121 @@
+name: QORE Agent durable memory CI
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/qore-agent-durable-memory-ci.yml
+      - .github/workflows/deepseek-qore-review.yml
+      - .github/workflows/deepseek-harness-engineer.yml
+      - harness/docs/QORE-AGENT-DURABLE-MEMORY-V1.md
+      - harness/engineer/prompts/qore-harness-engineer-v1.md
+      - harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+      - harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
+      - harness/reviewer/prompts/qore-claude-final-review-v1.md
+      - scripts/harness_recovery_snapshot.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  durable-memory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate all four role checkpoint contracts
+        run: |
+          set -euo pipefail
+          POLICY=harness/docs/QORE-AGENT-DURABLE-MEMORY-V1.md
+          HARNESS=harness/engineer/prompts/qore-harness-engineer-v1.md
+          EXPERT=harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          CODER=harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
+          CLAUDE=harness/reviewer/prompts/qore-claude-final-review-v1.md
+
+          for FILE in "$POLICY" "$HARNESS" "$EXPERT" "$CODER" "$CLAUDE"; do
+            test -s "$FILE"
+            grep -q 'QORE_CHECKPOINT_BEGIN' "$FILE"
+            grep -q 'QORE_CHECKPOINT_END' "$FILE"
+            grep -q 'PENDING NEXT ACTION' "$FILE"
+            grep -q 'SAFE RESUME INSTRUCTION' "$FILE"
+          done
+
+          grep -q 'harness-engineer-checkpoints.md' "$HARNESS"
+          grep -q 'harness-engineer-candidate.patch' "$HARNESS"
+          grep -q 'deepseek-review-checkpoints.md' "$EXPERT"
+          grep -q 'deepseek-review-checkpoints.md' "$CODER"
+          grep -q 'RESUME STATE' "$HARNESS"
+          grep -q 'RESUME STATE' "$EXPERT"
+          grep -q 'RESUME STATE' "$CODER"
+          grep -q 'RESUME STATE' "$CLAUDE"
+          grep -q 'Recovery dispatch gate' "$POLICY"
+
+      - name: Validate workflow persistence and fail-closed success gates
+        run: |
+          set -euo pipefail
+          REVIEW=.github/workflows/deepseek-qore-review.yml
+          ENGINEER=.github/workflows/deepseek-harness-engineer.yml
+
+          for FILE in "$REVIEW" "$ENGINEER"; do
+            test -s "$FILE"
+            grep -q 'actions/upload-artifact@v4' "$FILE"
+            grep -Fq 'if: ${{ always() }}' "$FILE"
+          done
+
+          grep -q 'deepseek-review-checkpoints.md' "$REVIEW"
+          grep -q "grep -c '^QORE_CHECKPOINT_BEGIN'" "$REVIEW"
+          grep -q 'DURABLE JOURNAL SUMMARY' "$REVIEW"
+          grep -q 'RESUME STATE' "$REVIEW"
+
+          grep -q 'harness-engineer-checkpoints.md' "$ENGINEER"
+          grep -q 'harness-engineer-candidate.patch' "$ENGINEER"
+          grep -q 'harness_recovery_snapshot.py' "$ENGINEER"
+          grep -q "grep -c '^QORE_CHECKPOINT_BEGIN'" "$ENGINEER"
+          grep -q 'DURABLE JOURNAL SUMMARY' "$ENGINEER"
+          grep -q 'RESUME STATE' "$ENGINEER"
+
+      - name: Exercise deterministic Harness recovery snapshot
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/harness_recovery_snapshot.py
+          ROOT="$(mktemp -d)"
+          git -C "$ROOT" init -q
+          git -C "$ROOT" config user.name qore-ci
+          git -C "$ROOT" config user.email qore-ci@invalid
+          mkdir -p "$ROOT/src" "$ROOT/tests"
+          printf 'VALUE = 1\n' > "$ROOT/src/example.py"
+          git -C "$ROOT" add .
+          git -C "$ROOT" commit -qm baseline
+
+          printf 'VALUE = 2\n' > "$ROOT/src/example.py"
+          printf 'def test_new():\n    assert True\n' > "$ROOT/tests/test_new.py"
+
+          python3 scripts/harness_recovery_snapshot.py \
+            --workspace "$ROOT" \
+            --output /tmp/qore-recovery.patch
+
+          test -s /tmp/qore-recovery.patch
+          grep -Fq 'src/example.py' /tmp/qore-recovery.patch
+          grep -Fq 'tests/test_new.py' /tmp/qore-recovery.patch
+          grep -Fq 'VALUE = 2' /tmp/qore-recovery.patch
+          grep -Fq 'def test_new' /tmp/qore-recovery.patch
+
+          git -C "$ROOT" reset --hard -q HEAD
+          rm -f "$ROOT/tests/test_new.py"
+          git -C "$ROOT" apply /tmp/qore-recovery.patch
+          test "$(cat "$ROOT/src/example.py")" = 'VALUE = 2'
+          grep -Fq 'def test_new' "$ROOT/tests/test_new.py"
+
+      - name: Compile changed workflow support scripts
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/deepseek_balance_meter.py \
+            scripts/harness_recovery_snapshot.py \
+            scripts/harness_engineer_gate.py \
+            scripts/harness_reasoning_audit.py \
+            scripts/harness_usage_meter.py
