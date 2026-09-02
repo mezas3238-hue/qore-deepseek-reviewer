@@ -52,3 +52,7 @@ jobs:
           grep -q 'all_complete == true' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'max-generations 4' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'Require warm LSP cache before API spend' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'start_new_session=True' scripts/harness_resilient_runner.py
+          grep -q 'os.killpg' scripts/harness_resilient_runner.py
