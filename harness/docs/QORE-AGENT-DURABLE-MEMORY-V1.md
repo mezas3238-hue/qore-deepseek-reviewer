@@ -37,17 +37,23 @@ Every checkpoint must record:
 
 Use the literal markers `QORE_CHECKPOINT_BEGIN`, `QORE_CHECKPOINT_END`, `PENDING NEXT ACTION`, and `SAFE RESUME INSTRUCTION` so recovery tooling and humans can locate checkpoints deterministically.
 
+## Writable durable target rule
+
+DSH `workspace-write` is intentionally not broadened for recovery. Reviewer/Engineer authority remains bounded to the session workspace plus platform temporary roots. The host therefore allocates each durable journal/recovery patch under the runner temporary root and injects the exact absolute path into the task as `checkpoint_path` (and, for Harness, `recovery_patch_path`).
+
+Agents MUST write only to the exact host-supplied durable paths. They must not attempt to escape the session workspace by writing to parent repository directories. The host copies durable evidence from the temporary root into the final GitHub Actions artifact with `always()` cleanup semantics.
+
 ## Role-specific durable target
 
 ### Harness Engineer
 
-Append checkpoints to `../../harness-engineer-checkpoints.md` from the qore-core workspace. The host writes checkpoint sequence 0 before model execution; Harness begins at sequence 1 and must never overwrite or truncate the file. After every coherent code/test/doc edit, also refresh `../../harness-engineer-candidate.patch` from the current working tree so interrupted implementation work is recoverable, not only the narrative journal.
+Append checkpoints to the exact host-supplied `checkpoint_path`. The host writes checkpoint sequence 0 before model execution; Harness begins at sequence 1 and must never overwrite or truncate the file. After every coherent code/test/doc edit, refresh the exact host-supplied `recovery_patch_path` from the current working tree so interrupted implementation work is recoverable, not only the narrative journal.
 
 The primary Harness session must write each of the six subagent lane results into the journal as soon as it consumes that result. Waiting until the final `## SUBAGENT SWARM` summary is non-compliant.
 
 ### DeepSeek Expert / Coder
 
-Append checkpoints to `../../deepseek-review-checkpoints.md` from the qore-core workspace. The host writes checkpoint sequence 0 before model execution; the primary reviewer begins at sequence 1 and must never overwrite or truncate the file. Each primary session must checkpoint each subagent result when consumed, each material LSP conclusion, each finding adjudication, and the final-LSP / final-impact state.
+Append checkpoints to the exact host-supplied `checkpoint_path`. The host writes checkpoint sequence 0 before model execution; the primary reviewer begins at sequence 1 and must never overwrite or truncate the file. Each primary session must checkpoint each subagent result when consumed, each material LSP conclusion, each finding adjudication, and the final-LSP / final-impact state.
 
 ### Claude final review
 
