@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-DEMO-INTELLIGENCE-SLICE-001-BATCH-001",
+  "package_id": "HARNESS-ENGINEER-QORE-DEMO-INTELLIGENCE-SLICE-001-BATCH-001-RECOVERY-001",
   "expected_start": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_tree": "5e2b37b23b01fe23fd373d39b01573e9607a73ad",
-  "task_path": "harness/engineer/tasks/qore-demo-intelligence-slice-001-batch-001.md",
+  "task_path": "harness/engineer/tasks/qore-demo-intelligence-slice-001-batch-001-recovery-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-demo-intelligence-slice-001-batch-001-20260902",
+  "dispatch_nonce": "qore-demo-intelligence-slice-001-batch-001-recovery-001-20260902",
   "allowed_paths": [
     "src/qore/infrastructure",
     "src/qore/modules/trader",
