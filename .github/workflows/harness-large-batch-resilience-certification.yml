@@ -1,0 +1,40 @@
+name: Harness Large-Batch Resilience Certification
+
+on:
+  pull_request:
+    paths:
+      - "scripts/harness_swarm_recovery.py"
+      - "tests/test_harness_swarm_recovery.py"
+      - "harness/engineer/prompts/qore-harness-engineer-v1.md"
+      - ".github/workflows/deepseek-harness-engineer.yml"
+      - ".github/workflows/harness-large-batch-resilience-certification.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile resilience controls
+        run: |
+          set -euo pipefail
+          python -m py_compile scripts/harness_swarm_recovery.py
+      - name: Run deterministic adversarial certification
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check pytest
+          pytest -q tests/test_harness_swarm_recovery.py
+      - name: Enforce large-batch invariants in normative contract
+        run: |
+          set -euo pipefail
+          grep -q 'PENDING LANE != BATCH FAILURE' docs/harness-large-batch-resilience-001.md
+          grep -q 'ONE LANE INTERRUPTION != RESTART ALL LANES' docs/harness-large-batch-resilience-001.md
+          grep -q 'DURABLE COMPLETED LANE != REPEATABLE WORK' docs/harness-large-batch-resilience-001.md
+          grep -q 'RECOVERABLE MODEL EXIT != MATERIAL FAILURE' docs/harness-large-batch-resilience-001.md
