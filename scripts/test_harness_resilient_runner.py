@@ -18,9 +18,7 @@ def append_checkpoint(path: Path, seq: int, states: dict[int, str], generation: 
         handle.write(f"checkpoint_sequence: {seq}\n")
         handle.write(f"phase: TEST_GENERATION_{generation}\n")
         for lane, state in states.items():
-            handle.write(
-                f"QORE_LANE_STATE lane={lane} state={state} generation={generation}\n"
-            )
+            handle.write(f"QORE_LANE_STATE lane={lane} state={state} generation={generation}\n")
         handle.write("PENDING NEXT ACTION: continue pending lanes\n")
         handle.write("SAFE RESUME INSTRUCTION: never repeat completed lanes\n")
         handle.write("QORE_CHECKPOINT_END\n")
@@ -33,21 +31,10 @@ class HarnessResilientRunnerTests(unittest.TestCase):
         output = root / "out.md"
         metadata = root / "meta.json"
         argv = [
-            "harness_resilient_runner.py",
-            "--dsh-bin",
-            str(root / "fake-dsh"),
-            "--prompt-file",
-            str(prompt),
-            "--checkpoints",
-            str(checkpoints),
-            "--output",
-            str(output),
-            "--metadata",
-            str(metadata),
-            "--max-generations",
-            "4",
-            "--generation-timeout-seconds",
-            "60",
+            "harness_resilient_runner.py", "--dsh-bin", str(root / "fake-dsh"),
+            "--prompt-file", str(prompt), "--checkpoints", str(checkpoints),
+            "--output", str(output), "--metadata", str(metadata),
+            "--max-generations", "4", "--generation-timeout-seconds", "60",
         ]
         with patch.object(sys, "argv", argv), patch.object(runner, "_run_once", side_effect=fake_run_once):
             rc = runner.main()
@@ -58,12 +45,7 @@ class HarnessResilientRunnerTests(unittest.TestCase):
             root = Path(tmp)
             checkpoints = root / "journal.md"
             write_initial(checkpoints, "PKG", "a" * 40, "b" * 40)
-            append_checkpoint(
-                checkpoints,
-                1,
-                {1: "COMPLETED", 2: "RUNNING", 3: "COMPLETED", 4: "COMPLETED", 5: "COMPLETED", 6: "COMPLETED"},
-                1,
-            )
+            append_checkpoint(checkpoints, 1, {1: "COMPLETED", 2: "RUNNING", 3: "COMPLETED", 4: "COMPLETED", 5: "COMPLETED", 6: "COMPLETED"}, 1)
             calls: list[str] = []
 
             def fake(**kwargs):
@@ -93,17 +75,40 @@ class HarnessResilientRunnerTests(unittest.TestCase):
                 if count == 1:
                     append_checkpoint(checkpoints, 1, {1: "COMPLETED", 2: "RECOVERY_REQUIRED"}, 1)
                     return 17, "interrupted"
-                append_checkpoint(
-                    checkpoints,
-                    2,
-                    {2: "COMPLETED", 3: "COMPLETED", 4: "COMPLETED", 5: "COMPLETED", 6: "COMPLETED"},
-                    2,
-                )
+                append_checkpoint(checkpoints, 2, {2: "COMPLETED", 3: "COMPLETED", 4: "COMPLETED", 5: "COMPLETED", 6: "COMPLETED"}, 2)
                 return 0, "## RESUME STATE\nCOMPLETE\n## ENGINEER VERDICT\nCANDIDATE_READY_FOR_EXTERNAL_QG\n"
 
             rc, meta = self._invoke(fake, checkpoints, root)
             self.assertEqual(rc, 0)
             self.assertEqual(len(meta["attempts"]), 2)
+
+    def test_second_interruption_remains_resumable(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoints = root / "journal.md"
+            write_initial(checkpoints, "PKG", "a" * 40, "b" * 40)
+            count = 0
+            prompts: list[str] = []
+
+            def fake(**kwargs):
+                nonlocal count
+                count += 1
+                prompts.append(kwargs["prompt"])
+                if count == 1:
+                    append_checkpoint(checkpoints, 1, {1: "COMPLETED", 2: "RECOVERY_REQUIRED"}, 1)
+                    return 9, "first interruption"
+                if count == 2:
+                    append_checkpoint(checkpoints, 2, {2: "COMPLETED", 3: "RECOVERY_REQUIRED"}, 2)
+                    return 23, "second interruption"
+                append_checkpoint(checkpoints, 3, {3: "COMPLETED", 4: "COMPLETED", 5: "COMPLETED", 6: "COMPLETED"}, 3)
+                return 0, "## RESUME STATE\nCOMPLETE\n## ENGINEER VERDICT\nCANDIDATE_READY_FOR_EXTERNAL_QG\n"
+
+            rc, meta = self._invoke(fake, checkpoints, root)
+            self.assertEqual(rc, 0)
+            self.assertEqual(meta["recovery_generations_used"], 2)
+            self.assertIn("inherited_completed_lanes=[1]", prompts[1])
+            self.assertIn("inherited_completed_lanes=[1, 2]", prompts[2])
+            self.assertIn("pending_or_recovery_lanes=[3, 4, 5, 6]", prompts[2])
 
     def test_corrupt_checkpoint_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
