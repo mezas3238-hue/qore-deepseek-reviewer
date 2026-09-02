@@ -153,8 +153,12 @@ jobs:
           python3 -m py_compile \
             scripts/harness_engineer_package_contract.py \
             scripts/harness_engineer_gate.py \
+            scripts/harness_recovery_snapshot.py \
             scripts/harness_usage_meter.py \
             scripts/deepseek_balance_meter.py
+          grep -q 'QORE_CHECKPOINT_BEGIN' harness/engineer/prompts/qore-harness-engineer-v1.md
+          grep -q 'harness-engineer-checkpoints.md' harness/engineer/prompts/qore-harness-engineer-v1.md
+          grep -q 'harness-engineer-candidate.patch' harness/engineer/prompts/qore-harness-engineer-v1.md
 
       - name: Set up Node 24
         uses: actions/setup-node@v4
@@ -203,8 +207,6 @@ jobs:
           cp -R harness/skills/. "$DSH_HOME/skills/"
           test "$(find "$DSH_HOME/skills" -name SKILL.md -type f | wc -l)" -ge 5
 
-          # Cordis resolves named profile plugins relative to DSH_HOME/profiles/headless.
-          # Expose the already pinned/cache-verified install there without copying or reinstalling.
           ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
 
           PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
@@ -310,6 +312,20 @@ jobs:
           BASE_PROMPT="$(cat "$GITHUB_WORKSPACE/harness/engineer/prompts/qore-harness-engineer-v1.md")"
           WORK_TASK="$(cat "$TASK_PATH")"
           ALLOWED_PATHS="$(jq -r '.[] | "- " + .' <<<"$ALLOWED_PATHS_JSON")"
+
+          cat > "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md" <<EOF
+          QORE_CHECKPOINT_BEGIN
+          package_id: ${PACKAGE_ID}
+          checkpoint_sequence: 0
+          phase: HOST_INITIALIZED
+          binding: START=${EXPECTED_START} TREE=${EXPECTED_TREE}
+          completed: workflow binding, isolated checkout, LSP preflight, and balance preflight reached
+          PENDING NEXT ACTION: primary Harness verifies binding and begins/resumes the assigned engineering work
+          SAFE RESUME INSTRUCTION: preserve this exact START/TREE; no model-level engineering work has yet been certified by this run
+          QORE_CHECKPOINT_END
+          EOF
+          : > "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
+
           TASK="$(cat <<EOF
           ${BASE_PROMPT}
 
@@ -327,6 +343,11 @@ jobs:
           # HARD CHANGE BUDGETS
           max_changed_files=${MAX_CHANGED_FILES}
           max_added_plus_deleted_lines=${MAX_DIFF_LINES}
+
+          # DURABLE CHECKPOINT TARGETS
+          Append every mandatory journal checkpoint to ../../harness-engineer-checkpoints.md. The host already wrote checkpoint sequence 0; begin your own checkpoints at sequence 1 and never overwrite/truncate it.
+          After every coherent code/test/doc mutation refresh the recoverable patch with:
+          python3 ../../scripts/harness_recovery_snapshot.py --workspace . --output ../../harness-engineer-candidate.patch
 
           Python semantic LSP navigation is available through the model-facing lsp tool. Use it when precise definitions, references, implementations, or hover/type context can improve impact analysis. The external deterministic process will run FULL QG after you return. Do not create commits. Do not add a Git remote. Do not use web/network research for this task; live repository state and the supplied task are the source of truth.
           EOF
@@ -362,6 +383,26 @@ jobs:
           fi
           test "$DSH_STATUS" -eq 0
           test -s "$GITHUB_WORKSPACE/harness-engineer-output.md"
+          test -s "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md"
+          test "$(grep -c '^QORE_CHECKPOINT_BEGIN$' "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md")" -ge 2
+          test "$(grep -c '^QORE_CHECKPOINT_END$' "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md")" -ge 2
+          grep -q 'PENDING NEXT ACTION' "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md"
+          grep -q 'SAFE RESUME INSTRUCTION' "$GITHUB_WORKSPACE/harness-engineer-checkpoints.md"
+          grep -q '^## SUBAGENT SWARM' "$GITHUB_WORKSPACE/harness-engineer-output.md"
+          grep -q '^## DURABLE JOURNAL SUMMARY' "$GITHUB_WORKSPACE/harness-engineer-output.md"
+          grep -q '^## RESUME STATE' "$GITHUB_WORKSPACE/harness-engineer-output.md"
+
+      - name: Snapshot recoverable Harness workspace after model exit
+        if: ${{ always() }}
+        run: |
+          set +e
+          if test -d workspace/qore-core/.git; then
+            python3 scripts/harness_recovery_snapshot.py \
+              --workspace workspace/qore-core \
+              --output harness-engineer-candidate.patch
+          else
+            : > harness-engineer-candidate.patch
+          fi
 
       - name: Measure Harness Engineer token usage
         if: ${{ always() }}
@@ -469,6 +510,8 @@ jobs:
               "permission_mode": "workspace-write",
               "artifact_only": True,
               "full_qg_external": True,
+              "durable_checkpoints": True,
+              "recovery_patch_snapshot": True,
               "dsh_cache_hit": os.environ.get("CACHE_HIT") == "true",
               "ai_wall_cap_seconds": 7200,
               "ai_wall_seconds": int(p.read_text().strip()) if p.is_file() else None,
@@ -488,6 +531,7 @@ jobs:
           path: |
             harness-engineer-package.json
             harness-engineer-output.md
+            harness-engineer-checkpoints.md
             harness-engineer-candidate.patch
             harness-engineer-gate.json
             harness-engineer-run-metadata.json
@@ -508,6 +552,6 @@ jobs:
       - name: Engineer artifact-only completion
         if: ${{ success() }}
         run: |
-          echo "QORE Harness Engineer candidate passed deterministic scope gate and external FULL QG."
+          echo "QORE Harness Engineer candidate passed deterministic scope gate, durable-memory gate, and external FULL QG."
           echo "Python semantic LSP and headless-profile package resolution were prevalidated before DeepSeek API spend."
           echo "No qore-core commit, push, merge, or review publication was performed."
