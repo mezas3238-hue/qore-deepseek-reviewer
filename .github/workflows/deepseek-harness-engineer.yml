@@ -59,7 +59,7 @@ concurrency:
 jobs:
   engineer:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 150
 
     steps:
       - name: Checkout exact reviewer request commit
@@ -348,7 +348,7 @@ jobs:
             NODE_OPTIONS=--max-old-space-size=4096 \
             PYTHONDONTWRITEBYTECODE=1 \
             COVERAGE_FILE="$RUNNER_TEMP/qore-engineer-agent.coverage" \
-            timeout --signal=TERM --kill-after=30s 18m \
+            timeout --signal=TERM --kill-after=30s 120m \
               "$DSH_BIN" --profile headless "$TASK" \
               | tee "$GITHUB_WORKSPACE/harness-engineer-output.md"
           DSH_STATUS="${PIPESTATUS[0]}"
@@ -357,7 +357,7 @@ jobs:
           printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/harness-engineer-ai-seconds.txt"
 
           if test "$DSH_STATUS" -eq 124; then
-            printf '\nHarness Engineer reached the 18-minute hard cap.\n' >> "$GITHUB_WORKSPACE/harness-engineer-output.md"
+            printf '\nHarness Engineer reached the 120-minute hard cap.\n' >> "$GITHUB_WORKSPACE/harness-engineer-output.md"
             exit 124
           fi
           test "$DSH_STATUS" -eq 0
@@ -470,7 +470,7 @@ jobs:
               "artifact_only": True,
               "full_qg_external": True,
               "dsh_cache_hit": os.environ.get("CACHE_HIT") == "true",
-              "ai_wall_cap_seconds": 1080,
+              "ai_wall_cap_seconds": 7200,
               "ai_wall_seconds": int(p.read_text().strip()) if p.is_file() else None,
           }
           Path("harness-engineer-run-metadata.json").write_text(
