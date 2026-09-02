@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR466-9C5A5F6-DS-CODER-R21-001",
+  "dispatch_nonce": "PR478-BDEB7525-DS-EXPERT-R1-001",
   "expected_base": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
-  "expected_head": "9c5a5f6c2befb62396563bac74ddd8a87760d23f",
-  "expected_synthetic": "f6aa162754f781c41ad9418e3edccf1ca5b2f9bb",
-  "package_id": "QORE-PR466-9C5A5F6-DS-CODER-R21-001",
-  "pr_number": 466,
-  "prompt_path": "prompts/qore-pr466-9c5a5f6-coder-r21-001.md",
+  "expected_head": "bdeb7525a1249f4f328bc618249f1df80c804f56",
+  "expected_synthetic": "6ea11290b501c4276a4da7db0d8ea01668042e3b",
+  "package_id": "QORE-PR478-TRADER-CATALOG-31-RECOVERY-DS-EXPERT-R1-001",
+  "pr_number": 478,
+  "prompt_path": "prompts/qore-pr478-trader-catalog-31-recovery-expert-r1.md",
   "qg_summary": {
-    "coverage_missed_statements": 6240,
+    "coverage_missed_statements": 6234,
     "coverage_percent": 87,
-    "coverage_total_statements": 47767,
-    "job_id": 100100024113,
-    "mypy_source_files": 753,
-    "pytest_collected": 5537,
-    "pytest_passed": 5537,
+    "coverage_total_statements": 47568,
+    "job_id": 100419247337,
+    "mypy_source_files": 740,
+    "pytest_collected": 4862,
+    "pytest_passed": 4862,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33582654000
+    "run_id": 33681607355
   },
-  "review_mode": "coder"
+  "review_mode": "expert"
 }
