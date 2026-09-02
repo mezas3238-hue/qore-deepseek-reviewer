@@ -40,24 +40,40 @@ def _append_generation_output(
         )
 
 
+def _process_group_exists(pgid: int) -> bool:
+    try:
+        os.killpg(pgid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
 def _terminate_process_group(proc: subprocess.Popen[str]) -> None:
     """Terminate the whole DSH generation, including native subagent descendants."""
-    if proc.poll() is not None:
+    pgid = proc.pid
+    if not _process_group_exists(pgid):
         return
     try:
-        os.killpg(proc.pid, signal.SIGTERM)
+        os.killpg(pgid, signal.SIGTERM)
     except ProcessLookupError:
         return
+
     try:
         proc.wait(timeout=5)
-        return
     except subprocess.TimeoutExpired:
         pass
+
+    # The coordinator may exit on SIGTERM while a descendant ignores it. Probe the process
+    # group itself, not merely the parent process, before allowing another recovery generation.
+    if _process_group_exists(pgid):
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            return
     try:
-        os.killpg(proc.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        return
-    proc.wait(timeout=5)
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Harness generation process group did not terminate") from exc
 
 
 def _run_once(
@@ -87,7 +103,7 @@ def _run_once(
         partial = exc.stdout if isinstance(exc.stdout, str) else ""
         _terminate_process_group(proc)
         remainder, _ = proc.communicate()
-        text = partial + (remainder or "")
+        text = remainder or partial
         rc = 124
 
     _append_generation_output(
