@@ -34,7 +34,7 @@ The incident exposed two independent orchestration weaknesses:
 Large-batch Harness now has four explicit layers:
 
 1. `qore-harness-engineer-v2.md` defines recovery-safe six-lane behavior and immutable completed-lane carry-forward.
-2. `harness_large_batch_state.py` parses and validates durable per-lane state with fail-closed corruption handling.
+2. `harness_large_batch_state.py` parses and validates durable per-lane state, immutable package/START/TREE binding, monotonic generations and fail-closed corruption handling.
 3. `harness_resilient_runner.py` executes bounded model generations inside one workflow run and automatically continues after recoverable nonzero, pause/wait, timeout, or incomplete exits while durable state remains valid.
 4. `deepseek-harness-engineer-resilient.yml` preserves exact binding/LSP/scope/QG gates and routes candidate completion through the resilient runner. Auto-dispatch is redirected to this workflow.
 
@@ -55,7 +55,7 @@ State records use:
 
 `QORE_LANE_STATE lane=<1..6> state=<STATE> generation=<N>`
 
-A completed lane is immutable input to recovery. Regression from `COMPLETED` to a non-completed state fails closed.
+A completed lane is immutable input to recovery. Regression from `COMPLETED` to a non-completed state fails closed. Package identity, START and TREE are also immutable across the journal; any mutation or durable state material outside a complete checkpoint block fails closed.
 
 ## Coordinator behavior
 
@@ -71,7 +71,7 @@ If recovery ceases to make progress beyond the configured stagnation allowance, 
 
 Recovery must:
 
-1. bind the exact original START/TREE and original package lineage;
+1. bind the exact original PACKAGE/START/TREE and original package lineage;
 2. load the latest durable checkpoint and current workspace patch state;
 3. enumerate completed vs missing lanes;
 4. prohibit rerunning completed lanes;
@@ -111,7 +111,7 @@ Thus FULL QG cannot certify an incomplete six-lane swarm.
 
 ## Deterministic adversarial certification
 
-The certification suite covers:
+The canonical certification suite covers:
 
 - lane 2 delayed while lanes 1/3/4/5/6 are complete;
 - preservation of those five completed lanes into recovery context;
@@ -119,15 +119,18 @@ The certification suite covers:
 - recovery-only execution of pending lanes;
 - completed-lane regression rejection;
 - generation regression rejection;
-- corrupted checkpoint fail-closed behavior with metadata preservation;
+- package/START/TREE mutation rejection;
+- durable lane/binding material outside checkpoint rejection;
+- corrupted/unbalanced checkpoint fail-closed behavior;
 - material-blocked lane handling;
 - exact six-lane completion detection;
 - non-destructive journal initialization;
+- repeated interruption/resume behavior in the resilient runner;
 - authority-skill exactly-six consistency and removal of the legacy two-subagent cap;
 - auto-dispatch routing to the resilient workflow;
 - warm-LSP-before-spend and all-complete-before-QG static gates.
 
-Certification workflows: `.github/workflows/deepseek-harness-large-batch-certification.yml` and `.github/workflows/harness-large-batch-resilience-certification.yml`.
+Canonical certification workflow: `.github/workflows/deepseek-harness-large-batch-certification.yml`.
 
 ## Observability
 
@@ -146,6 +149,6 @@ The workflow additionally retains usage/billing, LSP smoke, candidate patch, QG 
 
 ## Acceptance rule
 
-Harness is approved for large-batch use only after both the dedicated resilience certification and existing Harness infrastructure CI pass on the exact PR head and the protected integration is merged.
+Harness is approved for large-batch use only after the canonical resilience certification and existing Harness infrastructure CI pass on the exact PR head and the protected integration is merged.
 
 After merge, new Engineer auto-dispatches use `deepseek-harness-engineer-resilient.yml`; large batches no longer depend on a single model process surviving the entire six-lane task.
