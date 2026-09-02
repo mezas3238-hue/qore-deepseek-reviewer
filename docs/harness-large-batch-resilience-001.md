@@ -22,6 +22,13 @@ Harness must be able to execute large six-lane batches without allowing one pend
 
 `LARGE BATCH SUPPORT REQUIRES RESUMABLE SWARM STATE`
 
+## Root-cause findings
+
+The incident exposed two independent orchestration weaknesses:
+
+1. The legacy workflow treated any non-zero DSH exit as terminal before classifying durable partial progress. A pause/wait model exit therefore collapsed the job even when valid lane checkpoints existed.
+2. The mandatory `qore-engineer-authority` skill still authorized `at most two useful subagent delegations` while the active Harness Engineer prompt required exactly six native lanes. That contradictory authority contract is removed by this hardening; six-lane Harness packages now have one consistent exactly-six swarm rule.
+
 ## Implemented architecture
 
 Large-batch Harness now has four explicit layers:
@@ -116,10 +123,11 @@ The certification suite covers:
 - material-blocked lane handling;
 - exact six-lane completion detection;
 - non-destructive journal initialization;
+- authority-skill exactly-six consistency and removal of the legacy two-subagent cap;
 - auto-dispatch routing to the resilient workflow;
 - warm-LSP-before-spend and all-complete-before-QG static gates.
 
-Certification workflow: `.github/workflows/deepseek-harness-large-batch-certification.yml`.
+Certification workflows: `.github/workflows/deepseek-harness-large-batch-certification.yml` and `.github/workflows/harness-large-batch-resilience-certification.yml`.
 
 ## Observability
 
