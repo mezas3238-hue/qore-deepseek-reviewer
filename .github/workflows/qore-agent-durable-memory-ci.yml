@@ -45,15 +45,19 @@ jobs:
             grep -q 'SAFE RESUME INSTRUCTION' "$FILE"
           done
 
-          grep -q 'harness-engineer-checkpoints.md' "$HARNESS"
-          grep -q 'harness-engineer-candidate.patch' "$HARNESS"
-          grep -q 'deepseek-review-checkpoints.md' "$EXPERT"
-          grep -q 'deepseek-review-checkpoints.md' "$CODER"
+          grep -q 'checkpoint_path' "$HARNESS"
+          grep -q 'recovery_patch_path' "$HARNESS"
+          grep -q 'checkpoint_path' "$EXPERT"
+          grep -q 'checkpoint_path' "$CODER"
+          ! grep -Fq '../../harness-engineer-checkpoints.md' "$HARNESS"
+          ! grep -Fq '../../deepseek-review-checkpoints.md' "$EXPERT"
+          ! grep -Fq '../../deepseek-review-checkpoints.md' "$CODER"
           grep -q 'RESUME STATE' "$HARNESS"
           grep -q 'RESUME STATE' "$EXPERT"
           grep -q 'RESUME STATE' "$CODER"
           grep -q 'RESUME STATE' "$CLAUDE"
           grep -q 'Recovery dispatch gate' "$POLICY"
+          grep -q 'platform temporary root' "$POLICY"
 
       - name: Validate workflow persistence and fail-closed success gates
         run: |
@@ -65,13 +69,19 @@ jobs:
             test -s "$FILE"
             grep -q 'actions/upload-artifact@v4' "$FILE"
             grep -Fq 'always()' "$FILE"
+            grep -q 'DSH_PERMISSION_MODE=workspace-write' "$FILE"
           done
 
+          grep -Fq 'CHECKPOINT_PATH="$RUNNER_TEMP/deepseek-review-checkpoints.md"' "$REVIEW"
+          grep -q 'Collect durable reviewer checkpoint evidence' "$REVIEW"
           grep -q 'deepseek-review-checkpoints.md' "$REVIEW"
           grep -Fq "grep -c '^QORE_CHECKPOINT_BEGIN" "$REVIEW"
           grep -q 'DURABLE JOURNAL SUMMARY' "$REVIEW"
           grep -q 'RESUME STATE' "$REVIEW"
 
+          grep -Fq 'CHECKPOINT_PATH="$RUNNER_TEMP/harness-engineer-checkpoints.md"' "$ENGINEER"
+          grep -Fq 'RECOVERY_PATCH_PATH="$RUNNER_TEMP/harness-engineer-candidate.patch"' "$ENGINEER"
+          grep -q 'Collect durable Harness recovery evidence after model exit' "$ENGINEER"
           grep -q 'harness-engineer-checkpoints.md' "$ENGINEER"
           grep -q 'harness-engineer-candidate.patch' "$ENGINEER"
           grep -q 'harness_recovery_snapshot.py' "$ENGINEER"
