@@ -45,7 +45,7 @@ The host controls DeepSeek V4 Pro reasoning adaptively. HIGH is the mandatory ba
 
 The Coder review must survive quota loss, timeout, cancellation, runner failure, or model interruption without losing completed implementation-review work.
 
-Do not wait for the final report. The primary Coder MUST append an incremental checkpoint to `../../deepseek-review.md` from the qore-core workspace:
+Do not wait for the final report. The primary Coder MUST append an incremental checkpoint to `../../deepseek-review-checkpoints.md` from the qore-core workspace:
 - after exact binding and predecessor Expert/IA state is verified;
 - after consuming each of the four subagent results;
 - after each material implementation/test/doc conclusion;
@@ -53,6 +53,8 @@ Do not wait for the final report. The primary Coder MUST append an incremental c
 - after every material finding adjudication or contradiction;
 - before and after long-running material probes;
 - immediately before final disposition.
+
+Never overwrite or truncate the checkpoint file. The host creates checkpoint sequence 0 before model execution; the primary Coder begins at sequence 1.
 
 Every checkpoint must use the literal markers `QORE_CHECKPOINT_BEGIN` and `QORE_CHECKPOINT_END` and record concise engineering evidence only, never private chain-of-thought. It must include:
 - package/candidate binding and checkpoint sequence;
