@@ -1,16 +1,19 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-CATALOG-31-INVENTORY-001-BATCH-003",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001-BATCH-004",
   "expected_start": "5a158ef0fb2e21db95f2be0685373780bf1ab197",
   "expected_tree": "5e2b37b23b01fe23fd373d39b01573e9607a73ad",
-  "task_path": "harness/engineer/tasks/qore-trader-catalog-31-inventory-001-batch-003.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-trader-development-manager-001-batch-004.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-catalog-31-inventory-001-batch-003-20260902",
+  "dispatch_nonce": "qore-cibo-trader-development-manager-001-batch-004-20260902",
   "allowed_paths": [
-    "docs/architecture",
-    "docs/audits"
+    "src/qore/modules/cibo",
+    "src/qore/infrastructure",
+    "tests/modules",
+    "tests/infrastructure",
+    "docs/architecture"
   ],
-  "max_changed_files": 4,
-  "max_diff_lines": 6500,
+  "max_changed_files": 12,
+  "max_diff_lines": 3600,
   "run_full_qg": true
 }
