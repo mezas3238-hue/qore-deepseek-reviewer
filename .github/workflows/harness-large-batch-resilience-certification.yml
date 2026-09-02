@@ -3,10 +3,16 @@ name: Harness Large-Batch Resilience Certification
 on:
   pull_request:
     paths:
+      - "scripts/harness_large_batch_state.py"
+      - "scripts/harness_resilient_runner.py"
       - "scripts/harness_swarm_recovery.py"
+      - "scripts/test_harness_large_batch_state.py"
+      - "scripts/test_harness_resilient_runner.py"
       - "tests/test_harness_swarm_recovery.py"
-      - "harness/engineer/prompts/qore-harness-engineer-v1.md"
-      - ".github/workflows/deepseek-harness-engineer.yml"
+      - "harness/engineer/prompts/qore-harness-engineer-v2.md"
+      - "harness/skills/qore-engineer-authority/SKILL.md"
+      - ".github/workflows/deepseek-harness-engineer-auto-dispatch.yml"
+      - ".github/workflows/deepseek-harness-engineer-resilient.yml"
       - ".github/workflows/harness-large-batch-resilience-certification.yml"
   workflow_dispatch:
 
@@ -25,16 +31,32 @@ jobs:
       - name: Compile resilience controls
         run: |
           set -euo pipefail
-          python -m py_compile scripts/harness_swarm_recovery.py
-      - name: Run deterministic adversarial certification
+          python -m py_compile \
+            scripts/harness_large_batch_state.py \
+            scripts/harness_resilient_runner.py \
+            scripts/harness_swarm_recovery.py
+      - name: Run deterministic state-machine certification
+        run: |
+          set -euo pipefail
+          PYTHONPATH=scripts python scripts/test_harness_large_batch_state.py
+          PYTHONPATH=scripts python scripts/test_harness_resilient_runner.py
+      - name: Run adversarial recovery certification
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check pytest
           pytest -q tests/test_harness_swarm_recovery.py
-      - name: Enforce large-batch invariants in normative contract
+      - name: Enforce large-batch invariants and six-lane authority
         run: |
           set -euo pipefail
           grep -q 'PENDING LANE != BATCH FAILURE' docs/harness-large-batch-resilience-001.md
           grep -q 'ONE LANE INTERRUPTION != RESTART ALL LANES' docs/harness-large-batch-resilience-001.md
           grep -q 'DURABLE COMPLETED LANE != REPEATABLE WORK' docs/harness-large-batch-resilience-001.md
           grep -q 'RECOVERABLE MODEL EXIT != MATERIAL FAILURE' docs/harness-large-batch-resilience-001.md
+          grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
+          ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
+      - name: Enforce resilient dispatch path
+        run: |
+          set -euo pipefail
+          grep -q 'deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'harness_resilient_runner.py' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'qore-harness-engineer-v2.md' .github/workflows/deepseek-harness-engineer-resilient.yml
