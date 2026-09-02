@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import signal
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, call, patch
 
 import harness_resilient_runner as runner
 from harness_large_batch_state import write_initial
@@ -136,6 +138,36 @@ class HarnessResilientRunnerTests(unittest.TestCase):
             self.assertEqual(rc, 65)
             meta = json.loads(metadata.read_text(encoding="utf-8"))
             self.assertTrue(str(meta["terminal_reason"]).startswith("CORRUPT_CHECKPOINT:"))
+
+    def test_timeout_terminates_entire_generation_process_group(self) -> None:
+        proc = MagicMock()
+        proc.pid = 4242
+        proc.poll.return_value = None
+        proc.wait.side_effect = [subprocess.TimeoutExpired(cmd="dsh", timeout=5), 0]
+        with patch.object(runner.os, "killpg") as killpg:
+            runner._terminate_process_group(proc)
+        self.assertEqual(
+            killpg.call_args_list,
+            [call(4242, signal.SIGTERM), call(4242, signal.SIGKILL)],
+        )
+
+    def test_run_once_starts_isolated_session(self) -> None:
+        proc = MagicMock()
+        proc.communicate.return_value = ("done", None)
+        proc.returncode = 0
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "out.md"
+            with patch.object(runner.subprocess, "Popen", return_value=proc) as popen:
+                rc, text = runner._run_once(
+                    dsh_bin=Path("/fake/dsh"),
+                    profile="headless",
+                    prompt="PROMPT",
+                    timeout_seconds=60,
+                    output_path=output,
+                    generation=1,
+                )
+            self.assertEqual((rc, text), (0, "done"))
+            self.assertTrue(popen.call_args.kwargs["start_new_session"])
 
 
 if __name__ == "__main__":
