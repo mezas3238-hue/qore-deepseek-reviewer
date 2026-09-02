@@ -2,7 +2,7 @@
 
 ## Status
 
-MANDATORY INFRASTRUCTURE HARDENING FOR LARGE-BATCH HARNESS WORK.
+IMPLEMENTED CANDIDATE — deterministic certification required before merge.
 
 ## Incident basis
 
@@ -22,9 +22,20 @@ Harness must be able to execute large six-lane batches without allowing one pend
 
 `LARGE BATCH SUPPORT REQUIRES RESUMABLE SWARM STATE`
 
+## Implemented architecture
+
+Large-batch Harness now has four explicit layers:
+
+1. `qore-harness-engineer-v2.md` defines recovery-safe six-lane behavior and immutable completed-lane carry-forward.
+2. `harness_large_batch_state.py` parses and validates durable per-lane state with fail-closed corruption handling.
+3. `harness_resilient_runner.py` executes bounded model generations inside one workflow run and automatically continues after recoverable nonzero, pause/wait, timeout, or incomplete exits while durable state remains valid.
+4. `deepseek-harness-engineer-resilient.yml` preserves exact binding/LSP/scope/QG gates and routes candidate completion through the resilient runner. Auto-dispatch is redirected to this workflow.
+
+The legacy Engineer workflow remains present for historical evidence compatibility, but new auto-dispatched Engineer packages route to the resilient workflow.
+
 ## Required state model
 
-Every lane must have a durable explicit state at minimum:
+Every lane has a durable explicit state:
 
 - `NOT_STARTED`
 - `RUNNING`
@@ -33,109 +44,100 @@ Every lane must have a durable explicit state at minimum:
 - `RECOVERY_REQUIRED`
 - `MATERIAL_BLOCKED`
 
-The coordinator must persist lane identity, scope, findings, evidence, adjudications, unresolved questions, pending next action, and safe-resume instruction.
+State records use:
 
-A completed lane is immutable input to recovery unless later repository evidence explicitly invalidates it.
+`QORE_LANE_STATE lane=<1..6> state=<STATE> generation=<N>`
+
+A completed lane is immutable input to recovery. Regression from `COMPLETED` to a non-completed state fails closed.
 
 ## Coordinator behavior
 
 The coordinator must not return a normal terminal response while any required lane is merely pending/running.
 
-Messages equivalent to "pause here", "wait for lane", "resume when completion notice arrives", or temporary subagent unavailability are not valid successful completion and are not automatically a material failure. The host must classify them as recoverable orchestration state.
+Messages equivalent to "pause here", "wait for lane", "resume when completion notice arrives", temporary subagent unavailability, nonzero model exits, and bounded generation timeouts are recoverable when the durable journal remains valid and unfinished lanes remain.
 
-If the primary process exits non-zero after durable progress exists, recovery evidence must be inspected before final classification.
+The host performs up to four bounded model generations. Each recovery generation receives the exact completed and pending lane set plus the durable journal tail and is instructed to execute only unfinished work.
 
-If all prerequisites are healthy and at least one lane is incomplete but recoverable, the batch disposition must be `RECOVERY_REQUIRED`, preserving all completed lanes and patch/checkpoints.
+If recovery ceases to make progress beyond the configured stagnation allowance, the runner fails closed instead of looping indefinitely.
 
 ## Recovery contract
 
 Recovery must:
 
 1. bind the exact original START/TREE and original package lineage;
-2. load the latest durable checkpoint and recovery patch;
+2. load the latest durable checkpoint and current workspace patch state;
 3. enumerate completed vs missing lanes;
-4. prohibit rerunning completed lanes unless independently invalidated;
+4. prohibit rerunning completed lanes;
 5. run only missing/recovery-required lanes;
 6. synthesize the full six-lane result from inherited + recovered evidence;
-7. continue implementation from the retained patch/state;
+7. continue implementation in the same retained workspace;
 8. rerun semantic LSP after implementation;
-9. run external FULL QORE quality gate only after all required lanes are complete;
-10. emit a final durable resume state even on any subsequent interruption.
+9. run external FULL QORE quality gate only after all six lanes are complete;
+10. retain deterministic recovery metadata and artifacts.
 
 ## Failure classification
 
-The workflow may terminate as hard `failure` only for a genuine material blocker such as:
+Hard failure is reserved for genuine material blockers such as:
 
 - immutable package/binding mismatch;
 - checkout/tree corruption;
-- required LSP infrastructure unavailable after policy-defined recovery;
-- invalid/missing required credentials for the reviewer service itself;
-- insufficient API balance before meaningful execution;
+- required LSP infrastructure unavailable before API spend;
+- insufficient reviewer-service balance before execution;
 - deterministic scope/budget violation;
 - corrupted/non-parseable durable recovery state;
-- material architectural contradiction that cannot be adjudicated within package scope;
+- material architectural contradiction;
+- recovery stagnation after bounded generations;
 - FULL QG failure after a complete candidate is produced.
 
-A pending lane, delayed subagent, recoverable model exit, or partial six-lane completion is not by itself a hard-failure reason.
+A pending lane, delayed subagent, recoverable model exit, pause/wait response, or partial six-lane completion is not by itself a hard-failure reason.
 
-## Large-batch requirements
+## QG protection
 
-Harness large batches use exactly six logical lanes unless a later governed contract changes the number.
+The resilient workflow requires both:
 
-The coordinator must budget work so that lanes can complete independently and checkpoint incrementally. The system must tolerate asynchronous lane completion order. Synthesis starts only once the six required lane states are complete or a lane is materially blocked with explicit evidence.
+- lane state reports `all_complete == true` with no pending lanes; and
+- resilience metadata reports `terminal_reason == CANDIDATE_COMPLETE` and exit code 0
 
-The 120-minute model wall cap remains a safety cap, not an expected duration. Reaching the cap with durable progress must produce recoverable state rather than erase work.
+before the deterministic candidate gate and FULL QORE quality gate can execute.
 
-## Mandatory checkpoint cadence
+Thus FULL QG cannot certify an incomplete six-lane swarm.
 
-At minimum write/refresh durable state after:
+## Deterministic adversarial certification
 
-- host initialization;
-- baseline/reuse reconstruction;
-- each lane completion;
-- each lane failure/interruption classification;
-- six-lane synthesis;
-- each coherent implementation mutation;
-- LSP validation;
-- root-family exhaustion;
-- FULL QG result;
-- final disposition.
+The certification suite covers:
 
-The recovery patch must be refreshed after each coherent code/test/doc mutation.
+- lane 2 delayed while lanes 1/3/4/5/6 are complete;
+- preservation of those five completed lanes into recovery context;
+- nonzero model exit with durable progress;
+- recovery-only execution of pending lanes;
+- completed-lane regression rejection;
+- generation regression rejection;
+- corrupted checkpoint fail-closed behavior with metadata preservation;
+- material-blocked lane handling;
+- exact six-lane completion detection;
+- non-destructive journal initialization;
+- auto-dispatch routing to the resilient workflow;
+- warm-LSP-before-spend and all-complete-before-QG static gates.
 
-## Mandatory adversarial certification
-
-Before this hardening is considered complete, deterministic tests/fixtures must demonstrate:
-
-1. lane 2 delayed while lanes 1/3/4/5/6 complete -> completed lanes retained, no full restart;
-2. one lane process exits/interruption -> only that lane becomes `RECOVERY_REQUIRED`;
-3. primary model emits pause/wait text -> host does not misclassify it as valid terminal success or unrecoverable failure;
-4. primary process returns non-zero after durable checkpoints -> recovery classifier consumes checkpoints before final disposition;
-5. recovery invocation inherits completed lane evidence and prohibits duplicate lane work;
-6. second interruption during recovery remains resumable;
-7. corrupted checkpoint -> fail closed as material infrastructure blocker;
-8. LSP unavailable before API spend -> fail closed without model spend;
-9. FULL QG never runs on an incomplete six-lane candidate;
-10. completed six-lane candidate -> normal candidate scope gate + FULL QG + artifact completion.
+Certification workflow: `.github/workflows/deepseek-harness-large-batch-certification.yml`.
 
 ## Observability
 
-Run metadata must expose at minimum:
+Resilience metadata exposes:
 
-- completed lane count;
-- pending/recovery-required lanes;
+- per-generation primary exit code;
 - checkpoint count;
-- recovery generation/attempt identity;
-- inherited lane identities;
-- whether duplicate-work prevention fired;
-- primary model exit code;
-- classified termination reason;
-- candidate completeness;
-- LSP state;
-- QG state.
+- completed/pending/blocked lane sets;
+- candidate-ready and resume-complete markers;
+- total recovery generations used;
+- terminal classification;
+- elapsed time;
+- final candidate completeness.
+
+The workflow additionally retains usage/billing, LSP smoke, candidate patch, QG logs and normal Harness artifacts.
 
 ## Acceptance rule
 
-Harness is approved for large-batch use only when the workflow can lose/delay one logical lane and continue from durable state without rerunning the other completed lanes.
+Harness is approved for large-batch use only after both the dedicated resilience certification and existing Harness infrastructure CI pass on the exact PR head and the protected integration is merged.
 
-This hardening must preserve anti-duplication, exact binding, artifact-only behavior, scope budgets, LSP requirements, FULL QG requirements, and no-publication authority.
+After merge, new Engineer auto-dispatches use `deepseek-harness-engineer-resilient.yml`; large batches no longer depend on a single model process surviving the entire six-lane task.
