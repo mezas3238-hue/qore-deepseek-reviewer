@@ -107,8 +107,8 @@
   "workflows": {
     ".github/workflows/deepseek-auto-dispatch.yml": "a54d0a257f761ae2bd0cb32a167be9f41b57c4f4",
     ".github/workflows/deepseek-connection-test.yml": "251c342e691fefe433282a24d74af40004ef8f72",
-    ".github/workflows/deepseek-qore-review.yml": "a5888e18bef261631d84b7534116b16c45da98ae"
+    ".github/workflows/deepseek-qore-review.yml": "e693b77b0d78dd6dd795f7cc006f3b602d19238e"
   },
   "permanent_workflow_count": 3,
-  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE is the ordinary stable successor to V2.1.1 for Expert and Coder certification. It preserves V2.1.1 evidence, freeze, token-budget and fail-closed contracts, adds mode-specific HIGH/MAX thinking selection with deterministic reasoning audit, and now includes one explicit bounded retry only for broken authoritative-response transport. HTTP errors are not retried, there is no sleep/backoff, and the transport helper self-tests before paid reviewer execution. Expert and Coder remain independent read-only reviewers and do not gain implementation, merge or Production authority."
+  "governance_note": "QORE-DEEPSEEK-V2.1.2-ADAPTIVE remains the ordinary stable Expert/Coder certification profile. The authorized DeepSeek review workflow additionally enforces durable engineering checkpoints and interruption recovery: the host allocates the checkpoint journal under a platform temporary root permitted by the unchanged workspace-write sandbox, creates checkpoint sequence 0 before model execution, requires agent-authored incremental checkpoints for successful completion, and copies that journal into the always-uploaded evidence artifact after success, failure, timeout, quota failure, or cancellation cleanup. These controls do not expose private chain-of-thought, do not relax frozen-candidate/LSP/subagent/HIGH-MAX/read-only gates, do not broaden workspace or workflow authority, and do not grant implementation, merge, Production, real-capital, or Risk-bypass authority. Existing bounded broken-transport retry behavior remains unchanged."
 }

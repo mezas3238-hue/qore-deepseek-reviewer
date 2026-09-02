@@ -41,6 +41,37 @@ Verify that accepted Expert findings are actually resolved on the exact frozen H
 
 The host controls DeepSeek V4 Pro reasoning adaptively. HIGH is the mandatory baseline. MAX is mandatory when the controller selects it for security-sensitive ambiguity, cross-layer impact, architectural contradiction, competing material hypotheses, or implementation behavior that could reopen a closed family. Do not self-report effort as evidence; the deterministic wrapper audits actual request headers and controller decisions.
 
+## Mandatory durable-memory / checkpoint gate
+
+The Coder review must survive quota loss, timeout, cancellation, runner failure, or model interruption without losing completed implementation-review work.
+
+The host supplies an exact absolute `checkpoint_path` under a platform temporary root writable by the DSH sandbox. Do not substitute another path and do not attempt to write checkpoint evidence into a parent directory outside the qore-core workspace.
+
+Do not wait for the final report. The primary Coder MUST append an incremental checkpoint to the exact host-supplied `checkpoint_path`:
+- after exact binding and predecessor Expert/IA state is verified;
+- after consuming each of the four subagent results;
+- after each material implementation/test/doc conclusion;
+- after each primary-session LSP impact conclusion;
+- after every material finding adjudication or contradiction;
+- before and after long-running material probes;
+- immediately before final disposition.
+
+Never overwrite or truncate the checkpoint file. The host creates checkpoint sequence 0 before model execution; the primary Coder begins at sequence 1.
+
+Every checkpoint must use the literal markers `QORE_CHECKPOINT_BEGIN` and `QORE_CHECKPOINT_END` and record concise engineering evidence only, never private chain-of-thought. It must include:
+- package/candidate binding and checkpoint sequence;
+- completed units since the prior checkpoint;
+- concrete files/symbols/tests/commands/LSP/subagent evidence;
+- finding/adjudication state and residual uncertainty;
+- `PENDING NEXT ACTION`: exactly one next unit;
+- `SAFE RESUME INSTRUCTION`: what a successor must load and which completed work must not be repeated.
+
+If predecessor Coder checkpoint evidence is supplied, verify exact candidate binding first and continue from `PENDING NEXT ACTION`. Do not repeat completed subagent lanes, implementation scans, test-quality work, or LSP work solely because a new process/session started. Repetition is allowed only for changed binding, unusable evidence, or a concrete contradiction requiring bounded re-check, and the reason must be checkpointed.
+
+Carry-forward evidence never turns an interrupted run into PASS. It only preserves completed work; unfinished gates remain mandatory.
+
+Absence of a durable checkpoint trail is `VALIDATION BLOCKED` even if the final narrative otherwise looks complete.
+
 ## Required output
 
 # QORE DEEPSEEK CODER SWARM
@@ -59,6 +90,14 @@ Concise findings on production/tests/docs and retained historical closures.
 
 ## MATERIAL FINDINGS
 For every finding: stable ID, severity, exact location, concrete witness, root cause, minimal bounded correction, and whether HEAD must mutate.
+
+## DURABLE JOURNAL SUMMARY
+State checkpoint count, last completed unit, and whether predecessor carry-forward evidence was consumed.
+
+## RESUME STATE
+Exactly one of:
+- `COMPLETE`
+- `INTERRUPTED — CONTINUE FROM: <exact pending next action>`
 
 ## VERDICT
 If clean and mandatory LSP evidence is complete, conclude exactly:

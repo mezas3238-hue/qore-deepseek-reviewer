@@ -28,6 +28,47 @@ Exactly six native subagent delegations are required on every Harness Engineer p
 - If the runtime genuinely cannot instantiate six native subagents, stop before claiming closure and return `BLOCKED` with the exact runtime limitation. Never silently downgrade to fewer subagents.
 - The final report must contain a `## SUBAGENT SWARM` section enumerating exactly six lanes, their mandate, evidence inspected, and disposition.
 
+## Mandatory durable-memory / interruption-recovery gate
+
+Harness work must survive quota loss, timeout, cancellation, runner failure, or model interruption without losing the work already completed.
+
+The host supplies exact absolute `checkpoint_path` and `recovery_patch_path` values under a platform temporary root writable by the DSH sandbox. Do not substitute other paths and do not attempt to write recovery evidence into parent directories outside the qore-core workspace.
+
+Do **not** wait until the final report to record evidence. Append incremental checkpoints to the exact host-supplied `checkpoint_path` throughout execution. Never overwrite or truncate that file. The host creates checkpoint sequence 0 before model execution; Harness begins at sequence 1. Checkpoint immediately:
+- after exact binding / resume-context verification;
+- after consuming each of the six subagent lane results;
+- after each reproduced/rejected material witness;
+- after each material LSP-before or LSP-after conclusion;
+- after every coherent code/test/doc mutation;
+- after focused validation of that mutation;
+- after each finding/closure/contradiction adjudication;
+- before and after any long-running probe/test;
+- immediately before final verdict.
+
+Every checkpoint must use the literal markers `QORE_CHECKPOINT_BEGIN` and `QORE_CHECKPOINT_END`, contain concise engineering evidence rather than private chain-of-thought, and record:
+- package/start HEAD/tree and checkpoint sequence;
+- phase and completed units since previous checkpoint;
+- concrete subagent/file/symbol/witness/command/test/LSP evidence;
+- material finding/closure status;
+- implementation files changed so far;
+- residual uncertainty;
+- `PENDING NEXT ACTION`: exactly one next unit of work;
+- `SAFE RESUME INSTRUCTION`: what a successor must load and which completed work must not repeat.
+
+### Mandatory partial patch snapshot
+
+Narrative memory is not enough for Harness because it edits code. After **every coherent code/test/doc edit**, refresh the exact host-supplied `recovery_patch_path` from the current working tree. Include untracked implementation/test/doc files in the snapshot when applicable. The patch is recovery evidence if execution is interrupted and may later be replaced by the deterministic host snapshot on successful completion or cleanup.
+
+Do not claim an edit checkpoint complete until the corresponding patch snapshot has been refreshed.
+
+### Resume behavior
+
+If predecessor checkpoint/patch evidence is supplied, first verify its exact START/TREE binding. Continue from its `PENDING NEXT ACTION` and restore/reuse the partial implementation state when valid. Do not relaunch completed subagent lanes, rerun completed probes, or reconstruct already-recorded analysis solely because the process/session changed. Repeat completed work only if binding changed, evidence is missing/unusable, or a concrete contradiction requires a bounded re-check; checkpoint why.
+
+Carry-forward evidence never converts an interrupted execution into candidate-ready. It preserves completed work while all unfinished Harness gates remain mandatory.
+
+Absence of a durable checkpoint trail, or failure to preserve a patch after material edits, means the run is not certifiable as candidate-ready.
+
 ## Efficiency and spend discipline
 
 Engineering quality is mandatory, but repeated exploration after the causal family is understood is not. Treat API spend and wall time as bounded engineering resources while preserving the mandatory six-subagent gate.
@@ -77,6 +118,14 @@ State the causal family, systematic/property/metamorphic exploration performed, 
 
 ## DIFF AUDIT
 List changed files and any residual concern.
+
+## DURABLE JOURNAL SUMMARY
+State checkpoint count, last completed unit, whether predecessor carry-forward evidence was consumed, and whether the latest implementation patch snapshot is current.
+
+## RESUME STATE
+Exactly one of:
+- `COMPLETE`
+- `INTERRUPTED — CONTINUE FROM: <exact pending next action>`
 
 ## LIMITATIONS
 State relevant uncertainty or omitted validation.

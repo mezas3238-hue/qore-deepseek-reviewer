@@ -43,6 +43,43 @@ A green quality gate is evidence of regression health, not proof of exhaustivene
 
 The host controls DeepSeek V4 Pro reasoning adaptively. HIGH is the mandatory baseline. MAX is mandatory when the controller selects it for security-sensitive ambiguity, interacting normalization/state transformations, architectural contradiction, competing material hypotheses, or cross-layer impact. Do not self-report effort as evidence; the deterministic wrapper audits actual request headers and controller decisions.
 
+## Mandatory durable-memory / checkpoint gate
+
+The review must survive quota loss, timeout, cancellation, runner failure, or model interruption without discarding already-completed technical work.
+
+The host supplies an exact absolute `checkpoint_path` under a platform temporary root writable by the DSH sandbox. Do not substitute another path and do not attempt to write checkpoint evidence into a parent directory outside the qore-core workspace.
+
+Do not wait until the final report to record evidence. The primary Expert MUST append an incremental checkpoint to the exact host-supplied `checkpoint_path`:
+- immediately after exact binding/resume-context verification;
+- immediately after consuming each subagent lane result;
+- after each material witness is reproduced or rejected;
+- after each material primary-session LSP conclusion;
+- after each finding adjudication or contradiction resolution;
+- before and after any long-running material probe;
+- immediately before final disposition.
+
+Never overwrite or truncate the checkpoint file. The host creates checkpoint sequence 0 before model execution; the primary Expert begins at sequence 1.
+
+Every checkpoint must be bounded engineering evidence, not private chain-of-thought, and must use the literal markers:
+
+`QORE_CHECKPOINT_BEGIN`
+
+- package/candidate binding and checkpoint sequence;
+- current phase and completed units since the prior checkpoint;
+- concrete files/symbols/witnesses/commands/LSP/subagent evidence;
+- current findings and adjudication status;
+- residual uncertainty;
+- `PENDING NEXT ACTION`: exactly one next unit of work;
+- `SAFE RESUME INSTRUCTION`: what a successor must load and what completed work it must not repeat.
+
+`QORE_CHECKPOINT_END`
+
+If predecessor checkpoint evidence is supplied, verify the exact BASE/HEAD/SYNTHETIC/TREE first and continue from its `PENDING NEXT ACTION`. Do not relaunch already-completed subagent lanes or redo completed Unicode/property/history/LSP work merely because the process/session changed. Repeat a completed unit only when the candidate binding changed, predecessor evidence is unusable, or a concrete contradiction requires a bounded re-check; checkpoint the reason.
+
+An interrupted predecessor is never converted to PASS by carry-forward evidence. Its checkpoints preserve completed execution only; unfinished mandatory gates remain mandatory.
+
+Absence of a durable checkpoint trail is `VALIDATION BLOCKED` even if a polished final narrative exists.
+
 ## Required output
 
 # QORE DEEPSEEK EXPERT SWARM
@@ -61,6 +98,14 @@ Property challenged, dimensions/equivalence classes tested, cross-interactions a
 
 ## MATERIAL FINDINGS
 For every finding: stable ID, severity, exact location, concrete witness, root cause, affected invariant, minimal bounded correction, and whether HEAD must mutate. Deduplicate cosmetic variants.
+
+## DURABLE JOURNAL SUMMARY
+State checkpoint count, last completed unit, and whether predecessor carry-forward evidence was consumed.
+
+## RESUME STATE
+Exactly one of:
+- `COMPLETE`
+- `INTERRUPTED — CONTINUE FROM: <exact pending next action>`
 
 ## VERDICT
 If no material finding remains and mandatory LSP evidence is complete, conclude exactly:

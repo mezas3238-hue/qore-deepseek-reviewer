@@ -6,11 +6,12 @@ import json
 import os
 import urllib.error
 import urllib.request
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 BALANCE_URL = "https://api.deepseek.com/user/balance"
+DEFAULT_MINIMUM_BALANCE_USD = Decimal("5.00")
 
 
 def fetch_balance() -> dict[str, Any]:
@@ -40,12 +41,42 @@ def fetch_balance() -> dict[str, Any]:
     }
 
 
-def snapshot(path: Path) -> None:
+def _parse_decimal(value: Any, *, field: str) -> Decimal:
+    try:
+        parsed = Decimal(str(value))
+    except (InvalidOperation, ValueError) as exc:
+        raise RuntimeError(f"DeepSeek balance field {field!r} is not a valid decimal") from exc
+    if not parsed.is_finite():
+        raise RuntimeError(f"DeepSeek balance field {field!r} must be finite")
+    return parsed
+
+
+def _require_minimum_balance(data: dict[str, Any], minimum_balance_usd: Decimal) -> None:
+    if not minimum_balance_usd.is_finite() or minimum_balance_usd < 0:
+        raise ValueError("minimum balance must be a finite non-negative decimal")
+    if data.get("currency") != "USD":
+        raise RuntimeError("DeepSeek reviewer balance preflight requires a USD balance")
+    if data.get("is_available") is not True:
+        raise RuntimeError("DeepSeek reviewer balance is unavailable; refusing API spend")
+    total = _parse_decimal(data.get("total_balance"), field="total_balance")
+    if total < minimum_balance_usd:
+        raise RuntimeError(
+            "DeepSeek reviewer balance is below the required preflight minimum "
+            f"({minimum_balance_usd} USD); refusing API spend"
+        )
+
+
+def snapshot(
+    path: Path,
+    *,
+    minimum_balance_usd: Decimal = DEFAULT_MINIMUM_BALANCE_USD,
+) -> None:
     data = fetch_balance()
+    _require_minimum_balance(data, minimum_balance_usd)
     # This private baseline lives only in RUNNER_TEMP and is never uploaded.
     path.write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
     os.chmod(path, 0o600)
-    print("DeepSeek balance baseline captured without printing balance values.")
+    print("DeepSeek balance preflight passed and private baseline captured.")
 
 
 def delta(before_path: Path, output_path: Path) -> None:
@@ -55,8 +86,8 @@ def delta(before_path: Path, output_path: Path) -> None:
         raise RuntimeError(
             f"balance currency changed: {before.get('currency')} -> {after.get('currency')}"
         )
-    before_total = Decimal(str(before["total_balance"]))
-    after_total = Decimal(str(after["total_balance"]))
+    before_total = _parse_decimal(before.get("total_balance"), field="before.total_balance")
+    after_total = _parse_decimal(after.get("total_balance"), field="after.total_balance")
     spent = before_total - after_total
     result = {
         "schema": "qore-deepseek-balance-delta-v1",
@@ -79,13 +110,21 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     snap = sub.add_parser("snapshot")
     snap.add_argument("path", type=Path)
+    snap.add_argument(
+        "--minimum-balance-usd",
+        type=Decimal,
+        default=DEFAULT_MINIMUM_BALANCE_USD,
+    )
     diff = sub.add_parser("delta")
     diff.add_argument("before", type=Path)
     diff.add_argument("output", type=Path)
     args = parser.parse_args()
 
     if args.command == "snapshot":
-        snapshot(args.path.resolve())
+        snapshot(
+            args.path.resolve(),
+            minimum_balance_usd=args.minimum_balance_usd,
+        )
     else:
         delta(args.before.resolve(), args.output.resolve())
     return 0

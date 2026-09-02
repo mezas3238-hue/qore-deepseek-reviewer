@@ -80,6 +80,10 @@ jobs:
           test -s harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
           test -s harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
           test -s "${{ inputs.prompt_path }}"
+          grep -q 'QORE_CHECKPOINT_BEGIN' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'QORE_CHECKPOINT_BEGIN' harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
+          grep -q 'checkpoint_path' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'checkpoint_path' harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md
 
       - name: Create QORE Reviewer installation token
         id: app-token
@@ -269,6 +273,21 @@ jobs:
           BASE_PROMPT="$(cat "$SWARM_PROMPT")"
           TARGET_PROMPT="$(cat "$TARGET_PROMPT_PATH")"
           TREE="$(cat "$GITHUB_WORKSPACE/deepseek-review-tree.txt")"
+          CHECKPOINT_PATH="$RUNNER_TEMP/deepseek-review-checkpoints.md"
+
+          cat > "$CHECKPOINT_PATH" <<EOF
+          QORE_CHECKPOINT_BEGIN
+          package_id: ${PACKAGE_ID}
+          review_mode: ${REVIEW_MODE}
+          checkpoint_sequence: 0
+          phase: HOST_INITIALIZED
+          binding: BASE=${EXPECTED_BASE} HEAD=${EXPECTED_HEAD} SYNTHETIC=${EXPECTED_SYNTHETIC} TREE=${TREE}
+          completed: workflow binding and pre-spend controls reached
+          PENDING NEXT ACTION: primary reviewer verifies binding and begins/resumes the assigned semantic work
+          SAFE RESUME INSTRUCTION: preserve this exact binding; no model work has yet been certified by this run
+          QORE_CHECKPOINT_END
+          EOF
+
           TASK="$(cat <<EOF
           ${BASE_PROMPT}
 
@@ -283,6 +302,10 @@ jobs:
           expected_synthetic=${EXPECTED_SYNTHETIC}
           expected_tree=${TREE}
           expected_qg_summary=${EXPECTED_QG_SUMMARY_JSON}
+
+          # DURABLE CHECKPOINT TARGET
+          checkpoint_path=${CHECKPOINT_PATH}
+          Append every mandatory checkpoint to that exact host-supplied platform-temp path. The host already wrote checkpoint sequence 0. Begin your own checkpoints at sequence 1. Never overwrite or truncate the file.
 
           Work only against this exact frozen checkout. Use native subagents according to your role mandate. Semantic LSP in the primary session is mandatory. The host adaptively controls reasoning effort: HIGH baseline, MAX for material complexity/risk. You have up to 60 minutes but should finish as soon as the review is genuinely complete. No repository edits, commit, remote, push, merge, publication, network research, Production authority or real-capital action.
           EOF
@@ -311,9 +334,24 @@ jobs:
           printf '%s\n' "$((END_EPOCH - START_EPOCH))" > "$RUNNER_TEMP/deepseek-reviewer-ai-seconds.txt"
           test "$STATUS" -eq 0
           test -s "$GITHUB_WORKSPACE/deepseek-review.md"
+          test -s "$CHECKPOINT_PATH"
+          test "$(grep -c '^QORE_CHECKPOINT_BEGIN$' "$CHECKPOINT_PATH")" -ge 2
+          test "$(grep -c '^QORE_CHECKPOINT_END$' "$CHECKPOINT_PATH")" -ge 2
+          grep -q 'PENDING NEXT ACTION' "$CHECKPOINT_PATH"
+          grep -q 'SAFE RESUME INSTRUCTION' "$CHECKPOINT_PATH"
           grep -q '^## SUBAGENT SWARM' "$GITHUB_WORKSPACE/deepseek-review.md"
           grep -q '^## LSP EVIDENCE' "$GITHUB_WORKSPACE/deepseek-review.md"
+          grep -q '^## DURABLE JOURNAL SUMMARY' "$GITHUB_WORKSPACE/deepseek-review.md"
+          grep -q '^## RESUME STATE' "$GITHUB_WORKSPACE/deepseek-review.md"
           grep -Eq 'VALIDACIÓN OK|EVIDENCIA INSUFICIENTE|VALIDATION BLOCKED|## MATERIAL FINDINGS' "$GITHUB_WORKSPACE/deepseek-review.md"
+
+      - name: Collect durable reviewer checkpoint evidence
+        if: ${{ always() }}
+        run: |
+          set +e
+          if test -s "$RUNNER_TEMP/deepseek-review-checkpoints.md"; then
+            cp "$RUNNER_TEMP/deepseek-review-checkpoints.md" "$GITHUB_WORKSPACE/deepseek-review-checkpoints.md"
+          fi
 
       - name: Measure DSH reviewer usage
         if: ${{ always() }}
@@ -408,6 +446,7 @@ jobs:
           name: deepseek-dsh-${{ inputs.package_id }}
           path: |
             deepseek-review.md
+            deepseek-review-checkpoints.md
             deepseek-review-tree.txt
             deepseek-review-changed-files.txt
             deepseek-review-diff-stat.txt
