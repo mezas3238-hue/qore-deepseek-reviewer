@@ -41,13 +41,13 @@ Use the literal markers `QORE_CHECKPOINT_BEGIN`, `QORE_CHECKPOINT_END`, `PENDING
 
 ### Harness Engineer
 
-Append checkpoints to the execution artifact stream `../../harness-engineer-output.md` from the qore-core workspace. After every coherent code/test/doc edit, also refresh `../../harness-engineer-candidate.patch` from the current working tree so interrupted implementation work is recoverable, not only the narrative journal.
+Append checkpoints to `../../harness-engineer-checkpoints.md` from the qore-core workspace. The host writes checkpoint sequence 0 before model execution; Harness begins at sequence 1 and must never overwrite or truncate the file. After every coherent code/test/doc edit, also refresh `../../harness-engineer-candidate.patch` from the current working tree so interrupted implementation work is recoverable, not only the narrative journal.
 
 The primary Harness session must write each of the six subagent lane results into the journal as soon as it consumes that result. Waiting until the final `## SUBAGENT SWARM` summary is non-compliant.
 
 ### DeepSeek Expert / Coder
 
-Append checkpoints to `../../deepseek-review.md` from the qore-core workspace. Each primary session must checkpoint each subagent result when consumed, each material LSP conclusion, each finding adjudication, and the final-LSP / final-impact state.
+Append checkpoints to `../../deepseek-review-checkpoints.md` from the qore-core workspace. The host writes checkpoint sequence 0 before model execution; the primary reviewer begins at sequence 1 and must never overwrite or truncate the file. Each primary session must checkpoint each subagent result when consumed, each material LSP conclusion, each finding adjudication, and the final-LSP / final-impact state.
 
 ### Claude final review
 
@@ -59,7 +59,7 @@ A successor/recovery run is not a fresh review merely because the process identi
 
 Before new work it must:
 
-1. load the predecessor journal/checkpoint artifact;
+1. load the predecessor journal/checkpoint artifact and, for Harness, the latest recoverable partial candidate patch when one exists;
 2. verify BASE/HEAD/TREE/SYNTHETIC (or Harness START/TREE) still match;
 3. reconstruct completed units, findings, evidence, and `PENDING NEXT ACTION`;
 4. continue from that next action;
@@ -67,6 +67,12 @@ Before new work it must:
 6. explicitly journal any intentionally repeated work and why repetition was technically necessary.
 
 If binding changed, previous work is historical evidence only and the normal fresh-candidate rules apply.
+
+### Recovery dispatch gate
+
+A recovery/successor package for an interrupted run MUST identify the predecessor run/package and its durable artifact, state the last complete checkpoint sequence, and carry forward the exact `PENDING NEXT ACTION`. Integration Authority must not dispatch a recovery as a fresh full review when usable predecessor checkpoints exist.
+
+If an interrupted predecessor has usable checkpoint evidence, omission of that evidence from the recovery package is itself `VALIDATION BLOCKED`. If no usable checkpoint exists beyond host sequence 0, no model-level technical progress may be claimed.
 
 ## Interruption semantics
 
