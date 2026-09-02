@@ -1,6 +1,6 @@
-# QORE PR #466 — DeepSeek Expert R22 quota-recovery full review
+# QORE PR #466 — DeepSeek Expert R21 completion after quota interruption
 
-Role: independent Expert falsifier. Review the exact frozen candidate only. Do not modify qore-core.
+Role: finish the interrupted Expert R21 certification on the exact same frozen candidate. This is a completion/recovery package, NOT a fresh full review.
 
 Repository: mezas3238-hue/qore-core
 PR: #466
@@ -11,55 +11,65 @@ TREE: 1c2b06effe269aec2b06c77d4344581c8d382d25
 Synthetic parents: BASE then HEAD
 Synthetic verification: GitHub verified / valid
 
-Mechanical QG on exact synthetic: run 33582654000 / job 100100024113 — SUCCESS.
+Mechanical QG on the exact synthetic: run 33582654000 / job 100100024113 — SUCCESS.
 - ruff check .: PASS
 - mypy src tests: PASS, 753 source files
 - pytest --cov=src/qore --cov-report=term-missing: 5537 collected / 5537 passed / 7 warnings
 - coverage: 47767 statements / 6240 missed / 87%
 - instrument_universe_registry.py: 407 statements / 6 missed / 99%
 
-PREDECESSOR INCIDENT — DO NOT TREAT AS CERTIFICATION:
-Expert R21 package QORE-PR466-9C5A5F6-DS-EXPERT-R21 / run 33583477386 was interrupted by provider QUOTA: Insufficient Balance after substantial analysis and before the mandatory final semantic-LSP re-check and final disposition. Integration Authority adjudicated R21 VALIDATION BLOCKED — external quota failure. R21 is not PASS and not a material-finding adjudication. Perform this R22 review as a fresh complete independent certification. Do not assume that any partial R21 observation closes or opens a semantic family unless independently reproduced here.
+PREDECESSOR R21 — CARRY-FORWARD EXECUTION EVIDENCE:
+- package: QORE-PR466-9C5A5F6-DS-EXPERT-R21
+- run: 33583477386 / job 100102571273
+- artifact: 9829955294
+- artifact ZIP SHA-256: a14156a40b8f394fac10e3c27745cc61a084da3483f6ac233794756f48343a78
+- actual DSH sessions: 6 total = primary session plus five subagent sessions
+- actual model calls: 112
+- billed input tokens: 8,407,304
+- output tokens: 330,200
+- reasoning tokens: 268,899
+- initial LSP smoke: definition_locations=1, reference_locations=3, hover_available=true
+- candidate binding and publication authority sealing passed before model execution
+- provider failure: `QUOTA: Insufficient Balance`
+- final emitted line immediately before failure: `Now the final LSP re-check on the stabilized impact surface (recursive-revalidation call sites + detection pipeline):`
 
-This candidate materializes Harness Engineer package HARNESS-ENGINEER-PR466-C079BB5-R20-ROOT-FAMILY-BATCH-008. Harness addressed all eight material findings from Expert R20: U+0345 casefold escape, NFKC source-boundary expansion, slash-confusable authority starts, spacing mark clones, equals/colon assignment confusables, credential label/separator gaps, normalization false positives, and recursive forged-state typed-error leakage. Harness also added systematic R20 root-family tests. Treat all Harness closure claims as hypotheses, not facts.
+Integration Authority adjudication: R21 performed the expensive adversarial/subagent phase and was interrupted at the final primary-session LSP re-check / final-disposition boundary. Preserve that completed work. Do NOT repeat the five broad subagent lanes and do NOT redo the whole root-family audit from zero merely because the runner died.
 
-MANDATORY RUNTIME BEHAVIOR:
-1. Use exactly 5 independent native Expert subagents with non-duplicative lanes and consume all five outputs before final disposition:
-   A. Unicode normalization/casefold/mark/filler transformation family.
-   B. URL/userinfo authority-boundary and delimiter red-team, including multi-authority strings.
-   C. Regression/history lane covering F1-F5, R8-R10, R18B, R19, R20 and the materialized behavior.
-   D. Property/metamorphic/generalization lane, including source-boundary preservation and false-positive containment.
-   E. Architecture/contracts/types/recursive revalidation lane, including forged/corrupted retained state and deterministic typed-error boundaries.
-   If exactly 5 real subagents cannot be launched and consumed, final disposition must be VALIDATION BLOCKED. Do not substitute the primary session for missing lanes.
-2. Use semantic LSP in the PRIMARY reviewer session before deep analysis AND again before final disposition. Obtain real findReferences, goToDefinition, goToImplementation where applicable, and hover evidence for modified symbols and reachable call sites. Generic LSP smoke evidence does not satisfy this contract. If required primary-session LSP evidence cannot be obtained, final disposition must be VALIDATION BLOCKED.
-3. Use adaptive HIGH→MAX reasoning. HIGH baseline; escalate to MAX for interaction-heavy Unicode/normalization/regex reasoning, contradictions, root-family closure, or suspected bypass. Produce an auditable HIGH/MAX summary.
-4. Remain read-only. No edit, commit, push, merge, publication, test weakening, network research, Production authority or real-capital action.
-5. Complete the final LSP re-check and final disposition before returning. Do not stop at a partial narrative.
-
-ADVERSARIAL FOCI:
-- Systematically reason over printable Unicode transformation classes, not only supplied witnesses: casefold category changes, NFKC multi-code-point expansion, NFC/NFD composition/decomposition, mark introduction/removal/reordering, word/non-word changes, slash/colon/equals/question/hash/whitespace creation or disappearance.
-- Verify mark stripping before/after casefold and NFC/NFD/NFKC security consequences while preserving source-token boundaries.
-- Challenge bounded `_URL_AUTHORITY_SLASHES`, credential delimiter confusable tables, homoglyph tables, composite separators, U+2E40 dual-role logic and all OR-semantics across primary/assignment/filler-preserving/mark-preserving skeletons.
-- Test scheme-relative and explicit-scheme starts; marks/fillers/spacing clones before //, between slashes, around scheme colon, in userinfo, around @ and terminators; include multiple authorities and benign authority before malicious authority.
-- Challenge source-boundary sentinel behavior for multi-character compatibility expansions and composition-aware false-positive consistency including composed/decomposed equivalents and casefold expansions.
-- Re-open prior families F1-F5, R8, R9, R10, R18B, R19 and all eight R20 findings using equivalent-path reasoning rather than witness replay.
-- Recursive revalidation: forge/delete/mutate reachable retained attributes and nested values; no raw AttributeError/TypeError/ValueError may escape where InstrumentUniverseRegistryValidationError is the contract.
-- Confirm retained/projected source values remain byte-identical and detection-only normalization cannot leak into semantic identity or stored evidence.
-- Exact runtime types, bool-vs-int, frozen-state invariants, deterministic ordering, provider neutrality and absence of operational/Production authority.
-
-ROOT-FAMILY EXHAUSTION CHALLENGE:
-Produce an independent closure argument. Enumerate transformation categories and parser/boundary mechanisms that can create, erase, move or reinterpret credential delimiters or URL authority boundaries. For each category state whether directly falsified, covered by a proven invariant, or still unclosed. Search adjacent equivalent paths. Any reproducible bypass is material.
+COMPLETION CONTRACT — THIS OVERRIDES THE GENERIC FRESH-REVIEW SWARM INSTRUCTIONS FOR THIS RECOVERY PACKAGE:
+1. Do NOT launch five new broad subagents. The predecessor's five actual subagent sessions are carry-forward evidence for the already-executed exploration phase.
+2. Reconfirm the exact BASE / HEAD / SYNTHETIC / TREE and that the checkout is still read-only and unchanged.
+3. Perform the missing PRIMARY-SESSION semantic LSP final re-check on the stabilized impact surface. Obtain real usable evidence including:
+   - findReferences on materially relevant modified production symbol(s) in `src/qore/infrastructure/instrument_universe_registry.py`;
+   - goToDefinition or goToImplementation on relevant validation/detection dependencies;
+   - hover for type/signature context;
+   - reachable recursive-revalidation call sites and credential-detection pipeline call sites.
+4. Do only the narrow amount of code/test inspection needed to interpret the final LSP evidence and make the pending disposition. Do not restart systematic Unicode/property/history exploration unless the final LSP re-check exposes a concrete contradiction that must be reproduced.
+5. Preserve adaptive HIGH baseline and escalate to MAX if the final re-check exposes a security-sensitive ambiguity or cross-layer contradiction. Report actual concise engineering evidence; do not fabricate predecessor lane details that were not persisted.
+6. Remain read-only. No edit, commit, push, merge, publication, test weakening, network research, Production authority or real-capital action.
+7. If a concrete material defect appears during completion, reproduce it narrowly and return MATERIAL FINDING(S). If the missing final evidence cannot be completed, return VALIDATION BLOCKED. Otherwise close the interrupted Expert stage with NONE / VALIDATION OK.
 
 OUTPUT FORMAT:
-- Exact binding confirmation: BASE / HEAD / SYNTHETIC / TREE.
-- Semantic LSP evidence summary, explicitly identifying pre-analysis and final re-check operations from the primary session.
-- Exactly-5-subagent swarm summary with lane and concrete contribution for each subagent.
-- Adaptive reasoning HIGH/MAX summary.
-- Findings, each with severity, exact reproducible witness/path, root cause, impact and materiality.
-- Root-family exhaustion assessment.
-- Final disposition exactly one of:
-  - NONE / VALIDATION OK
-  - MATERIAL FINDING(S)
-  - VALIDATION BLOCKED
+# QORE DEEPSEEK EXPERT R21 COMPLETION
 
-Do not infer provider readiness, operational readiness, Production readiness, real-capital authorization or Risk bypass from this semantic review.
+## BINDING
+Exact BASE / HEAD / SYNTHETIC / TREE confirmation.
+
+## R21 CARRY-FORWARD EVIDENCE
+State that predecessor runtime evidence shows six sessions / 112 calls and that the failure occurred at the final LSP re-check boundary. Do not invent unavailable subagent transcript details.
+
+## FINAL LSP RE-CHECK
+List actual primary-session operations, symbols/call sites, and concise conclusions.
+
+## FINAL INTEGRITY CHECK
+Read-only state, candidate unchanged, and whether any final-LSP contradiction required narrow reproduction.
+
+## MATERIAL FINDINGS
+Only reproducible material defects found during this completion. If none, say none.
+
+## VERDICT
+Exactly one of:
+- NONE / VALIDATION OK
+- MATERIAL FINDING(S)
+- VALIDATION BLOCKED
+
+This semantic completion does not imply provider readiness, operational readiness, Production readiness, real-capital authorization or Risk bypass.
