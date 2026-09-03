@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R1-CORRECTION-004-ROOT-FAMILY-CLOSURE-001",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R1-CORRECTION-005-I1B-PROOF-ROOT-CLOSURE-001",
   "expected_start": "4fe91d7dc376bf4cab0b772236a9b61f3e6b6ef6",
   "expected_tree": "f28f831109b4afb4cb8cab139b344f6b6b9f8547",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r1-correction-004-root-family-closure-001.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r1-correction-005-content-binding-proof-root.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-expert-r1-correction-004-root-family-closure-001-20260903-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-expert-r1-correction-005-i1b-proof-root-closure-001-20260903-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
@@ -39,5 +39,7 @@
   ],
   "max_changed_files": 29,
   "max_diff_lines": 12000,
-  "run_full_qg": true
+  "run_full_qg": true,
+  "recovery_artifact_id": 9915092593,
+  "recovery_patch_sha256": "446691f76dd05bf166d5176f4750d46feda82e254656fd86fff5ba30fa7ecae6"
 }
