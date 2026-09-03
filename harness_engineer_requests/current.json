@@ -1,17 +1,22 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-LAB-001-CORRECTION-004-AUTHORITY-ROOT-AUTHENTICITY",
-  "expected_start": "5d25445faf57fa83410b57faf5eaf1f437949129",
-  "expected_tree": "f9df989d7e7120d8742d4001b045fdd11cb0cb03",
-  "task_path": "harness/engineer/tasks/qore-trader-lab-001-correction-004-authority-root-authenticity.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001-CORRECTION-001-EXACT-TYPE-BOUNDARIES-RESUME-001",
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-lab-001-correction-004-authority-root-authenticity-20260903-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-001-20260903-r1",
   "allowed_paths": [
-    "src/qore/infrastructure/trader_lab",
-    "tests/infrastructure/trader_lab",
-    "docs/architecture/QORE-TRADER-LAB-001.md"
+    "src/qore/modules/cibo",
+    "src/qore/infrastructure/cibo_cognitive",
+    "src/qore/infrastructure/cibo_",
+    "tests/modules/cibo",
+    "tests/infrastructure/test_cibo_cognitive",
+    "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md"
   ],
-  "max_changed_files": 15,
-  "max_diff_lines": 5000,
-  "run_full_qg": true
+  "max_changed_files": 30,
+  "max_diff_lines": 7600,
+  "run_full_qg": true,
+  "recovery_artifact_id": 9894209891,
+  "recovery_patch_sha256": "7e2469d7169c434d9e3a1dda33d665ee1f1425d635d4823e1437877b018b1b98"
 }
