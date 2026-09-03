@@ -1,17 +1,24 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-LAB-001-CORRECTION-002-IA-RESIDUALS",
-  "expected_start": "5d25445faf57fa83410b57faf5eaf1f437949129",
-  "expected_tree": "f9df989d7e7120d8742d4001b045fdd11cb0cb03",
-  "task_path": "harness/engineer/tasks/qore-trader-lab-001-correction-002-ia-residuals.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001-CORRECTION-001-IA-RESIDUALS",
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "task_path": "harness/engineer/tasks/qore-cibo-functional-executive-system-001-correction-001-ia-residuals.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-lab-001-correction-002-ia-residuals-20260903",
+  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-001-ia-residuals-20260903",
   "allowed_paths": [
-    "src/qore/infrastructure/trader_lab",
-    "tests/infrastructure/trader_lab",
-    "docs/architecture/QORE-TRADER-LAB-001.md"
+    "src/qore/infrastructure/cibo",
+    "tests/infrastructure/test_cibo",
+    "src/qore/governance/cibo",
+    "tests/governance/test_cibo",
+    "src/qore/infrastructure/cibo_trader_development_review.py",
+    "src/qore/infrastructure/cibo_trader_manager.py",
+    "tests/infrastructure/test_cibo_trader_development_review.py",
+    "tests/infrastructure/test_cibo_trader_manager.py",
+    "docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md",
+    "docs/architecture/QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001.md"
   ],
-  "max_changed_files": 15,
-  "max_diff_lines": 3600,
+  "max_changed_files": 48,
+  "max_diff_lines": 11000,
   "run_full_qg": true
 }
