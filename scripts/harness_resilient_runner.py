@@ -17,6 +17,9 @@ BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
 RESUME_STATE_HEADER = "## RESUME STATE"
 RESUME_COMPLETE_VALUE = "COMPLETE"
 AGENT_RECOVERY_DIR = ".qore-harness-recovery"
+WORK_PACKAGE_MARKER = "# WORK PACKAGE"
+CHECKPOINT_BEGIN = "QORE_CHECKPOINT_BEGIN"
+CHECKPOINT_END = "QORE_CHECKPOINT_END"
 
 
 def _has_exact_section_value(text: str, header: str, value: str) -> bool:
@@ -233,6 +236,27 @@ def _checkpoint_tail(path: Path, limit: int = 14000) -> str:
     return text[-limit:]
 
 
+def _latest_complete_checkpoint(path: Path) -> str:
+    """Return the latest complete durable checkpoint without replaying older journal prose."""
+    text = path.read_text(encoding="utf-8")
+    end = text.rfind(CHECKPOINT_END)
+    if end < 0:
+        return _checkpoint_tail(path)
+    end += len(CHECKPOINT_END)
+    begin = text.rfind(CHECKPOINT_BEGIN, 0, end)
+    if begin < 0:
+        return _checkpoint_tail(path)
+    return text[begin:end]
+
+
+def _recovery_static_context(base_prompt: str) -> str:
+    """Keep package-specific immutable context while dropping repeated generic Harness prose."""
+    marker = base_prompt.find(WORK_PACKAGE_MARKER)
+    if marker < 0:
+        return base_prompt
+    return base_prompt[marker:]
+
+
 def _recovery_prompt(
     base_prompt: str,
     *,
@@ -251,20 +275,33 @@ def _recovery_prompt(
         "Run only pending/recovery-required lanes, then synthesize all six using inherited evidence. "
         "If a pending lane was merely delayed, consume its result if available; otherwise relaunch only that lane. "
     )
+    compact_contract = (
+        "# HARNESS COMPACT RECOVERY CONTRACT\n"
+        "This generation is a continuation of the SAME immutable six-lane package. "
+        "EFFICIENCY != REDUCED COVERAGE. COMPACTION != EVIDENCE LOSS. "
+        "DEDUPLICATION != WITNESS LOSS. SMART STOP != EARLY PASS. "
+        "Reuse the bound SHARED_EVIDENCE_MAP and CAUSAL_FAMILY_LEDGER from durable evidence. "
+        "Do not repeat broad discovery or completed-lane narrative unless a concrete contradiction, "
+        "unusable evidence, or binding change requires a bounded re-check. "
+        "Semantic LSP-before/after obligations, HIGH/MAX reasoning, adversarial/property coverage, "
+        "Root-Family Exhaustion, all six logical lanes, durable checkpoints, full synthesis and the "
+        "external FULL QG contract remain mandatory.\n\n"
+    )
     return (
-        base_prompt
+        compact_contract
+        + _recovery_static_context(base_prompt)
         + "\n\n# HOST-ENFORCED RECOVERY GENERATION\n"
         + f"recovery_generation={generation}\n"
         + f"previous_primary_exit={primary_exit}\n"
         + f"inherited_completed_lanes={completed}\n"
         + f"pending_or_recovery_lanes={pending}\n\n"
-        + "This is a continuation of the SAME immutable package and SAME disposable workspace. "
         + "Completed lanes are certified carry-forward work: DO NOT relaunch, repeat, or reconstruct them. "
         + post_lane_instruction
-        + "Before any new long operation append a checkpoint with QORE_LANE_STATE entries. "
+        + "Before any new long operation append a checkpoint with QORE_LANE_STATE entries and refresh the compact "
+        + "SHARED_EVIDENCE_MAP SNAPSHOT / CAUSAL_FAMILY_LEDGER SNAPSHOT when material state changes. "
         + "A wait/pause response is not a valid terminal response: continue until COMPLETE, MATERIAL_BLOCKED, or the host timeout.\n\n"
-        + "# DURABLE CHECKPOINT TAIL\n"
-        + _checkpoint_tail(checkpoints)
+        + "# COMPACT DURABLE RESUME CONTEXT — LATEST COMPLETE CHECKPOINT\n"
+        + _latest_complete_checkpoint(checkpoints)
     )
 
 
@@ -361,6 +398,7 @@ def main() -> int:
                             "exit_code": rc,
                             "checkpoint_error": str(exc),
                             "checkpoint_publication_failed": True,
+                            "prompt_chars": len(prompt),
                         }
                     )
                     with args.output.open("a", encoding="utf-8") as handle:
@@ -380,7 +418,12 @@ def main() -> int:
                 terminal_reason = f"CORRUPT_CHECKPOINT:{exc}"
                 final_rc = 65
                 attempts.append(
-                    {"generation": generation, "exit_code": rc, "checkpoint_error": str(exc)}
+                    {
+                        "generation": generation,
+                        "exit_code": rc,
+                        "checkpoint_error": str(exc),
+                        "prompt_chars": len(prompt),
+                    }
                 )
                 break
 
@@ -409,6 +452,8 @@ def main() -> int:
                     "candidate_ready_marker": READY in text,
                     "resume_complete_marker": resume_complete_marker,
                     "sandbox_checkpoint_localized": sandbox_localized,
+                    "prompt_chars": len(prompt),
+                    "recovery_context_mode": "full-initial" if generation == 1 else "compact-latest-checkpoint",
                 }
             )
 
@@ -455,6 +500,7 @@ def main() -> int:
         "all_complete": final.all_complete,
         "recovery_generations_used": max(0, len(attempts) - 1),
         "sandbox_checkpoint_localized": sandbox_localized,
+        "recovery_context_policy": "compact-latest-complete-checkpoint",
     }
     args.metadata.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
