@@ -86,15 +86,13 @@ jobs:
           git -C /tmp/candidate apply --check "$PATCH"
           git -C /tmp/candidate apply "$PATCH"
           git -C /tmp/candidate diff --check
-          git -C /tmp/candidate diff --name-only | sort > /tmp/actual-files.txt
-          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
-          test "$(wc -l < /tmp/actual-files.txt)" -eq 22
-          test "$(git -C /tmp/candidate diff --numstat | awk '{a+=$1; d+=$2} END {print a+d+0}')" -le 10000
 
-          git -C /tmp/candidate add -- $(cat /tmp/expected-files.txt)
+          git -C /tmp/candidate add --all
           git -C /tmp/candidate diff --cached --check
           git -C /tmp/candidate diff --cached --name-only | sort > /tmp/staged-files.txt
           diff -u /tmp/expected-files.txt /tmp/staged-files.txt
+          test "$(wc -l < /tmp/staged-files.txt)" -eq 22
+          test "$(git -C /tmp/candidate diff --cached --numstat | awk '{a+=$1; d+=$2} END {print a+d+0}')" -le 10000
           CANDIDATE_TREE="$(git -C /tmp/candidate write-tree)"
 
           git config user.name qore-cognitive-materializer
