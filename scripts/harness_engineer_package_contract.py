@@ -9,9 +9,10 @@ from pathlib import PurePosixPath, Path
 from typing import Any
 
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PACKAGE_RE = re.compile(r"^HARNESS-ENGINEER-[A-Z0-9][A-Z0-9._-]*$")
 ALLOWED_MODES = frozenset({"engineer"})
-ALLOWED_KEYS = frozenset(
+REQUIRED_KEYS = frozenset(
     {
         "package_id",
         "expected_start",
@@ -26,6 +27,8 @@ ALLOWED_KEYS = frozenset(
         "run_full_qg",
     }
 )
+OPTIONAL_KEYS = frozenset({"recovery_artifact_id", "recovery_patch_sha256"})
+ALLOWED_KEYS = REQUIRED_KEYS | OPTIONAL_KEYS
 FORBIDDEN_PATH_PREFIXES = (
     ".git",
     ".github/",
@@ -86,12 +89,28 @@ def _bounded_int(payload: Mapping[str, Any], key: str, *, minimum: int, maximum:
     return value
 
 
+def _validate_recovery_binding(payload: Mapping[str, Any], *, source: str) -> tuple[int | None, str | None]:
+    artifact_id = payload.get("recovery_artifact_id")
+    patch_sha256 = payload.get("recovery_patch_sha256")
+    if artifact_id is None and patch_sha256 is None:
+        return None, None
+    if artifact_id is None or patch_sha256 is None:
+        raise RuntimeError(
+            f"{source} recovery_artifact_id and recovery_patch_sha256 must be supplied together"
+        )
+    if type(artifact_id) is not int or not 1 <= artifact_id <= 2**63 - 1:
+        raise RuntimeError(f"{source} recovery_artifact_id must be a positive exact integer")
+    if type(patch_sha256) is not str or SHA256_RE.fullmatch(patch_sha256) is None:
+        raise RuntimeError(f"{source} recovery_patch_sha256 must be a lowercase 64-hex SHA-256")
+    return artifact_id, patch_sha256
+
+
 def validate_request(payload: Any, *, source: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeError(f"{source} must be a JSON object")
 
     actual_keys = frozenset(payload)
-    missing = ALLOWED_KEYS - actual_keys
+    missing = REQUIRED_KEYS - actual_keys
     extra = actual_keys - ALLOWED_KEYS
     if missing or extra:
         raise RuntimeError(
@@ -136,6 +155,9 @@ def validate_request(payload: Any, *, source: str) -> dict[str, Any]:
     validated["max_diff_lines"] = _bounded_int(
         payload, "max_diff_lines", minimum=1, maximum=12000, source=source
     )
+    artifact_id, patch_sha256 = _validate_recovery_binding(payload, source=source)
+    validated["recovery_artifact_id"] = artifact_id
+    validated["recovery_patch_sha256"] = patch_sha256
     return validated
 
 
@@ -164,6 +186,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     workflow_parser.add_argument("allowed_paths_json")
     workflow_parser.add_argument("max_changed_files", type=int)
     workflow_parser.add_argument("max_diff_lines", type=int)
+    workflow_parser.add_argument("--recovery-artifact-id", type=int, default=0)
+    workflow_parser.add_argument("--recovery-patch-sha256", default="")
 
     args = parser.parse_args(argv)
     if args.command == "request":
@@ -173,22 +197,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             allowed_paths = json.loads(args.allowed_paths_json)
         except json.JSONDecodeError as exc:
             raise RuntimeError("workflow allowed_paths_json must be valid JSON") from exc
-        validated = validate_request(
-            {
-                "package_id": args.package_id,
-                "expected_start": args.expected_start,
-                "expected_tree": args.expected_tree,
-                "task_path": args.task_path,
-                "mode": args.mode,
-                "artifact_only": True,
-                "dispatch_nonce": args.dispatch_nonce,
-                "allowed_paths": allowed_paths,
-                "max_changed_files": args.max_changed_files,
-                "max_diff_lines": args.max_diff_lines,
-                "run_full_qg": True,
-            },
-            source="workflow inputs",
-        )
+        payload: dict[str, Any] = {
+            "package_id": args.package_id,
+            "expected_start": args.expected_start,
+            "expected_tree": args.expected_tree,
+            "task_path": args.task_path,
+            "mode": args.mode,
+            "artifact_only": True,
+            "dispatch_nonce": args.dispatch_nonce,
+            "allowed_paths": allowed_paths,
+            "max_changed_files": args.max_changed_files,
+            "max_diff_lines": args.max_diff_lines,
+            "run_full_qg": True,
+        }
+        if args.recovery_artifact_id or args.recovery_patch_sha256:
+            payload["recovery_artifact_id"] = args.recovery_artifact_id
+            payload["recovery_patch_sha256"] = args.recovery_patch_sha256
+        validated = validate_request(payload, source="workflow inputs")
 
     print(json.dumps(validated, sort_keys=True, separators=(",", ":")))
     return 0
