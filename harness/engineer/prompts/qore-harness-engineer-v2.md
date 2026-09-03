@@ -69,6 +69,14 @@ Every checkpoint must use literal markers `QORE_CHECKPOINT_BEGIN` / `QORE_CHECKP
 - `PENDING NEXT ACTION` exactly one next unit;
 - `SAFE RESUME INSTRUCTION` including which lanes must not be repeated.
 
+### Reserved checkpoint grammar
+
+The parser treats `binding:` as a reserved machine field. **Never write free-form prose after `binding:`.** If a checkpoint includes a `binding:` line, it MUST be exactly:
+
+`binding: START=<40-lowercase-hex> TREE=<40-lowercase-hex>`
+
+Describe clean-start state, recovery restoration, patch hashes, or other binding evidence under `evidence:` bullet lines instead. Do not invent alternate `binding:` syntaxes. A recovery-generation checkpoint must preserve the exact START/TREE in the reserved form and place all narrative evidence elsewhere.
+
 After every coherent edit refresh the host-supplied recovery patch:
 
 `python3 ../../scripts/harness_recovery_snapshot.py --workspace . --output <recovery_patch_path>`
