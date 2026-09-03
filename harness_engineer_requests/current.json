@@ -5,7 +5,7 @@
   "task_path": "harness/engineer/tasks/qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity-20260903-r1",
+  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity-20260903-r2",
   "allowed_paths": [
     "src/qore/infrastructure/cibo_",
     "src/qore/governance/cibo",
@@ -14,6 +14,6 @@
     "docs/architecture/QORE-CIBO"
   ],
   "max_changed_files": 50,
-  "max_diff_lines": 12500,
+  "max_diff_lines": 12000,
   "run_full_qg": true
 }
