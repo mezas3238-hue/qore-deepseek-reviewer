@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR481-5D25445F-DS-EXPERT-R1-001",
+  "dispatch_nonce": "PR481-BA8C1E3C-DS-EXPERT-R2-001",
   "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_head": "5d25445faf57fa83410b57faf5eaf1f437949129",
-  "expected_synthetic": "f7d05fc855607107b4129dec4330ca25bf89ee13",
-  "package_id": "QORE-PR481-TRADER-LAB-DS-EXPERT-R1-001",
+  "expected_head": "ba8c1e3c05e06c69b2bc39b3c3fdf6e3c4f50449",
+  "expected_synthetic": "13ef5df04d645d3e13bf1d7543ab2cfefd7228c6",
+  "package_id": "QORE-PR481-TRADER-LAB-CORRECTION004-DS-EXPERT-R2-001",
   "pr_number": 481,
-  "prompt_path": "prompts/qore-pr481-trader-lab-recovery-expert-r1.md",
+  "prompt_path": "prompts/qore-pr481-trader-lab-correction004-expert-r2.md",
   "qg_summary": {
-    "coverage_missed_statements": 6418,
+    "coverage_missed_statements": 6511,
     "coverage_percent": 87,
-    "coverage_total_statements": 48429,
-    "job_id": 100454652055,
-    "mypy_source_files": 752,
-    "pytest_collected": 4901,
-    "pytest_passed": 4901,
+    "coverage_total_statements": 48953,
+    "job_id": 100681660072,
+    "mypy_source_files": 754,
+    "pytest_collected": 4940,
+    "pytest_passed": 4940,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33692663886
+    "run_id": 33765344683
   },
   "review_mode": "expert"
 }
