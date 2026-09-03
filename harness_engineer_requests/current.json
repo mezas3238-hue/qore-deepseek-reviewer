@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001-CORRECTION-001-EXACT-TYPE-BOUNDARIES-RESUME-001",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001-CORRECTION-001-EXACT-TYPE-BOUNDARIES-RESUME-002",
   "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
   "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-001.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-002.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-001-20260903-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-resume-002-20260903-r1",
   "allowed_paths": [
     "src/qore/modules/cibo",
     "src/qore/infrastructure/cibo_cognitive",
