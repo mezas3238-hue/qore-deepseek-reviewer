@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR481-BA8C1E3C-DS-EXPERT-R2-001",
-  "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_head": "ba8c1e3c05e06c69b2bc39b3c3fdf6e3c4f50449",
-  "expected_synthetic": "13ef5df04d645d3e13bf1d7543ab2cfefd7228c6",
-  "package_id": "QORE-PR481-TRADER-LAB-CORRECTION004-DS-EXPERT-R2-001",
-  "pr_number": 481,
-  "prompt_path": "prompts/qore-pr481-trader-lab-correction004-expert-r2.md",
+  "dispatch_nonce": "PR485-5B69D036-DS-EXPERT-R1-001",
+  "expected_base": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_head": "5b69d036fd669b1f88f6dcd2fa915c93d9bc7805",
+  "expected_synthetic": "c7c081abe6322d9743d021d143a55eb8b7d5a56c",
+  "package_id": "QORE-PR485-CIBO-COGNITIVE-CORRECTION001-DS-EXPERT-R1-001",
+  "pr_number": 485,
+  "prompt_path": "prompts/qore-pr485-cibo-cognitive-expert-r1.md",
   "qg_summary": {
-    "coverage_missed_statements": 6511,
+    "coverage_missed_statements": 6575,
     "coverage_percent": 87,
-    "coverage_total_statements": 48953,
-    "job_id": 100681660072,
-    "mypy_source_files": 754,
-    "pytest_collected": 4940,
-    "pytest_passed": 4940,
+    "coverage_total_statements": 49642,
+    "job_id": 100665148922,
+    "mypy_source_files": 761,
+    "pytest_collected": 5010,
+    "pytest_passed": 5010,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33765344683
+    "run_id": 33760443704
   },
   "review_mode": "expert"
 }
