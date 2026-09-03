@@ -56,7 +56,7 @@ HARNESS_REQUIRED = (
     "CAUSAL_FAMILY_LEDGER SNAPSHOT",
     "Root-Family Exhaustion",
     "CANDIDATE_READY_FOR_EXTERNAL_QG",
-    "completed-lane carry-forward",
+    "Completed lanes are durable carry-forward evidence",
     "semantic `lsp`",
 )
 
