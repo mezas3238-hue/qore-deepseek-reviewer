@@ -1,17 +1,19 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-LAB-001-CORRECTION-003-GOVERNED-EVIDENCE-AUTHENTICITY",
-  "expected_start": "5d25445faf57fa83410b57faf5eaf1f437949129",
-  "expected_tree": "f9df989d7e7120d8742d4001b045fdd11cb0cb03",
-  "task_path": "harness/engineer/tasks/qore-trader-lab-001-correction-003-governed-evidence-authenticity.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001-CORRECTION-002-GOVERNED-EVIDENCE-AUTHENTICITY",
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "task_path": "harness/engineer/tasks/qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-lab-001-correction-003-governed-evidence-authenticity-20260903-r1",
+  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity-20260903-r1",
   "allowed_paths": [
-    "src/qore/infrastructure/trader_lab",
-    "tests/infrastructure/trader_lab",
-    "docs/architecture/QORE-TRADER-LAB-001.md"
+    "src/qore/infrastructure/cibo_",
+    "src/qore/governance/cibo",
+    "tests/infrastructure/test_cibo_",
+    "tests/governance/test_cibo",
+    "docs/architecture/QORE-CIBO"
   ],
-  "max_changed_files": 15,
-  "max_diff_lines": 4200,
+  "max_changed_files": 50,
+  "max_diff_lines": 12500,
   "run_full_qg": true
 }
