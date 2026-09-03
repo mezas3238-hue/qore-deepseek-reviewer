@@ -36,6 +36,14 @@ on:
       max_diff_lines:
         required: true
         type: string
+      recovery_artifact_id:
+        required: false
+        default: "0"
+        type: string
+      recovery_patch_sha256:
+        required: false
+        default: ""
+        type: string
 
 permissions:
   actions: read
@@ -71,7 +79,9 @@ jobs:
             "${{ inputs.dispatch_nonce }}" \
             '${{ inputs.allowed_paths_json }}' \
             "${{ inputs.max_changed_files }}" \
-            "${{ inputs.max_diff_lines }}" > harness-engineer-package.json
+            "${{ inputs.max_diff_lines }}" \
+            --recovery-artifact-id "${{ inputs.recovery_artifact_id }}" \
+            --recovery-patch-sha256 "${{ inputs.recovery_patch_sha256 }}" > harness-engineer-package.json
           CURRENT="$(python3 scripts/harness_engineer_package_contract.py request harness_engineer_requests/current.json)"
           test "$CURRENT" = "$(cat harness-engineer-package.json)"
           test -f "${{ inputs.task_path }}"
@@ -84,8 +94,10 @@ jobs:
             scripts/deepseek_balance_meter.py
           python3 scripts/test_harness_large_batch_state.py
           python3 scripts/test_harness_resilient_runner.py
+          python3 scripts/test_harness_engineer_package_contract.py
           grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'Never write free-form prose after `binding:`' harness/engineer/prompts/qore-harness-engineer-v2.md
 
       - name: Reject duplicate package dispatch across legacy and resilient Harness
         env:
@@ -127,6 +139,41 @@ jobs:
           git diff --quiet HEAD --
           git diff --cached --quiet HEAD --
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Restore verified recovery candidate before API spend
+        if: ${{ inputs.recovery_artifact_id != '0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVERY_ARTIFACT_ID: ${{ inputs.recovery_artifact_id }}
+          EXPECTED_PATCH_SHA256: ${{ inputs.recovery_patch_sha256 }}
+        run: |
+          set -euo pipefail
+          test -n "$EXPECTED_PATCH_SHA256"
+          test "${#EXPECTED_PATCH_SHA256}" -eq 64
+          RECOVERY_DIR="$RUNNER_TEMP/qore-harness-recovery-artifact"
+          RECOVERY_ZIP="$RUNNER_TEMP/qore-harness-recovery.zip"
+          rm -rf "$RECOVERY_DIR"
+          mkdir -p "$RECOVERY_DIR"
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "repos/${GITHUB_REPOSITORY}/actions/artifacts/${RECOVERY_ARTIFACT_ID}/zip" > "$RECOVERY_ZIP"
+          unzip -q "$RECOVERY_ZIP" -d "$RECOVERY_DIR"
+          SOURCE_PATCH="$(find "$RECOVERY_DIR" -type f -name harness-engineer-candidate.patch -print -quit)"
+          test -n "$SOURCE_PATCH"
+          ACTUAL_PATCH_SHA256="$(sha256sum "$SOURCE_PATCH" | awk '{print $1}')"
+          test "$ACTUAL_PATCH_SHA256" = "$EXPECTED_PATCH_SHA256"
+          cp "$SOURCE_PATCH" "$RUNNER_TEMP/host-recovery-candidate.patch"
+          git -C workspace/qore-core apply --check "$RUNNER_TEMP/host-recovery-candidate.patch"
+          git -C workspace/qore-core apply "$RUNNER_TEMP/host-recovery-candidate.patch"
+          git -C workspace/qore-core diff --check
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package harness-engineer-package.json \
+            --patch "$RUNNER_TEMP/host-recovery-candidate.patch" \
+            --metadata "$RUNNER_TEMP/host-recovery-gate.json"
+          printf '%s\n' "$ACTUAL_PATCH_SHA256" > "$RUNNER_TEMP/host-recovery-patch.sha256"
+          echo "Verified recovery candidate restored from artifact ${RECOVERY_ARTIFACT_ID}: ${ACTUAL_PATCH_SHA256}"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -233,6 +280,8 @@ jobs:
           ALLOWED_PATHS_JSON: ${{ inputs.allowed_paths_json }}
           MAX_CHANGED_FILES: ${{ inputs.max_changed_files }}
           MAX_DIFF_LINES: ${{ inputs.max_diff_lines }}
+          RECOVERY_ARTIFACT_ID: ${{ inputs.recovery_artifact_id }}
+          RECOVERY_PATCH_SHA256: ${{ inputs.recovery_patch_sha256 }}
         run: |
           set -euo pipefail
           CHECKPOINT_PATH="$RUNNER_TEMP/harness-engineer-checkpoints.md"
@@ -240,7 +289,13 @@ jobs:
           python3 scripts/harness_large_batch_state.py init \
             --checkpoints "$CHECKPOINT_PATH" \
             --package-id "$PACKAGE_ID" --start "$EXPECTED_START" --tree "$EXPECTED_TREE"
-          : > "$RECOVERY_PATCH_PATH"
+          if test -f "$RUNNER_TEMP/host-recovery-candidate.patch"; then
+            cp "$RUNNER_TEMP/host-recovery-candidate.patch" "$RECOVERY_PATCH_PATH"
+            HOST_RECOVERY_APPLIED=true
+          else
+            : > "$RECOVERY_PATCH_PATH"
+            HOST_RECOVERY_APPLIED=false
+          fi
           ALLOWED_PATHS="$(jq -r '.[] | "- " + .' <<<"$ALLOWED_PATHS_JSON")"
           cat harness/engineer/prompts/qore-harness-engineer-v2.md > "$RUNNER_TEMP/harness-engineer-prompt.md"
           cat >> "$RUNNER_TEMP/harness-engineer-prompt.md" <<EOF
@@ -264,6 +319,11 @@ jobs:
           checkpoint_path=${CHECKPOINT_PATH}
           recovery_patch_path=${RECOVERY_PATCH_PATH}
           host_recovery_generation=1
+          host_recovery_applied=${HOST_RECOVERY_APPLIED}
+          recovery_artifact_id=${RECOVERY_ARTIFACT_ID}
+          recovery_patch_sha256=${RECOVERY_PATCH_SHA256}
+
+          If host_recovery_applied=true, the workspace ALREADY contains the byte-verified recovered candidate. Treat those edits as inherited work. Inspect and continue them; do not reset, discard, or recreate them. No prior lane is considered COMPLETED unless durable checkpoint evidence says so.
 
           Python semantic LSP is available. The host owns external FULL QG. Do not commit, add a remote, or use network research.
           EOF
@@ -376,6 +436,8 @@ jobs:
             harness-engineer-ruff.log
             harness-engineer-mypy.log
             harness-engineer-pytest.log
+            ${{ runner.temp }}/host-recovery-gate.json
+            ${{ runner.temp }}/host-recovery-patch.sha256
             ${{ runner.temp }}/harness-engineer-ai-seconds.txt
             ${{ runner.temp }}/qore-dsh-engineer-home/sessions/**/session.jsonl
 
