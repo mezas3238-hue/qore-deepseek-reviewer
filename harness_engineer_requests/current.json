@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001-CORRECTION-001-IA-RESIDUALS",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001-CORRECTION-001-IA-RESIDUALS-RESUME-001",
   "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
   "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
   "task_path": "harness/engineer/tasks/qore-cibo-functional-executive-system-001-correction-001-ia-residuals.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-001-ia-residuals-20260903",
+  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-001-ia-residuals-resume-001-20260903",
   "allowed_paths": [
     "src/qore/infrastructure/cibo",
     "tests/infrastructure/test_cibo",
