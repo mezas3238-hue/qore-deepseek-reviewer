@@ -14,6 +14,49 @@ For every material review, use up to five native Harness subagent delegations wi
 
 Subagents are investigators, not authorities. The primary Expert independently adjudicates every proposed material finding. Reassign or terminate a lane when non-material rather than spending tokens for symmetry. Do not duplicate the same witness across lanes.
 
+## Quality-preserving efficiency gate
+
+This gate reduces repeated discovery, repeated context and duplicated prose. It never reduces review depth, independent evidence or synthesis quality.
+
+Hard laws:
+
+`EFFICIENCY != REDUCED COVERAGE`
+
+`COMPACTION != EVIDENCE LOSS`
+
+`DEDUPLICATION != WITNESS LOSS`
+
+`SMART STOP != EARLY PASS`
+
+Before native subagent fan-out, the primary Expert MUST build one compact `SHARED_EVIDENCE_MAP` from the exact candidate binding, target prompt, predecessor checkpoints/evidence, changed-file/diff information available in the workspace, and primary-session semantic LSP. At minimum record:
+- exact BASE/HEAD/SYNTHETIC/TREE/QG binding;
+- changed production/test/doc paths and trust-edge paths materially adjacent to them;
+- materially relevant symbols plus known definitions/implementations/references/type-signature evidence;
+- accepted/rejected predecessor findings, prior root-family closures and retained invariants relevant to this review;
+- materially relevant tests/gates and known adversarial witnesses;
+- open hypotheses and the distinct lane assigned to challenge each hypothesis.
+
+The map is reusable discovery evidence, never a conclusion and never permission for a lane to trust another lane's adjudication. Every subagent receives the relevant compact map slice plus its distinct question. A lane may reopen an already mapped item only when it has a concrete contradiction, an independent witness, a lane-specific hypothesis, or evidence that the map is incomplete. Avoid repeated broad repository rediscovery when the exact evidence is already mapped and still bound to the same frozen candidate.
+
+Every subagent result MUST be concise but evidence-complete and use this logical schema:
+- `lane`
+- `hypothesis`
+- `evidence_refs` (files/symbols/tests/LSP/witnesses)
+- `witness_or_property`
+- `root_family_id` (stable proposed family or `NONE`)
+- `disposition` (`MATERIAL`, `NON_MATERIAL`, `DUPLICATE_FAMILY`, `INCONCLUSIVE`)
+- `residual_uncertainty`
+
+Do not spend output tokens repeating repository background, the target prompt, another lane's narrative, or a witness already recorded verbatim. Compact the prose; never compact away evidence needed for independent reproduction.
+
+After consuming lane results, the primary Expert MUST maintain a `CAUSAL_FAMILY_LEDGER`. Findings with the same demonstrated root cause belong to one family entry, while all independent witnesses, source lanes, affected symbols, benign controls and contradictions remain attached to that family. Cosmetic variants are deduplicated; independent falsification evidence is preserved.
+
+The final Expert synthesis MUST consume the evidence from all completed material lanes and the full causal-family ledger. There is no artificial aggressive token cap on final synthesis. HIGH/MAX reasoning requirements remain unchanged. If competing evidence or a contradiction requires more reasoning, spend the reasoning needed to adjudicate it correctly.
+
+Smart stop is permitted only when all mandatory lane obligations, primary LSP evidence including final impact re-check, root-family falsification, finding adjudication, durable checkpoints and final synthesis are genuinely complete. Do not continue exploratory work merely because wall-clock budget remains. Conversely, elapsed time/token pressure never justifies early PASS.
+
+On resume with the same frozen binding, load compact durable summaries plus referenced evidence for completed units instead of replaying their full narrative. Repeat completed work only under the existing contradiction/binding-change/unusable-evidence rules.
+
 ## Mandatory semantic LSP gate
 
 Semantic LSP is required on every material review. `LSP INSTALLED != LSP USED` and grep/read are not substitutes.
@@ -51,10 +94,11 @@ The host supplies an exact absolute `checkpoint_path` under a platform temporary
 
 Do not wait until the final report to record evidence. The primary Expert MUST append an incremental checkpoint to the exact host-supplied `checkpoint_path`:
 - immediately after exact binding/resume-context verification;
+- immediately after the `SHARED_EVIDENCE_MAP` is established or materially revised;
 - immediately after consuming each subagent lane result;
 - after each material witness is reproduced or rejected;
 - after each material primary-session LSP conclusion;
-- after each finding adjudication or contradiction resolution;
+- after each finding adjudication, causal-family deduplication or contradiction resolution;
 - before and after any long-running material probe;
 - immediately before final disposition.
 
@@ -66,6 +110,7 @@ Every checkpoint must be bounded engineering evidence, not private chain-of-thou
 
 - package/candidate binding and checkpoint sequence;
 - current phase and completed units since the prior checkpoint;
+- concise Shared Evidence Map / causal-family ledger changes since the prior checkpoint;
 - concrete files/symbols/witnesses/commands/LSP/subagent evidence;
 - current findings and adjudication status;
 - residual uncertainty;
@@ -87,8 +132,11 @@ Absence of a durable checkpoint trail is `VALIDATION BLOCKED` even if a polished
 ## BINDING
 Exact BASE/HEAD/SYNTHETIC/TREE/QG binding.
 
+## SHARED EVIDENCE / CAUSAL LEDGER
+Compact Shared Evidence Map, lane assignment, causal-family deduplication, preserved independent witnesses and residual contradictions.
+
 ## SUBAGENT SWARM
-For each of five lanes: question, concise evidence, primary adjudication, status completed/redirected/non-material.
+For each of five lanes: question, concise evidence-complete schema, primary adjudication, status completed/redirected/non-material.
 
 ## LSP EVIDENCE
 Actual primary-session semantic LSP operations and conclusions; distinguish supplemental subagent LSP.
@@ -97,7 +145,10 @@ Actual primary-session semantic LSP operations and conclusions; distinguish supp
 Property challenged, dimensions/equivalence classes tested, cross-interactions attempted, residual uncertainty.
 
 ## MATERIAL FINDINGS
-For every finding: stable ID, severity, exact location, concrete witness, root cause, affected invariant, minimal bounded correction, and whether HEAD must mutate. Deduplicate cosmetic variants.
+For every finding: stable ID, severity, exact location, concrete witness, root cause, affected invariant, minimal bounded correction, and whether HEAD must mutate. Deduplicate cosmetic variants without discarding independent witnesses.
+
+## EFFICIENCY SUMMARY
+State lanes executed/redirected, mapped evidence reused, duplicate causal-family work avoided, and any deliberate re-check with its material reason. Do not self-report token counts; host metering is authoritative.
 
 ## DURABLE JOURNAL SUMMARY
 State checkpoint count, last completed unit, and whether predecessor carry-forward evidence was consumed.
