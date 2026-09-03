@@ -39,7 +39,5 @@
   ],
   "max_changed_files": 29,
   "max_diff_lines": 12000,
-  "run_full_qg": true,
-  "recovery_artifact_id": 0,
-  "recovery_patch_sha256": ""
+  "run_full_qg": true
 }
