@@ -167,6 +167,8 @@ jobs:
           git -C workspace/qore-core apply --check "$RUNNER_TEMP/host-recovery-candidate.patch"
           git -C workspace/qore-core apply "$RUNNER_TEMP/host-recovery-candidate.patch"
           git -C workspace/qore-core diff --check
+          git -C workspace/qore-core remote remove origin || true
+          test -z "$(git -C workspace/qore-core remote)"
           python3 scripts/harness_engineer_gate.py \
             --workspace workspace/qore-core \
             --package harness-engineer-package.json \
