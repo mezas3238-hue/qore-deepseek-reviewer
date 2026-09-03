@@ -44,8 +44,17 @@ jobs:
           ALLOWED_PATHS_JSON="$(jq -c '.allowed_paths' <<<"$VALIDATED")"
           MAX_CHANGED_FILES="$(jq -r '.max_changed_files' <<<"$VALIDATED")"
           MAX_DIFF_LINES="$(jq -r '.max_diff_lines' <<<"$VALIDATED")"
+          RECOVERY_ARTIFACT_ID="$(jq -r '.recovery_artifact_id // 0' <<<"$VALIDATED")"
+          RECOVERY_PATCH_SHA256="$(jq -r '.recovery_patch_sha256 // ""' <<<"$VALIDATED")"
 
           test -f "$TASK_PATH"
+
+          if test "$RECOVERY_ARTIFACT_ID" != "0"; then
+            test -n "$RECOVERY_PATCH_SHA256"
+            test "${#RECOVERY_PATCH_SHA256}" -eq 64
+          else
+            test -z "$RECOVERY_PATCH_SHA256"
+          fi
 
           for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
             EXISTING="$(
@@ -70,6 +79,8 @@ jobs:
             -f "dispatch_nonce=${DISPATCH_NONCE}" \
             -f "allowed_paths_json=${ALLOWED_PATHS_JSON}" \
             -f "max_changed_files=${MAX_CHANGED_FILES}" \
-            -f "max_diff_lines=${MAX_DIFF_LINES}"
+            -f "max_diff_lines=${MAX_DIFF_LINES}" \
+            -f "recovery_artifact_id=${RECOVERY_ARTIFACT_ID}" \
+            -f "recovery_patch_sha256=${RECOVERY_PATCH_SHA256}"
 
           echo "Resilient DeepSeek Harness Engineer dispatch accepted for ${PACKAGE_ID}."
