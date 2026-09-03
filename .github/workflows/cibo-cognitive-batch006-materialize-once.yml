@@ -1,0 +1,85 @@
+name: CIBO Cognitive Batch006 materialize once
+
+on:
+  push:
+    paths:
+      - .github/workflows/cibo-cognitive-batch006-materialize-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Create qore-core installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+
+      - name: Checkout exact PR486 branch
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Restore exact Batch006 artifact and push atomically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: 7028a7064a4160ab20d1a3e4d88370189796e303
+          ARTIFACT_ID: '9873332600'
+          EXPECTED_PATCH_SHA256: 8b192928a10aa33633db63581a4af61cbd04bef3b058d0b171baf145ee071080
+          TARGET_BRANCH: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain)"
+
+          gh api "repos/mezas3238-hue/qore-deepseek-reviewer/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/b006.zip
+          mkdir -p /tmp/b006
+          unzip -q /tmp/b006.zip -d /tmp/b006
+          PATCH="$(find /tmp/b006 -type f -name 'harness-engineer-candidate.patch' -print -quit)"
+          test -n "$PATCH"
+          test "$(sha256sum "$PATCH" | awk '{print $1}')" = "$EXPECTED_PATCH_SHA256"
+
+          cat > /tmp/expected-files.txt <<'EOF'
+          docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md
+          src/qore/infrastructure/cibo_executive_brain.py
+          src/qore/infrastructure/cibo_executive_deliberation.py
+          src/qore/infrastructure/cibo_executive_journal.py
+          src/qore/infrastructure/cibo_executive_memory.py
+          src/qore/modules/cibo/cognitive_contracts.py
+          tests/infrastructure/test_cibo_executive_brain.py
+          tests/infrastructure/test_cibo_executive_deliberation.py
+          tests/infrastructure/test_cibo_executive_journal.py
+          tests/infrastructure/test_cibo_executive_memory.py
+          tests/modules/cibo/test_cibo_cognitive_contracts.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files.txt
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+
+          git apply --check "$PATCH"
+          git apply "$PATCH"
+          git diff --check
+          git diff --name-only | sort > /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          test "$(wc -l < /tmp/actual-files.txt)" -eq 11
+
+          git config user.name qore-cognitive-materializer
+          git config user.email qore-cognitive-materializer@users.noreply.github.com
+          git add -- $(cat /tmp/expected-files.txt)
+          git diff --cached --check
+          git commit -m 'Compose preserved CIBO Cognitive Batch 006 with Batch 008'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
+          echo "NEW_HEAD=$NEW_HEAD"
