@@ -25,13 +25,15 @@ jobs:
             scripts/harness_large_batch_state.py \
             scripts/harness_resilient_runner.py \
             scripts/test_harness_large_batch_state.py \
-            scripts/test_harness_resilient_runner.py
+            scripts/test_harness_resilient_runner.py \
+            scripts/test_harness_terminal_markers.py
       - name: Run adversarial state-machine and runner tests
         working-directory: scripts
         run: |
           set -euo pipefail
           python3 test_harness_large_batch_state.py
           python3 test_harness_resilient_runner.py
+          python3 test_harness_terminal_markers.py
       - name: Certify large-batch invariants and six-lane authority
         run: |
           set -euo pipefail
