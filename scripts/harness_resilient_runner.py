@@ -14,8 +14,30 @@ from harness_large_batch_state import Snapshot, StateError, parse_checkpoint_fil
 
 READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"
 BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
-RESUME_COMPLETE = "## RESUME STATE\nCOMPLETE"
+RESUME_STATE_HEADER = "## RESUME STATE"
+RESUME_COMPLETE_VALUE = "COMPLETE"
 AGENT_RECOVERY_DIR = ".qore-harness-recovery"
+
+
+def _has_exact_section_value(text: str, header: str, value: str) -> bool:
+    """Recognize one exact terminal value while tolerating harmless Markdown inline code."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    for index, raw in enumerate(lines):
+        if raw.strip() != header:
+            continue
+        cursor = index + 1
+        while cursor < len(lines) and not lines[cursor].strip():
+            cursor += 1
+        if cursor >= len(lines):
+            return False
+        candidate = lines[cursor].strip()
+        if candidate == value or candidate == f"`{value}`":
+            return True
+    return False
+
+
+def _resume_complete(text: str) -> bool:
+    return _has_exact_section_value(text, RESUME_STATE_HEADER, RESUME_COMPLETE_VALUE)
 
 
 def _append_generation_output(
@@ -375,6 +397,7 @@ def main() -> int:
                 stagnant = 0
             previous_signature = signature
 
+            resume_complete_marker = _resume_complete(text)
             attempts.append(
                 {
                     "generation": generation,
@@ -384,7 +407,7 @@ def main() -> int:
                     "pending_lanes": after.pending,
                     "blocked_lanes": after.blocked,
                     "candidate_ready_marker": READY in text,
-                    "resume_complete_marker": RESUME_COMPLETE in text,
+                    "resume_complete_marker": resume_complete_marker,
                     "sandbox_checkpoint_localized": sandbox_localized,
                 }
             )
@@ -394,7 +417,7 @@ def main() -> int:
                 final_rc = 2
                 break
 
-            if after.all_complete and READY in text and RESUME_COMPLETE in text and rc == 0:
+            if after.all_complete and READY in text and resume_complete_marker and rc == 0:
                 terminal_reason = "CANDIDATE_COMPLETE"
                 final_rc = 0
                 break
