@@ -6,14 +6,20 @@ on:
     paths:
       - 'harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md'
       - 'harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md'
+      - 'harness/engineer/prompts/qore-harness-engineer-v2.md'
       - 'harness/docs/QORE-REVIEW-EFFICIENCY-NO-QUALITY-LOSS-V1.md'
+      - 'scripts/harness_resilient_runner.py'
+      - 'scripts/test_harness_efficiency_contract.py'
       - 'scripts/test_reviewer_efficiency_contract.py'
       - '.github/workflows/qore-review-efficiency-contract-ci.yml'
   pull_request:
     paths:
       - 'harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md'
       - 'harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md'
+      - 'harness/engineer/prompts/qore-harness-engineer-v2.md'
       - 'harness/docs/QORE-REVIEW-EFFICIENCY-NO-QUALITY-LOSS-V1.md'
+      - 'scripts/harness_resilient_runner.py'
+      - 'scripts/test_harness_efficiency_contract.py'
       - 'scripts/test_reviewer_efficiency_contract.py'
       - '.github/workflows/qore-review-efficiency-contract-ci.yml'
   workflow_dispatch:
@@ -28,7 +34,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Compile contract test
-        run: python3 -m py_compile scripts/test_reviewer_efficiency_contract.py
-      - name: Enforce no-quality-loss reviewer contract
+      - name: Compile efficiency contract tests
+        run: >-
+          python3 -m py_compile
+          scripts/harness_resilient_runner.py
+          scripts/test_harness_efficiency_contract.py
+          scripts/test_reviewer_efficiency_contract.py
+      - name: Enforce reviewer and Harness no-quality-loss contract
         run: python3 scripts/test_reviewer_efficiency_contract.py
+      - name: Verify Harness compact recovery behavior
+        run: python3 scripts/test_harness_efficiency_contract.py
