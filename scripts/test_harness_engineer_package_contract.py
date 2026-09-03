@@ -34,6 +34,31 @@ def main() -> None:
     request = _base_request()
     validated = validate_request(request, source="test")
     assert validated["max_changed_files"] == 48
+    assert validated["recovery_artifact_id"] is None
+    assert validated["recovery_patch_sha256"] is None
+
+    recovered = deepcopy(request)
+    recovered["recovery_artifact_id"] = 9878203635
+    recovered["recovery_patch_sha256"] = "c" * 64
+    validated_recovered = validate_request(recovered, source="test")
+    assert validated_recovered["recovery_artifact_id"] == 9878203635
+    assert validated_recovered["recovery_patch_sha256"] == "c" * 64
+
+    missing_digest = deepcopy(request)
+    missing_digest["recovery_artifact_id"] = 9878203635
+    _must_reject(missing_digest)
+
+    missing_artifact = deepcopy(request)
+    missing_artifact["recovery_patch_sha256"] = "c" * 64
+    _must_reject(missing_artifact)
+
+    bool_artifact = deepcopy(recovered)
+    bool_artifact["recovery_artifact_id"] = True
+    _must_reject(bool_artifact)
+
+    bad_digest = deepcopy(recovered)
+    bad_digest["recovery_patch_sha256"] = "C" * 64
+    _must_reject(bad_digest)
 
     too_large = deepcopy(request)
     too_large["max_changed_files"] = 65
@@ -47,7 +72,7 @@ def main() -> None:
     diff_too_large["max_diff_lines"] = 12001
     _must_reject(diff_too_large)
 
-    print("Harness Engineer package-contract bounded file budget tests passed")
+    print("Harness Engineer package-contract and recovery-binding tests passed")
 
 
 if __name__ == "__main__":
