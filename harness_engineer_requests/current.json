@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001-FINAL-CLOSURE-CORRECTION-003-RESIDUAL-ROOT-FAMILY-EXHAUSTION-001",
-  "expected_start": "262285ca8a0a3cd4c4c196f73249971514278774",
-  "expected_tree": "24a7423bb25bbd4096fd8af5004ddd0877fe4829",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-superarchitecture-001-final-closure-correction-003-residual-root-family-exhaustion-001.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R1-CORRECTION-004-ROOT-FAMILY-CLOSURE-001",
+  "expected_start": "4fe91d7dc376bf4cab0b772236a9b61f3e6b6ef6",
+  "expected_tree": "f28f831109b4afb4cb8cab139b344f6b6b9f8547",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r1-correction-004-root-family-closure-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-final-closure-correction-003-residual-root-family-exhaustion-001-20260903-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-expert-r1-correction-004-root-family-closure-001-20260903-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
@@ -38,8 +38,8 @@
     "tests/modules/cibo/test_cibo_cognitive_contracts.py"
   ],
   "max_changed_files": 29,
-  "max_diff_lines": 10000,
+  "max_diff_lines": 12000,
   "run_full_qg": true,
-  "recovery_artifact_id": 9906542838,
-  "recovery_patch_sha256": "fd6c49c48bd626d78f62a852be6c5f1b9a0614939cf1ff0e6d8acd78445fcf0e"
+  "recovery_artifact_id": 0,
+  "recovery_patch_sha256": ""
 }
