@@ -1,21 +1,21 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-DEMO-FIRST-TRADER-COHORT-001-CORRECTION-001-EXACT-RUNTIME-BOUNDARIES",
-  "expected_start": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_tree": "67c77fbe016b6688e5114165a5a14c3026832027",
-  "task_path": "harness/engineer/tasks/qore-demo-first-trader-cohort-001-correction-001-exact-runtime-boundaries.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001-CORRECTION-001-AUTHENTICITY-EXACT-TYPES",
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "task_path": "harness/engineer/tasks/qore-cibo-trader-development-manager-001-correction-001-authenticity-exact-types.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-demo-first-trader-cohort-001-correction-001-exact-runtime-boundaries-20260903-r1",
+  "dispatch_nonce": "qore-cibo-trader-development-manager-001-correction-001-authenticity-exact-types-20260903-r1",
   "allowed_paths": [
-    "src/qore/modules/trader",
-    "tests/modules/test_virtual_trader_module.py",
-    "tests/modules/trader",
-    "tests/trader",
-    "docs/architecture/QORE-DEMO-FIRST-TRADER-COHORT-001.md"
+    "docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md",
+    "src/qore/infrastructure/cibo_trader_capability_profile.py",
+    "src/qore/infrastructure/cibo_trader_development_review.py",
+    "src/qore/infrastructure/cibo_trader_manager.py",
+    "tests/infrastructure/test_cibo_trader_capability_profile.py",
+    "tests/infrastructure/test_cibo_trader_development_review.py",
+    "tests/infrastructure/test_cibo_trader_manager.py"
   ],
-  "max_changed_files": 20,
-  "max_diff_lines": 4200,
-  "run_full_qg": true,
-  "recovery_artifact_id": 9897961764,
-  "recovery_patch_sha256": "f84de764cad51b11f5da0b2df6059ecec0ee1a9c33da6274e4a553c6c307dff0"
+  "max_changed_files": 7,
+  "max_diff_lines": 3800,
+  "run_full_qg": true
 }
