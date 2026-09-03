@@ -1,0 +1,29 @@
+{
+  "package_id": "HARNESS-ENGINEER-QORE-TRADER-LAB-001-CORRECTION-005-EXPERT-R2-MATERIALS",
+  "expected_start": "ba8c1e3c05e06c69b2bc39b3c3fdf6e3c4f50449",
+  "expected_tree": "7649fa454fef4c9d50c48521230eb46b41e3e78f",
+  "task_path": "harness/engineer/tasks/qore-trader-lab-001-correction-005-expert-r2-materials.md",
+  "mode": "engineer",
+  "artifact_only": true,
+  "dispatch_nonce": "qore-trader-lab-001-correction-005-expert-r2-materials-20260903-r1",
+  "allowed_paths": [
+    "docs/architecture/QORE-TRADER-LAB-001.md",
+    "src/qore/infrastructure/trader_lab/__init__.py",
+    "src/qore/infrastructure/trader_lab/candidate.py",
+    "src/qore/infrastructure/trader_lab/fast_forward.py",
+    "src/qore/infrastructure/trader_lab/governed_gate.py",
+    "src/qore/infrastructure/trader_lab/lifecycle.py",
+    "src/qore/infrastructure/trader_lab/promotion.py",
+    "src/qore/infrastructure/trader_lab/robustness.py",
+    "src/qore/infrastructure/trader_lab/stage_evidence.py",
+    "tests/infrastructure/trader_lab/conftest.py",
+    "tests/infrastructure/trader_lab/test_candidate_and_stage_evidence.py",
+    "tests/infrastructure/trader_lab/test_fast_forward.py",
+    "tests/infrastructure/trader_lab/test_governed_evidence_authenticity.py",
+    "tests/infrastructure/trader_lab/test_lifecycle_and_promotion.py",
+    "tests/infrastructure/trader_lab/test_robustness.py"
+  ],
+  "max_changed_files": 15,
+  "max_diff_lines": 5000,
+  "run_full_qg": true
+}
