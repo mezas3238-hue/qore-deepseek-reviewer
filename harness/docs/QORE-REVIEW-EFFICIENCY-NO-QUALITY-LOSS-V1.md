@@ -19,9 +19,9 @@ No optimization may weaken subagent obligations, semantic LSP, HIGH/MAX adaptive
 
 ## Mandatory operating model
 
-### 1. Shared Evidence Map
+### 1. SHARED_EVIDENCE_MAP
 
-Before fan-out, the primary reviewer builds one compact evidence map bound to the exact frozen candidate. It contains changed/trust-edge paths, material symbols, definitions/references/types, relevant prior findings/closures, tests/gates, witnesses, open hypotheses and lane assignment.
+Before fan-out, the primary reviewer builds one compact `SHARED_EVIDENCE_MAP` bound to the exact frozen candidate. It contains changed/trust-edge paths, material symbols, definitions/references/types, relevant prior findings/closures, tests/gates, witnesses, open hypotheses and lane assignment.
 
 The map is discovery evidence only. It is never an adjudication and never permits one lane to trust another lane's conclusion.
 
@@ -33,9 +33,9 @@ Each lane receives only the relevant compact map slice plus its independent ques
 
 Each lane returns: lane, hypothesis, evidence refs, witness/property, proposed root-family id, disposition and residual uncertainty. Repository background and another lane's narrative are not repeated when stable evidence references are sufficient.
 
-### 4. Causal Family Ledger
+### 4. CAUSAL_FAMILY_LEDGER
 
-The primary reviewer deduplicates findings sharing one demonstrated root cause into one family entry. All independent witnesses, source lanes, affected symbols/callers, benign controls and contradictions remain attached. Deduplication removes repeated investigation/narration, never evidence.
+The primary reviewer maintains one `CAUSAL_FAMILY_LEDGER` and deduplicates findings sharing one demonstrated root cause into one family entry. All independent witnesses, source lanes, affected symbols/callers, benign controls and contradictions remain attached. Deduplication removes repeated investigation/narration, never evidence.
 
 ### 5. Full synthesis preserved
 
@@ -61,4 +61,4 @@ Host metering remains authoritative for model calls, uncached input, cache reads
 
 ## Harness adoption gate
 
-Do not mutate an in-flight immutable Harness runtime to adopt this policy. After the active Harness run terminates, port the same laws to Harness Engineer with tests covering compact recovery context, completed-lane carry-forward, Shared Evidence Map reuse, causal-family deduplication, six-lane preservation, LSP-before/after, Root-Family Exhaustion and unrestricted final synthesis quality.
+Do not mutate an in-flight immutable Harness runtime to adopt this policy. After the active Harness run terminates, port the same laws to Harness Engineer with tests covering compact recovery context, completed-lane carry-forward, `SHARED_EVIDENCE_MAP` reuse, `CAUSAL_FAMILY_LEDGER` deduplication, six-lane preservation, LSP-before/after, Root-Family Exhaustion and unrestricted final synthesis quality.
