@@ -150,6 +150,19 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
         self.assertEqual(state.tree, TREE)
         self.assertEqual(state.generations[2], 1)
 
+    def test_uppercase_unchanged_binding_annotation_from_run_33710144873_is_accepted(self) -> None:
+        state = parse_checkpoint_text(
+            annotated_bound_cp(
+                "(UNCHANGED)",
+                "QORE_LANE_STATE lane=1 state=COMPLETED generation=2",
+            ),
+            require_binding=True,
+        )
+        self.assertEqual(state.start, START)
+        self.assertEqual(state.tree, TREE)
+        self.assertEqual(state.completed, [1])
+        self.assertEqual(state.generations[1], 2)
+
     def test_unknown_binding_annotation_fails_closed(self) -> None:
         with self.assertRaises(StateError):
             parse_checkpoint_text(
