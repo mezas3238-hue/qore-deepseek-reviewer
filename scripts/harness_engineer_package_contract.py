@@ -131,7 +131,7 @@ def validate_request(payload: Any, *, source: str) -> dict[str, Any]:
     validated["dispatch_nonce"] = _required_string(payload, "dispatch_nonce", source=source)
     validated["allowed_paths"] = _validate_allowed_paths(payload.get("allowed_paths"), source=source)
     validated["max_changed_files"] = _bounded_int(
-        payload, "max_changed_files", minimum=1, maximum=40, source=source
+        payload, "max_changed_files", minimum=1, maximum=64, source=source
     )
     validated["max_diff_lines"] = _bounded_int(
         payload, "max_diff_lines", minimum=1, maximum=12000, source=source
