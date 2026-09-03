@@ -1,19 +1,20 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001-CORRECTION-002-GOVERNED-EVIDENCE-AUTHENTICITY",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001-CORRECTION-001-EXACT-TYPE-BOUNDARIES",
   "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
   "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
-  "task_path": "harness/engineer/tasks/qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-functional-executive-system-001-correction-002-governed-evidence-authenticity-20260903-r2",
+  "dispatch_nonce": "qore-cibo-cognitive-superarchitecture-001-correction-001-exact-type-boundaries-20260903-r1",
   "allowed_paths": [
+    "src/qore/modules/cibo",
+    "src/qore/infrastructure/cibo_cognitive",
     "src/qore/infrastructure/cibo_",
-    "src/qore/governance/cibo",
-    "tests/infrastructure/test_cibo_",
-    "tests/governance/test_cibo",
-    "docs/architecture/QORE-CIBO"
+    "tests/modules/cibo",
+    "tests/infrastructure/test_cibo_cognitive",
+    "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md"
   ],
-  "max_changed_files": 50,
-  "max_diff_lines": 12000,
+  "max_changed_files": 30,
+  "max_diff_lines": 7600,
   "run_full_qg": true
 }
