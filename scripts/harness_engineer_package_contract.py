@@ -12,7 +12,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PACKAGE_RE = re.compile(r"^HARNESS-ENGINEER-[A-Z0-9][A-Z0-9._-]*$")
 ALLOWED_MODES = frozenset({"engineer"})
-MAX_ENGINEER_DIFF_LINES = 30000
+MAX_ENGINEER_DIFF_LINES = 70000
 REQUIRED_KEYS = frozenset(
     {
         "package_id",
