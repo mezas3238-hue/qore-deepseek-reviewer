@@ -5,7 +5,7 @@
   "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r2-correction-006-superarchitecture-strengthening-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-expert-r2-correction-006-superarchitecture-strengthening-001-20260903-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-expert-r2-correction-006-superarchitecture-strengthening-001-20260903-r2",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
@@ -46,6 +46,6 @@
     "tests/modules/cibo/test_cibo_cognitive_contracts.py"
   ],
   "max_changed_files": 37,
-  "max_diff_lines": 22000,
+  "max_diff_lines": 12000,
   "run_full_qg": true
 }
