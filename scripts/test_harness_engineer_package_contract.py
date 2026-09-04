@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from harness_engineer_package_contract import validate_request
+from harness_engineer_package_contract import MAX_ENGINEER_DIFF_LINES, validate_request
 
 
 def _base_request() -> dict[str, object]:
@@ -37,6 +37,11 @@ def main() -> None:
     assert validated["recovery_artifact_id"] is None
     assert validated["recovery_patch_sha256"] is None
 
+    large_batch = deepcopy(request)
+    large_batch["max_diff_lines"] = MAX_ENGINEER_DIFF_LINES
+    validated_large_batch = validate_request(large_batch, source="test")
+    assert validated_large_batch["max_diff_lines"] == 30000
+
     recovered = deepcopy(request)
     recovered["recovery_artifact_id"] = 9878203635
     recovered["recovery_patch_sha256"] = "c" * 64
@@ -69,7 +74,7 @@ def main() -> None:
     _must_reject(bool_laundering)
 
     diff_too_large = deepcopy(request)
-    diff_too_large["max_diff_lines"] = 12001
+    diff_too_large["max_diff_lines"] = MAX_ENGINEER_DIFF_LINES + 1
     _must_reject(diff_too_large)
 
     print("Harness Engineer package-contract and recovery-binding tests passed")
