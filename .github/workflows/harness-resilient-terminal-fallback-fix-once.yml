@@ -1,0 +1,78 @@
+name: Harness resilient terminal fallback fix once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/harness-resilient-terminal-fallback-fix-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: contains(github.event.head_commit.message, '[RUN-FIX]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch runner conservatively
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/harness_resilient_runner.py')
+          text = path.read_text(encoding='utf-8')
+
+          old = 'READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"\nBLOCKED = "## ENGINEER VERDICT\\nBLOCKED"\n'
+          new = 'READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"\nSEMANTIC_READY_PREFIX = "## Final verdict: CANDIDATE READY — "\nBLOCKED = "## ENGINEER VERDICT\\nBLOCKED"\n'
+          if old not in text:
+              raise SystemExit('runner constant anchor diverged')
+          text = text.replace(old, new, 1)
+
+          old = '''def _resume_complete(text: str) -> bool:\n    return _has_exact_section_value(text, RESUME_STATE_HEADER, RESUME_COMPLETE_VALUE)\n\n\n'''
+          new = '''def _resume_complete(text: str) -> bool:\n    return _has_exact_section_value(text, RESUME_STATE_HEADER, RESUME_COMPLETE_VALUE)\n\n\ndef _semantic_candidate_ready(text: str) -> bool:\n    """Recognize only the explicit final-verdict fallback emitted by Harness."""\n    lines = text.replace("\\r\\n", "\\n").replace("\\r", "\\n").split("\\n")\n    return any(raw.strip().startswith(SEMANTIC_READY_PREFIX) for raw in lines)\n\n\ndef _candidate_complete(text: str, *, all_complete: bool, rc: int) -> bool:\n    """Close only a successful six-lane run with an exact or strict semantic marker."""\n    exact_contract = READY in text and _resume_complete(text)\n    semantic_fallback = _semantic_candidate_ready(text)\n    return all_complete and rc == 0 and (exact_contract or semantic_fallback)\n\n\n'''
+          if old not in text:
+              raise SystemExit('runner helper anchor diverged')
+          text = text.replace(old, new, 1)
+
+          old = '''            resume_complete_marker = _resume_complete(text)\n            attempts.append(\n'''
+          new = '''            resume_complete_marker = _resume_complete(text)\n            semantic_candidate_ready_marker = _semantic_candidate_ready(text)\n            attempts.append(\n'''
+          if old not in text:
+              raise SystemExit('runner attempt anchor diverged')
+          text = text.replace(old, new, 1)
+
+          old = '''                    "candidate_ready_marker": READY in text,\n                    "resume_complete_marker": resume_complete_marker,\n'''
+          new = '''                    "candidate_ready_marker": READY in text,\n                    "semantic_candidate_ready_marker": semantic_candidate_ready_marker,\n                    "resume_complete_marker": resume_complete_marker,\n'''
+          if old not in text:
+              raise SystemExit('runner metadata anchor diverged')
+          text = text.replace(old, new, 1)
+
+          old = '''            if after.all_complete and READY in text and resume_complete_marker and rc == 0:\n                terminal_reason = "CANDIDATE_COMPLETE"\n'''
+          new = '''            if _candidate_complete(text, all_complete=after.all_complete, rc=rc):\n                terminal_reason = "CANDIDATE_COMPLETE"\n'''
+          if old not in text:
+              raise SystemExit('runner terminal anchor diverged')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+
+          test = Path('scripts/test_harness_resilient_terminal_contract.py')
+          test.write_text('''#!/usr/bin/env python3\nfrom harness_resilient_runner import _candidate_complete, _semantic_candidate_ready\n\n\ndef main() -> None:\n    exact = "CANDIDATE_READY_FOR_EXTERNAL_QG\\n## RESUME STATE\\nCOMPLETE\\n"\n    semantic = "## Final verdict: CANDIDATE READY — EXPERT R3 ROOT FAMILIES EXHAUSTED\\n"\n    assert _candidate_complete(exact, all_complete=True, rc=0)\n    assert _semantic_candidate_ready(semantic)\n    assert _candidate_complete(semantic, all_complete=True, rc=0)\n    assert not _candidate_complete(semantic, all_complete=False, rc=0)\n    assert not _candidate_complete(semantic, all_complete=True, rc=124)\n    assert not _semantic_candidate_ready("candidate ready after review")\n    assert not _semantic_candidate_ready("## Final verdict: CANDIDATE READY\\n")\n    assert not _candidate_complete("## Final verdict: CANDIDATE READY — but rc failed\\n", all_complete=True, rc=70)\n    print("Harness resilient terminal fallback contract: PASS")\n\n\nif __name__ == "__main__":\n    main()\n''', encoding='utf-8')
+          PY
+      - name: Verify runner contract
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/harness_resilient_runner.py scripts/test_harness_resilient_terminal_contract.py
+          PYTHONPATH=scripts python3 scripts/test_harness_resilient_terminal_contract.py
+          python3 scripts/test_harness_efficiency_contract.py
+          git diff --check
+      - name: Commit runner fix
+        run: |
+          set -euo pipefail
+          test -n "$(git status --porcelain)"
+          git config user.name qore-infra-hardening
+          git config user.email qore-infra-hardening@users.noreply.github.com
+          git add scripts/harness_resilient_runner.py scripts/test_harness_resilient_terminal_contract.py
+          git commit -m 'Harden Harness semantic terminal fallback'
+          git push origin HEAD:main
