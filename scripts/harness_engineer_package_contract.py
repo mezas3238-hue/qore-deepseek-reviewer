@@ -12,6 +12,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 PACKAGE_RE = re.compile(r"^HARNESS-ENGINEER-[A-Z0-9][A-Z0-9._-]*$")
 ALLOWED_MODES = frozenset({"engineer"})
+MAX_ENGINEER_DIFF_LINES = 30000
 REQUIRED_KEYS = frozenset(
     {
         "package_id",
@@ -153,7 +154,11 @@ def validate_request(payload: Any, *, source: str) -> dict[str, Any]:
         payload, "max_changed_files", minimum=1, maximum=64, source=source
     )
     validated["max_diff_lines"] = _bounded_int(
-        payload, "max_diff_lines", minimum=1, maximum=12000, source=source
+        payload,
+        "max_diff_lines",
+        minimum=1,
+        maximum=MAX_ENGINEER_DIFF_LINES,
+        source=source,
     )
     artifact_id, patch_sha256 = _validate_recovery_binding(payload, source=source)
     validated["recovery_artifact_id"] = artifact_id
