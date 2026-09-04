@@ -13,6 +13,7 @@ from pathlib import Path
 from harness_large_batch_state import Snapshot, StateError, parse_checkpoint_file
 
 READY = "CANDIDATE_READY_FOR_EXTERNAL_QG"
+SEMANTIC_READY_PREFIX = "## Final verdict: CANDIDATE READY — "
 BLOCKED = "## ENGINEER VERDICT\nBLOCKED"
 RESUME_STATE_HEADER = "## RESUME STATE"
 RESUME_COMPLETE_VALUE = "COMPLETE"
@@ -41,6 +42,19 @@ def _has_exact_section_value(text: str, header: str, value: str) -> bool:
 
 def _resume_complete(text: str) -> bool:
     return _has_exact_section_value(text, RESUME_STATE_HEADER, RESUME_COMPLETE_VALUE)
+
+
+def _semantic_candidate_ready(text: str) -> bool:
+    """Recognize only the explicit final-verdict fallback emitted by Harness."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    return any(raw.strip().startswith(SEMANTIC_READY_PREFIX) for raw in lines)
+
+
+def _candidate_complete(text: str, *, all_complete: bool, rc: int) -> bool:
+    """Close only a successful six-lane run with an exact or strict semantic marker."""
+    exact_contract = READY in text and _resume_complete(text)
+    semantic_fallback = _semantic_candidate_ready(text)
+    return all_complete and rc == 0 and (exact_contract or semantic_fallback)
 
 
 def _append_generation_output(
@@ -441,6 +455,7 @@ def main() -> int:
             previous_signature = signature
 
             resume_complete_marker = _resume_complete(text)
+            semantic_candidate_ready_marker = _semantic_candidate_ready(text)
             attempts.append(
                 {
                     "generation": generation,
@@ -450,6 +465,7 @@ def main() -> int:
                     "pending_lanes": after.pending,
                     "blocked_lanes": after.blocked,
                     "candidate_ready_marker": READY in text,
+                    "semantic_candidate_ready_marker": semantic_candidate_ready_marker,
                     "resume_complete_marker": resume_complete_marker,
                     "sandbox_checkpoint_localized": sandbox_localized,
                     "prompt_chars": len(prompt),
@@ -462,7 +478,7 @@ def main() -> int:
                 final_rc = 2
                 break
 
-            if after.all_complete and READY in text and resume_complete_marker and rc == 0:
+            if _candidate_complete(text, all_complete=after.all_complete, rc=rc):
                 terminal_reason = "CANDIDATE_COMPLETE"
                 final_rc = 0
                 break
