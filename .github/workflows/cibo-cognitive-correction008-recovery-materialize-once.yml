@@ -172,3 +172,4 @@ jobs:
           echo "CANDIDATE_TREE=$CANDIDATE_TREE"
 
 # Trigger marker: Correction008 authenticated recovery.
+# Trigger marker 2: execute authenticated recovery now.
