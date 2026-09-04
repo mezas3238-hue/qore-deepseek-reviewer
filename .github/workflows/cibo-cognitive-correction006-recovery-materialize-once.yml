@@ -1,0 +1,182 @@
+name: CIBO Cognitive Correction006 recovery materialize once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/cibo-cognitive-correction006-recovery-materialize-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cibo-cognitive-correction006-recovery-materialize-once
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Create qore-core installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Checkout exact PR486 branch
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Authenticate recovery artifact and exact PR binding
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: '486'
+          EXPECTED_HEAD: f60304ec7107fe9fe993c6d0f62f90b448ccf2fe
+          EXPECTED_TREE: f641951ae9e019c3f10fdc11419d834f1fc63592
+          ARTIFACT_ID: '9921534026'
+          EXPECTED_RUN_ID: '33825472507'
+          EXPECTED_ARTIFACT_SHA256: 7fc626055aa3a9d57c9bd73765d3518d900ccb5b0609bccbd0425b7175d47d37
+          EXPECTED_PATCH_SHA256: c64ecd27c94956dc839400e382ebbafa3bc37bfe5bd3b15903d284174afb7b84
+          EXPECTED_PACKAGE: HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R2-CORRECTION-006-SUPERARCHITECTURE-STRENGTHENING-001
+          TARGET_BRANCH: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          test -z "$(git status --porcelain)"
+
+          PR="$(GH_TOKEN="$APP_TOKEN" gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+
+          META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$EXPECTED_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "sha256:${EXPECTED_ARTIFACT_SHA256}"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/c006.zip
+          test "$(sha256sum /tmp/c006.zip | awk '{print $1}')" = "$EXPECTED_ARTIFACT_SHA256"
+
+          rm -rf /tmp/c006 /tmp/candidate
+          mkdir -p /tmp/c006
+          unzip -q /tmp/c006.zip -d /tmp/c006
+          PATCH="$(find /tmp/c006 -type f -name 'harness-engineer-candidate.patch' -print -quit)"
+          LANES="$(find /tmp/c006 -type f -name 'harness-engineer-lane-state.json' -print -quit)"
+          OUTPUT="$(find /tmp/c006 -type f -name 'harness-engineer-output.md' -print -quit)"
+          PACKAGE="$(find /tmp/c006 -type f -name 'harness-engineer-package.json' -print -quit)"
+          test -n "$PATCH" && test -n "$LANES" && test -n "$OUTPUT" && test -n "$PACKAGE"
+          test "$(sha256sum "$PATCH" | awk '{print $1}')" = "$EXPECTED_PATCH_SHA256"
+          test "$(jq -r '.package_id' "$PACKAGE")" = "$EXPECTED_PACKAGE"
+          test "$(jq -r '.expected_start' "$PACKAGE")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.expected_tree' "$PACKAGE")" = "$EXPECTED_TREE"
+          jq -e '.all_complete == true and .pending_lanes == [] and .blocked_lanes == [] and .completed_lanes == [1,2,3,4,5,6]' "$LANES" >/dev/null
+          test "$(jq -r '.package_id' "$LANES")" = "$EXPECTED_PACKAGE"
+          test "$(jq -r '.start' "$LANES")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.tree' "$LANES")" = "$EXPECTED_TREE"
+          grep -Fq 'CANDIDATE READY — EXPERT R2 ROOT FAMILIES + SUPERARCHITECTURE STRENGTHENING EXHAUSTED' "$OUTPUT"
+          printf '%s\n' "$PATCH" > /tmp/c006-patch-path
+
+      - name: Apply exact artifact patch and certify scope
+        env:
+          EXPECTED_HEAD: f60304ec7107fe9fe993c6d0f62f90b448ccf2fe
+        run: |
+          set -euo pipefail
+          PATCH="$(cat /tmp/c006-patch-path)"
+          git worktree add --detach /tmp/candidate "$EXPECTED_HEAD"
+          git -C /tmp/candidate apply --check "$PATCH"
+          git -C /tmp/candidate apply "$PATCH"
+          git -C /tmp/candidate diff --check
+
+          cat > /tmp/expected-files.txt <<'EOF'
+          src/qore/infrastructure/cibo_cognitive_causality.py
+          src/qore/infrastructure/cibo_cognitive_common.py
+          src/qore/infrastructure/cibo_cognitive_evaluation.py
+          src/qore/infrastructure/cibo_cognitive_hypotheses.py
+          src/qore/infrastructure/cibo_cognitive_integration.py
+          src/qore/infrastructure/cibo_cognitive_metacognition.py
+          src/qore/infrastructure/cibo_cognitive_planning.py
+          src/qore/infrastructure/cibo_cognitive_scenarios.py
+          src/qore/infrastructure/cibo_cognitive_world_model.py
+          src/qore/infrastructure/cibo_executive_brain.py
+          src/qore/infrastructure/cibo_executive_deliberation.py
+          src/qore/infrastructure/cibo_executive_journal.py
+          src/qore/infrastructure/cibo_executive_memory.py
+          src/qore/modules/cibo/cognitive_contracts.py
+          tests/infrastructure/test_cibo_cognitive_causality.py
+          tests/infrastructure/test_cibo_cognitive_hypotheses.py
+          tests/infrastructure/test_cibo_cognitive_integration.py
+          tests/infrastructure/test_cibo_cognitive_metacognition.py
+          tests/infrastructure/test_cibo_cognitive_planning.py
+          tests/infrastructure/test_cibo_cognitive_scenarios.py
+          tests/infrastructure/test_cibo_executive_brain.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files.txt
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          git -C /tmp/candidate diff --name-only | sort > /tmp/actual-files.txt
+          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+          test "$(wc -l < /tmp/actual-files.txt)" -eq 21
+          test "$(git -C /tmp/candidate diff --numstat | awk '{a+=$1; d+=$2} END {print a+d+0}')" -eq 3862
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install exact candidate development dependencies
+        working-directory: /tmp/candidate
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: External canonical FULL QORE quality gate
+        working-directory: /tmp/candidate
+        run: |
+          set -euo pipefail
+          git diff --check
+          ruff check . | tee /tmp/c006-ruff.log
+          mypy src tests | tee /tmp/c006-mypy.log
+          pytest --cov=src/qore --cov-report=term-missing | tee /tmp/c006-pytest.log
+          grep -Fq 'All checks passed!' /tmp/c006-ruff.log
+          grep -Fq 'Success: no issues found' /tmp/c006-mypy.log
+          grep -Eq '5366 passed' /tmp/c006-pytest.log
+
+      - name: Create exact candidate commit and atomically advance PR486
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: '486'
+          EXPECTED_HEAD: f60304ec7107fe9fe993c6d0f62f90b448ccf2fe
+          TARGET_BRANCH: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+        run: |
+          set -euo pipefail
+          git -C /tmp/candidate add --all
+          git -C /tmp/candidate diff --cached --check
+          CANDIDATE_TREE="$(git -C /tmp/candidate write-tree)"
+          git config user.name qore-cognitive-materializer
+          git config user.email qore-cognitive-materializer@users.noreply.github.com
+          NEW_HEAD="$(printf '%s\n' 'Materialize CIBO Cognitive Correction 006 candidate' | git commit-tree "$CANDIDATE_TREE" -p "$EXPECTED_HEAD")"
+          test "$(git rev-parse "$NEW_HEAD^")" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$NEW_HEAD^{tree}")" = "$CANDIDATE_TREE"
+
+          PR="$(GH_TOKEN="$APP_TOKEN" gh api "repos/mezas3238-hue/qore-core/pulls/${PR_NUMBER}")"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          REMOTE_HEAD="$(git ls-remote origin "refs/heads/${TARGET_BRANCH}" | awk '{print $1}')"
+          test "$REMOTE_HEAD" = "$NEW_HEAD"
+          echo "NEW_HEAD=$NEW_HEAD"
+          echo "CANDIDATE_TREE=$CANDIDATE_TREE"
