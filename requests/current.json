@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR486-62543E7-FINAL-DS-EXPERT-R6-001",
+  "dispatch_nonce": "PR486-D3B7922-FINAL-DS-EXPERT-R7-001",
   "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_head": "62543e72331c43a14645eb33e53855900ecc7274",
-  "expected_synthetic": "ab8fe510ee816bc9a4ed14cb81f6dbb997c04479",
-  "package_id": "QORE-PR486-CIBO-COGNITIVE-FINAL-DS-EXPERT-R6-001",
+  "expected_head": "d3b79224729b62727f5b02542bf75c4e1f3b1787",
+  "expected_synthetic": "1da600ac92f3233f2391958117950ae3100d7b27",
+  "package_id": "QORE-PR486-CIBO-COGNITIVE-FINAL-DS-EXPERT-R7-001",
   "pr_number": 486,
-  "prompt_path": "prompts/qore-pr486-cibo-cognitive-final-expert-r6.md",
+  "prompt_path": "prompts/qore-pr486-cibo-cognitive-final-expert-r7.md",
   "qg_summary": {
-    "coverage_missed_statements": 7070,
+    "coverage_missed_statements": 7069,
     "coverage_percent": 87,
-    "coverage_total_statements": 52448,
-    "job_id": 101173336463,
+    "coverage_total_statements": 52464,
+    "job_id": 101202461454,
     "mypy_source_files": 775,
-    "pytest_collected": 5649,
-    "pytest_passed": 5649,
+    "pytest_collected": 5702,
+    "pytest_passed": 5702,
     "pytest_warnings": 7,
     "ruff_passed": true,
-    "run_id": 33919192997
+    "run_id": 33928627387
   },
   "review_mode": "expert"
 }
