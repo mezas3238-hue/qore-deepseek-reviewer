@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R4-CORRECTION-008-INTERRUPTED-REVIEW-ROOT-FAMILY-CLOSURE-001",
-  "expected_start": "35e9ecace3f16dfd7b8845c60885d70283355dc6",
-  "expected_tree": "f45adf718a7a4b75f6af062c0a254ab65f68baeb",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r4-correction-008-interrupted-review-root-family-closure-001.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R5-CORRECTION-009-ROOT-FAMILY-CLOSURE-001",
+  "expected_start": "b782465f333ee1eacabc65f57f9013d7d140bfc3",
+  "expected_tree": "effef98cbb93e17cd358059400330101b4e0c30d",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r5-correction-009-root-family-closure-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-expert-r4-correction-008-interrupted-review-root-family-closure-001-20260904-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-expert-r5-correction-009-root-family-closure-001-20260904-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
