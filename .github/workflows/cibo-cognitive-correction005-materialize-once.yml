@@ -1,0 +1,107 @@
+name: CIBO Cognitive Correction005 materialize once
+
+on:
+  push:
+    paths:
+      - .github/workflows/cibo-cognitive-correction005-materialize-once.yml
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Create qore-core installation token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+
+      - name: Checkout exact PR486 branch
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Materialize exact Correction005 candidate tree and push atomically
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_HEAD: 4fe91d7dc376bf4cab0b772236a9b61f3e6b6ef6
+          EXPECTED_START: 4fe91d7dc376bf4cab0b772236a9b61f3e6b6ef6
+          EXPECTED_START_TREE: f28f831109b4afb4cb8cab139b344f6b6b9f8547
+          ARTIFACT_ID: '9917709548'
+          EXPECTED_ARTIFACT_SHA256: 1b907328c3793794bad75c4cff8c8042fe2da5a5d82fda42dcfcc13b349dd60a
+          EXPECTED_PATCH_SHA256: d4bbb9921e2788e770add7250938f96adccf3f1f631a74c90ff554eb1a230dd3
+          TARGET_BRANCH: agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$EXPECTED_START^{tree}")" = "$EXPECTED_START_TREE"
+          test -z "$(git status --porcelain)"
+
+          gh api "repos/mezas3238-hue/qore-deepseek-reviewer/actions/artifacts/${ARTIFACT_ID}/zip" > /tmp/c005.zip
+          test "$(sha256sum /tmp/c005.zip | awk '{print $1}')" = "$EXPECTED_ARTIFACT_SHA256"
+          rm -rf /tmp/c005 /tmp/candidate
+          mkdir -p /tmp/c005
+          unzip -q /tmp/c005.zip -d /tmp/c005
+          PATCH="$(find /tmp/c005 -type f -name 'harness-engineer-candidate.patch' -print -quit)"
+          test -n "$PATCH"
+          test "$(sha256sum "$PATCH" | awk '{print $1}')" = "$EXPECTED_PATCH_SHA256"
+
+          cat > /tmp/expected-files.txt <<'EOF'
+          src/qore/infrastructure/cibo_cognitive_integration.py
+          src/qore/infrastructure/cibo_cognitive_planning.py
+          src/qore/infrastructure/cibo_cognitive_world_model.py
+          src/qore/infrastructure/cibo_executive_brain.py
+          src/qore/infrastructure/cibo_executive_deliberation.py
+          src/qore/infrastructure/cibo_executive_journal.py
+          src/qore/infrastructure/cibo_executive_memory.py
+          src/qore/modules/cibo/cognitive_contracts.py
+          tests/infrastructure/test_cibo_cognitive_common.py
+          tests/infrastructure/test_cibo_cognitive_integration.py
+          tests/infrastructure/test_cibo_cognitive_planning.py
+          tests/infrastructure/test_cibo_cognitive_world_model.py
+          tests/infrastructure/test_cibo_executive_brain.py
+          tests/infrastructure/test_cibo_executive_deliberation.py
+          tests/infrastructure/test_cibo_executive_journal.py
+          tests/infrastructure/test_cibo_executive_memory.py
+          tests/modules/cibo/test_cibo_cognitive_contracts.py
+          EOF
+          sed -i 's/^          //' /tmp/expected-files.txt
+          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+
+          git worktree add --detach /tmp/candidate "$EXPECTED_START"
+          git -C /tmp/candidate apply --check "$PATCH"
+          git -C /tmp/candidate apply "$PATCH"
+          git -C /tmp/candidate diff --check
+
+          git -C /tmp/candidate add --all
+          git -C /tmp/candidate diff --cached --check
+          git -C /tmp/candidate diff --cached --name-only | sort > /tmp/staged-files.txt
+          diff -u /tmp/expected-files.txt /tmp/staged-files.txt
+          test "$(wc -l < /tmp/staged-files.txt)" -eq 17
+          test "$(git -C /tmp/candidate diff --cached --numstat | awk '{a+=$1; d+=$2} END {print a+d+0}')" -eq 1189
+          CANDIDATE_TREE="$(git -C /tmp/candidate write-tree)"
+
+          git config user.name qore-cognitive-materializer
+          git config user.email qore-cognitive-materializer@users.noreply.github.com
+          NEW_HEAD="$(printf '%s\n' 'Materialize CIBO Cognitive Correction 005 candidate' | git commit-tree "$CANDIDATE_TREE" -p "$EXPECTED_HEAD")"
+          test "$(git rev-parse "$NEW_HEAD^")" = "$EXPECTED_HEAD"
+          test "$(git rev-parse "$NEW_HEAD^{tree}")" = "$CANDIDATE_TREE"
+
+          git push origin "$NEW_HEAD:refs/heads/${TARGET_BRANCH}"
+          REMOTE_HEAD="$(git ls-remote origin "refs/heads/${TARGET_BRANCH}" | awk '{print $1}')"
+          test "$REMOTE_HEAD" = "$NEW_HEAD"
+          echo "NEW_HEAD=$NEW_HEAD"
+          echo "CANDIDATE_TREE=$CANDIDATE_TREE"
+          echo "PATCH_SHA256=$EXPECTED_PATCH_SHA256"
+          echo "ARTIFACT_SHA256=$EXPECTED_ARTIFACT_SHA256"
