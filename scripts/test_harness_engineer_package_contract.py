@@ -40,7 +40,7 @@ def main() -> None:
     large_batch = deepcopy(request)
     large_batch["max_diff_lines"] = MAX_ENGINEER_DIFF_LINES
     validated_large_batch = validate_request(large_batch, source="test")
-    assert validated_large_batch["max_diff_lines"] == 30000
+    assert validated_large_batch["max_diff_lines"] == 70000
 
     recovered = deepcopy(request)
     recovered["recovery_artifact_id"] = 9878203635
