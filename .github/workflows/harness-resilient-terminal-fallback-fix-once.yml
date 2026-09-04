@@ -76,3 +76,5 @@ jobs:
           git add scripts/harness_resilient_runner.py scripts/test_harness_resilient_terminal_contract.py
           git commit -m 'Harden Harness semantic terminal fallback'
           git push origin HEAD:main
+
+# Triggered once for the repeated false-red terminal mismatch.
