@@ -180,3 +180,5 @@ jobs:
           test "$REMOTE_HEAD" = "$NEW_HEAD"
           echo "NEW_HEAD=$NEW_HEAD"
           echo "CANDIDATE_TREE=$CANDIDATE_TREE"
+
+# Trigger marker: recovery materialization authorized after IA artifact verification.
