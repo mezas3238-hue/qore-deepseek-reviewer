@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R2-CORRECTION-006-SUPERARCHITECTURE-STRENGTHENING-001",
-  "expected_start": "f60304ec7107fe9fe993c6d0f62f90b448ccf2fe",
-  "expected_tree": "f641951ae9e019c3f10fdc11419d834f1fc63592",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r2-correction-006-superarchitecture-strengthening-001.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R3-CORRECTION-007-ROOT-FAMILY-CLOSURE-001",
+  "expected_start": "919752ebfb04750a9f60562d37e3dc7828460dc6",
+  "expected_tree": "a611e6087c19fac39cb61b4fe05a2234f2eaa0a7",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r3-correction-007-root-family-closure-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-expert-r2-correction-006-superarchitecture-strengthening-001-20260903-r2",
+  "dispatch_nonce": "qore-cibo-cognitive-expert-r3-correction-007-root-family-closure-001-20260904-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
