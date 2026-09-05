@@ -1,123 +1,78 @@
-# QORE HARNESS DUAL-ROLE ONE-SHOT POLICY V1
+# QORE HARNESS DUAL-ROLE ONE-SHOT POLICY V1 — CURRENT INTERPRETATION
 
 ## Status
 
-MANDATORY GLOBAL POLICY.
+MANDATORY umbrella policy. The active separation and repair semantics are defined by:
 
-The canonical execution architecture is now:
-
-`harness/engineer/QORE-HARNESS-INDEPENDENT-DUAL-AGENT-POLICY-V1.md`
-
-This document preserves the one-shot law while replacing the former interpretation in which one Harness session changed posture and reused the same six subagents for self-review.
+`harness/engineer/QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2.md`
 
 ## Supreme rule
 
-`ONE WORK PACKAGE = ONE COMPLETE HARNESS DELIVERY`
+`ONE WORK PACKAGE = ENGINEERING + INDEPENDENT INTERNAL AUDIT-REPAIR + FINAL INTERNAL CLEAN`
 
-`WORK COMPLETE = ENGINEERING COMPLETE + INDEPENDENT INTERNAL AUDIT CLEAN`
+The two roles are NOT one model session changing posture.
 
-The two required roles are now two separate agents/contexts inside the same Harness workflow:
+1. `HARNESS_ENGINEER_AGENT` performs the initial engineering work with exactly six engineering lanes.
+2. `HARNESS_INTERNAL_EXPERT_AGENT` is a contextually independent auditor-remediator with five audit lanes.
 
-1. `HARNESS_ENGINEER_AGENT`
-2. `HARNESS_INTERNAL_EXPERT_AGENT`
+They do not share identity, transcript, rationale, subagent outputs or reasoning context.
 
-They MUST NOT share transcripts, hidden reasoning, session memory or subagent contexts.
+## Handoff law
 
-## Engineer side
+Engineer completes its initial work and emits:
 
-Engineer owns implementation and has exactly six engineering lanes:
+`ENGINEERING_READY_FOR_INDEPENDENT_AUDIT`
 
-1. architecture/contracts/runtime/trust boundaries;
-2. witness reproduction/adversarial engineering;
-3. security/Unicode/normalization/parsing/input boundaries;
-4. property/metamorphic/systematic engineering exploration;
-5. historical regression/replay/integration/callers;
-6. implementation-impact/final engineering coherence.
+The deterministic host freezes the exact candidate and hands only the candidate bytes/hash and technical audit evidence to the Internal Expert. The Internal Expert must not be told who implemented it.
 
-Those six lanes belong only to Engineer.
+After this handoff, Engineer does not participate in ordinary audit corrections.
 
-Engineer may receive only normalized host `VALIDATION_FINDINGS` after an audit fails. It does not receive the auditor identity, transcript, reasoning, lane notes or session memory.
+## Internal Expert law
 
-## Internal Expert side
+Internal Expert acts epistemically like the External Expert: it audits the whole bounded candidate from first principles through five independent reviewer lanes.
 
-Internal Expert is a fresh independent auditor over an isolated copy of the exact candidate. It has five reviewer lanes equivalent in purpose to External Expert:
+Unlike External Expert, Internal Expert has bounded repair authority in its isolated candidate workspace.
 
-- IE-L1 architecture/contracts/runtime/trust-root falsification;
-- IE-L2 security/input/Unicode/normalization/boundary falsification;
-- IE-L3 historical regression/retained-state/replay/integration falsification;
-- IE-L4 property/metamorphic/systematic equivalence exploration;
-- IE-L5 final cross-interaction/reachable-path challenger.
+If it finds a material defect:
 
-Those five lanes belong only to Internal Expert.
+`FIND -> ROOT CAUSE -> REPAIR COMPLETE CAUSAL CLASS -> TEST -> FULL FIVE-LANE RE-AUDIT`
 
-Internal Expert receives no Engineer transcript, rationale, checkpoint narrative, subagent output or prior audit reasoning. It sees only the bounded audit contract, exact START/TREE, isolated exact candidate, changed files and candidate patch SHA256.
+Repeat inside the Internal Expert work phase until CLEAN or honest BLOCKED.
 
-## Mandatory host-controlled loop
+The Internal Expert may repair what it finds and may declare internal CLEAN after a complete final re-audit of the corrected candidate. It does not send ordinary findings back to Engineer.
 
-`ENGINEER -> EXACT PATCH SNAPSHOT -> FRESH INTERNAL EXPERT FULL AUDIT`
+## Clean meaning
 
-If Internal Expert returns material findings:
-
-`STRUCTURED FINDINGS -> ENGINEER REPAIR -> NEW PATCH SHA256 -> NEW FRESH INTERNAL EXPERT FULL AUDIT`
-
-Repeat inside the SAME work package until CLEAN or honest BLOCKED/interrupted.
-
-A prior audit is invalid after any candidate mutation.
-
-## Structured boundary
-
-Only structured defect evidence crosses from validation to engineering:
-
-- finding_id
-- severity
-- root_family
-- witness
-- expected
-- observed
-- affected_paths
-- violated_invariant
-- reproduction
-
-No reasoning transcript crosses the boundary.
-
-## Candidate binding
-
-Every Internal Expert audit is bound to exact `candidate_patch_sha256`.
-
-The host creates an isolated audit checkout and verifies the patch before review. If the audit copy is mutated during review, that audit is invalid and cannot produce CLEAN.
-
-A CLEAN result may be minted into Harness terminal markers only by the deterministic host, never by Engineer:
+The host may mint:
 
 `HARNESS_INTERNAL_EXPERT_STATUS: CLEAN`
 
 `HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN`
 
-## One-shot repair law
+only when the exact final patch produced by the audit-repair phase is hash-bound, all five final audit lanes are complete, zero material finding remains, and the final full audit occurred after the last mutation.
 
-A material Internal Expert finding is not a new Correction job. It is repaired inside the same Harness work package.
+This means:
 
-`ENGINEER -> AUDIT -> FINDING -> ENGINEER FIX -> FRESH AUDIT AGAIN`
+`INTERNAL_WORK_COMPLETE_FOR_IA_ADJUDICATION`
 
-continues until clean or blocked.
+It does NOT mean External Expert PASS, merge authorization, Production readiness or real-capital authorization.
+
+## External independence
+
+External Expert remains mandatory and must independently attack the frozen final candidate. It receives no Internal Expert reasoning as proof.
+
+`INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS`
 
 ## Recovery
 
-Workflow interruption does not restart engineering or create a new assignment. Engineer patch/checkpoints remain durable. An audit may be reused only when it was produced under the independent dual-agent policy and the exact candidate patch SHA256 is unchanged.
-
-## External Expert
-
-External Expert remains a separate later gate and receives no special trust from Internal Expert CLEAN.
-
-However, the quality target is that External Expert confirms rather than routinely discovers defects. An external material escape from a family validly audited CLEAN is:
-
-`HARNESS_QUALITY_FAILURE / INTERNAL_EXPERT_ESCAPE`
+An infrastructure interruption preserves the same work package, candidate patch and durable evidence. Completed engineering work is not repeated. Once audit handoff has occurred, recovery continues the Internal Expert audit-repair phase rather than returning ordinary findings to Engineer.
 
 ## Final law
 
-`ENGINEER BUILDS IN ITS OWN CONTEXT.`
+`HARNESS BUILDS.`
 
-`INTERNAL EXPERT AUDITS IN A DIFFERENT FRESH CONTEXT.`
+`INTERNAL EXPERT, INDEPENDENT FROM HARNESS CONTEXT, AUDITS + REPAIRS + RE-AUDITS.`
 
-`THE HOST PASSES ONLY STRUCTURED DEFECT EVIDENCE BETWEEN THEM.`
+`IA ADJUDICATES.`
 
-`ANY FIX REQUIRES A NEW FULL INDEPENDENT AUDIT.`
+`EXTERNAL EXPERT VALIDATES INDEPENDENTLY.`
