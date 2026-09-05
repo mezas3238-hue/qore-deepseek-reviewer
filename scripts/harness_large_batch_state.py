@@ -27,6 +27,15 @@ SUBAGENT_RE = re.compile(
 BINDING_RE = re.compile(
     r"^binding:\s*START=(?P<start>[0-9a-fA-F]{7,64})\s+TREE=(?P<tree>[0-9a-fA-F]{7,64})(?:\s+(?P<annotation>VERIFIED_EXACT|\(unchanged\)|\(UNCHANGED\)))?\s*$"
 )
+INTERNAL_EXPERT_CLEAN = "HARNESS_INTERNAL_EXPERT_STATUS: CLEAN"
+DUAL_ROLE_COMPLETE = (
+    "HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN"
+)
+DUAL_ROLE_PREFIXES = (
+    "HARNESS_INTERNAL_EXPERT_STATUS:",
+    "HARNESS_DUAL_ROLE_STATUS:",
+)
+HARNESS_ENGINEER_PACKAGE_PREFIX = "HARNESS-ENGINEER-"
 BEGIN = "QORE_CHECKPOINT_BEGIN"
 END = "QORE_CHECKPOINT_END"
 RECOVERY_DIR_NAME = "qore-harness-recovery-artifact"
@@ -48,6 +57,8 @@ class Snapshot:
     package_id: str | None = None
     start: str | None = None
     tree: str | None = None
+    internal_expert_clean: bool = False
+    dual_role_complete: bool = False
 
     @property
     def completed(self) -> list[int]:
@@ -70,17 +81,38 @@ class Snapshot:
         identities = [self.subagent_ids[lane] for lane in LANES]
         return (
             len(self.completed_subagents) == len(LANES)
-            and all(identity is not None and not identity.startswith("UNASSIGNED-") for identity in identities)
+            and all(
+                identity is not None and not identity.startswith("UNASSIGNED-")
+                for identity in identities
+            )
             and len(set(identities)) == len(LANES)
         )
 
     @property
+    def dual_role_required(self) -> bool:
+        return bool(
+            self.package_id
+            and self.package_id.startswith(HARNESS_ENGINEER_PACKAGE_PREFIX)
+        )
+
+    @property
+    def dual_role_gate_passed(self) -> bool:
+        return self.internal_expert_clean and self.dual_role_complete
+
+    @property
     def all_complete(self) -> bool:
-        return len(self.completed) == len(LANES) and self.all_subagents_complete
+        mechanical_swarm_complete = (
+            len(self.completed) == len(LANES) and self.all_subagents_complete
+        )
+        if not mechanical_swarm_complete:
+            return False
+        if self.dual_role_required:
+            return self.dual_role_gate_passed
+        return True
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "schema": "qore-harness-large-batch-state-v2-six-distinct-subagents",
+            "schema": "qore-harness-large-batch-state-v3-dual-role-internal-expert",
             "checkpoint_count": self.checkpoint_count,
             "package_id": self.package_id,
             "start": self.start,
@@ -89,12 +121,18 @@ class Snapshot:
             "lane_generations": {str(k): self.generations[k] for k in LANES},
             "subagent_ids": {str(k): self.subagent_ids[k] for k in LANES},
             "subagent_states": {str(k): self.subagent_states[k] for k in LANES},
-            "subagent_generations": {str(k): self.subagent_generations[k] for k in LANES},
+            "subagent_generations": {
+                str(k): self.subagent_generations[k] for k in LANES
+            },
             "completed_lanes": self.completed,
             "pending_lanes": self.pending,
             "blocked_lanes": self.blocked,
             "completed_subagent_lanes": self.completed_subagents,
             "all_subagents_complete": self.all_subagents_complete,
+            "dual_role_required": self.dual_role_required,
+            "internal_expert_clean": self.internal_expert_clean,
+            "dual_role_complete": self.dual_role_complete,
+            "dual_role_gate_passed": self.dual_role_gate_passed,
             "all_complete": self.all_complete,
         }
 
@@ -122,6 +160,7 @@ def _checkpoint_blocks(text: str) -> list[list[str]]:
             or stripped.startswith("QORE_SUBAGENT_STATE")
             or stripped.startswith("binding:")
             or stripped.startswith("package_id:")
+            or any(stripped.startswith(prefix) for prefix in DUAL_ROLE_PREFIXES)
         ):
             raise StateError("durable state material exists outside a checkpoint block")
     if current is not None:
@@ -144,6 +183,8 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
     package_id: str | None = None
     start: str | None = None
     tree: str | None = None
+    internal_expert_clean = False
+    dual_role_complete = False
 
     for block in blocks:
         for raw in block:
@@ -170,6 +211,20 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
                 continue
             if stripped.startswith("binding:"):
                 raise StateError(f"invalid checkpoint binding line: {stripped}")
+
+            if stripped.startswith("HARNESS_INTERNAL_EXPERT_STATUS:"):
+                if stripped != INTERNAL_EXPERT_CLEAN:
+                    raise StateError(
+                        f"invalid internal Expert terminal status: {stripped}"
+                    )
+                internal_expert_clean = True
+                continue
+
+            if stripped.startswith("HARNESS_DUAL_ROLE_STATUS:"):
+                if stripped != DUAL_ROLE_COMPLETE:
+                    raise StateError(f"invalid Harness dual-role terminal status: {stripped}")
+                dual_role_complete = True
+                continue
 
             match = LANE_RE.match(stripped)
             if match:
@@ -224,7 +279,9 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
                 continue
 
     if require_binding and (package_id is None or start is None or tree is None):
-        raise StateError("checkpoint journal is missing immutable package/START/TREE binding")
+        raise StateError(
+            "checkpoint journal is missing immutable package/START/TREE binding"
+        )
 
     return Snapshot(
         checkpoint_count=len(blocks),
@@ -236,6 +293,8 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
         package_id=package_id,
         start=start,
         tree=tree,
+        internal_expert_clean=internal_expert_clean,
+        dual_role_complete=dual_role_complete,
     )
 
 
@@ -263,8 +322,8 @@ def write_initial(path: Path, package_id: str, start: str, tree: str) -> None:
         )
     lines.extend(
         [
-            "PENDING NEXT ACTION: primary Harness verifies binding and starts/inherits the six-lane six-subagent state machine",
-            "SAFE RESUME INSTRUCTION: preserve exact START/TREE and never repeat a lane after it reaches COMPLETED",
+            "PENDING NEXT ACTION: primary Harness verifies binding and starts/inherits the six-lane six-subagent state machine; Harness dual-role gate is not yet satisfied",
+            "SAFE RESUME INSTRUCTION: preserve exact START/TREE and never repeat a lane after it reaches COMPLETED; candidate-ready requires final Internal Expert CLEAN evidence",
             END,
             "",
         ]
@@ -383,15 +442,21 @@ def _restore_recovery_journal(
             f"evidence: inherited_completed_lanes={completed}",
             f"evidence: inherited_pending_lanes={pending}",
             f"evidence: inherited_completed_subagent_lanes={completed_subagents}",
-            "PENDING NEXT ACTION: resume only pending/recovery-required work under the successor package; preserve completed lanes and completed subagents",
-            "SAFE RESUME INSTRUCTION: imported COMPLETED lanes/subagents are immutable carry-forward evidence; do not reconstruct or relaunch them",
+            f"evidence: inherited_internal_expert_clean={source_state.internal_expert_clean}",
+            f"evidence: inherited_dual_role_complete={source_state.dual_role_complete}",
+            "PENDING NEXT ACTION: resume only pending/recovery-required work under the successor package; preserve completed lanes/subagents; if final candidate mutates, rerun Internal Expert before candidate-ready",
+            "SAFE RESUME INSTRUCTION: imported COMPLETED lanes/subagents are immutable carry-forward evidence; dual-role CLEAN is valid only for the unchanged inherited candidate",
             END,
             "",
         ]
     )
     destination.write_text(migrated + "\n".join(lines), encoding="utf-8")
     restored = parse_checkpoint_file(destination)
-    if restored.package_id != package_id or restored.start != expected_start or restored.tree != expected_tree:
+    if (
+        restored.package_id != package_id
+        or restored.start != expected_start
+        or restored.tree != expected_tree
+    ):
         raise StateError("restored recovery journal failed successor binding verification")
     return restored
 
@@ -409,7 +474,9 @@ def command_init(args: argparse.Namespace) -> int:
         snapshot = parse_checkpoint_file(args.checkpoints)
     else:
         if args.checkpoints.exists() and args.checkpoints.stat().st_size:
-            raise StateError("refusing to overwrite non-empty checkpoint journal during recovery import")
+            raise StateError(
+                "refusing to overwrite non-empty checkpoint journal during recovery import"
+            )
         snapshot = _restore_recovery_journal(
             args.checkpoints,
             package_id=args.package_id,
