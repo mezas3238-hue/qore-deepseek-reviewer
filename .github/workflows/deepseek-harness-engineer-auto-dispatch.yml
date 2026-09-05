@@ -75,6 +75,33 @@ jobs:
             test -z "$RECOVERY_PATCH_SHA256"
           fi
 
+          # Global single-work invariant: Harness may have only ONE active work package at a time.
+          # A different package is not allowed to start while any legacy or resilient Harness run
+          # is queued, in progress, waiting, requested, or pending.
+          ACTIVE_HARNESS=""
+          for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
+            ACTIVE="$(
+              gh api --paginate \
+                "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
+                --jq '.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending") | [.id, .display_title, .status] | @tsv' \
+                2>/dev/null || true
+            )"
+            if test -n "$ACTIVE"; then
+              if test -n "$ACTIVE_HARNESS"; then
+                ACTIVE_HARNESS="${ACTIVE_HARNESS}"$'\n'"${ACTIVE}"
+              else
+                ACTIVE_HARNESS="$ACTIVE"
+              fi
+            fi
+          done
+
+          if test -n "$ACTIVE_HARNESS"; then
+            echo "Harness dispatch DEFERRED: ONE ACTIVE HARNESS WORK AT A TIME is enforced." >&2
+            echo "$ACTIVE_HARNESS" >&2
+            echo "Request ${PACKAGE_ID} remains the requested work but no second Harness job was launched." >&2
+            exit 0
+          fi
+
           for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
             EXISTING="$(
               gh api --paginate \
