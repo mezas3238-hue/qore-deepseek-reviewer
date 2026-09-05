@@ -1,4 +1,4 @@
-name: DeepSeek Harness large-batch resilience certification
+name: DeepSeek Harness independent audit-repair certification
 
 on:
   push:
@@ -47,77 +47,72 @@ jobs:
           python3 test_harness_cost_window.py
           python3 test_reviewer_resilient_runner.py
 
-      - name: Certify independent dual-agent structural invariants
+      - name: Certify implementation role blindness
         run: |
           set -euo pipefail
-          POLICY=harness/engineer/QORE-HARNESS-INDEPENDENT-DUAL-AGENT-POLICY-V1.md
           ENGINEER_PROMPT=harness/engineer/prompts/qore-harness-engineer-independent-v1.md
-          AUDITOR_PROMPT=harness/engineer/prompts/qore-harness-internal-expert-independent-v1.md
-          RUNNER=scripts/harness_resilient_runner.py
-
-          test -s "$POLICY"
+          SKILL=harness/skills/qore-engineer-authority/SKILL.md
           test -s "$ENGINEER_PROMPT"
-          test -s "$AUDITOR_PROMPT"
-          test -s "$RUNNER"
+          grep -q 'ENGINEERING_READY_FOR_HOST_HANDOFF' "$ENGINEER_PROMPT"
+          grep -q 'six engineering lanes' "$ENGINEER_PROMPT"
+          ! grep -q 'VALIDATION_FINDINGS' "$ENGINEER_PROMPT"
+          ! grep -q 'Internal Expert' "$ENGINEER_PROMPT"
+          grep -q 'downstream validation process is intentionally undisclosed' "$SKILL"
+          ! grep -q 'VALIDATION_FINDINGS' "$SKILL"
 
-          grep -q 'SAME WORK PACKAGE != SAME AGENT CONTEXT' "$POLICY"
-          grep -q 'ONLY STRUCTURED FINDINGS CROSS THE ROLE BOUNDARY' "$POLICY"
-          grep -q 'EVERY RE-AUDIT USES A FRESH INTERNAL EXPERT SESSION' "$POLICY"
-          grep -q 'candidate_patch_sha256' "$POLICY"
-
-          grep -q 'VALIDATION_FINDINGS' "$ENGINEER_PROMPT"
-          grep -q 'exactly six distinct engineering subagent lanes' "$ENGINEER_PROMPT"
-          grep -q 'Do not request, infer or depend on who or what produced it' "$ENGINEER_PROMPT"
-
-          grep -q 'Five mandatory audit lanes' "$AUDITOR_PROMPT"
-          grep -q 'IE-L5' "$AUDITOR_PROMPT"
-          grep -q 'qore.internal-expert.independent.v1' "$AUDITOR_PROMPT"
-
-          grep -q 'qore-harness-independent-dual-agent-runner-v1' "$RUNNER"
-          grep -q '_fresh_role_home' "$RUNNER"
-          grep -q '_create_audit_workspace' "$RUNNER"
-          grep -q '_audit_patch_hash' "$RUNNER"
-          grep -q 'pending_findings = findings' "$RUNNER"
-          grep -q 'fresh_internal_expert_each_audit' "$RUNNER"
-          grep -q 'engineer_transcript_shared_with_internal_expert' "$RUNNER"
-          grep -q 'internal_expert_transcript_shared_with_engineer' "$RUNNER"
-          grep -q 'start_new_session=True' "$RUNNER"
-          grep -q 'os.killpg' "$RUNNER"
-
-      - name: Certify six-lane engineering durability and host clean markers
+      - name: Certify independent auditor-remediator authority
         run: |
           set -euo pipefail
-          grep -q 'QORE_SUBAGENT_STATE' scripts/harness_large_batch_state.py
-          grep -q 'all_subagents_complete' scripts/harness_large_batch_state.py
-          grep -q 'subagent identity .* reused across lanes' scripts/harness_large_batch_state.py
-          grep -q 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' scripts/harness_large_batch_state.py
-          grep -q 'HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN' scripts/harness_large_batch_state.py
-          grep -q 'DISPATCHING' scripts/harness_large_batch_state.py
-          grep -q 'RECOVERY_REQUIRED' scripts/harness_large_batch_state.py
-          grep -q 'HOST_RECOVERY_IMPORTED' scripts/harness_large_batch_state.py
+          POLICY=harness/engineer/QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2.md
+          AUDITOR=harness/engineer/prompts/qore-harness-internal-expert-independent-v1.md
+          test -s "$POLICY"
+          test -s "$AUDITOR"
+          grep -q 'ENGINEER DOES NOT PARTICIPATE AFTER AUDIT HANDOFF' "$POLICY"
+          grep -q 'INTERNAL EXPERT MAY REPAIR ITS AUDIT FINDINGS DIRECTLY' "$POLICY"
+          grep -q 'EVERY INTERNAL REPAIR REQUIRES A FULL FIVE-LANE RE-AUDIT BEFORE INTERNAL CLEAN' "$POLICY"
+          grep -q 'Internal Expert uses five reviewer lanes' "$POLICY" || grep -q 'Internal Expert owns five reviewer lanes' "$POLICY"
+          grep -q 'Do not return defects to the implementation role' "$AUDITOR"
+          grep -q 'FULL five-lane audit' "$AUDITOR"
+          grep -q 'qore.internal-expert.audit-repair.v2' "$AUDITOR"
+          ! grep -q 'HARNESS ENGINEER' "$AUDITOR"
+          ! grep -q 'VALIDATION_FINDINGS' "$AUDITOR"
 
-      - name: Certify External Expert independence and resilient terminal verdict
+      - name: Certify host-enforced one-way handoff and repair binding
         run: |
           set -euo pipefail
-          test -s harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
-          grep -q 'INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
-          grep -q 'HARNESS_QUALITY_FAILURE' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
-          grep -q 'Mandatory synchronous lane-collection gate' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
-          grep -q 'LANE LAUNCHED != LANE COMPLETED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
-          grep -q 'VALIDATION BLOCKED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          RUNNER=scripts/harness_resilient_runner.py
+          GATE=scripts/harness_internal_expert_gate.py
+          grep -q 'qore-harness-independent-audit-repair-runner-v2' "$RUNNER"
+          grep -q 'implementation_package_context_shared_with_internal_expert' "$RUNNER"
+          grep -q 'engineer_reentered_after_audit_handoff' "$RUNNER"
+          grep -q 'internal_expert_can_repair' "$RUNNER"
+          grep -q 'internal_expert_reaudits_after_repairs' "$RUNNER"
+          grep -q 'actual_final_hash != initial_hash' "$RUNNER"
+          grep -q 'Internal Expert repaired candidate without full re-audit' "$RUNNER"
+          grep -q 'final_candidate_patch_sha256' "$GATE"
+          grep -q 'post-repair full re-audit' "$GATE"
+          grep -q 'Engineer improperly re-entered after audit handoff' "$GATE"
+
+      - name: Certify new workflow has no legacy role contamination
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/deepseek-harness-independent-audit-repair.yml
+          ROUTER=.github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          test -s "$WF"
+          grep -q 'Run isolated Engineer then independent Internal Expert audit-repair' "$WF"
+          grep -q 'implementation_package_context_shared_with_internal_expert == false' "$WF"
+          grep -q 'engineer_reentered_after_audit_handoff == false' "$WF"
+          ! grep -q 'QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2' "$WF"
+          ! grep -q 'MANDATORY INTERNAL EXPERT V2 PROTOCOL' "$WF"
+          grep -q 'deepseek-harness-independent-audit-repair.yml' "$ROUTER"
+          grep -q 'ONE ACTIVE HARNESS WORK AT A TIME' "$ROUTER" || grep -q 'ACTIVE_HARNESS' "$ROUTER"
+
+      - name: Certify External Expert remains independent and resilient
+        run: |
+          set -euo pipefail
           grep -q 'reviewer_resilient_runner.py' .github/workflows/deepseek-qore-review.yml
           grep -q 'max-generations 4' .github/workflows/deepseek-qore-review.yml
           grep -q 'generation-timeout-seconds 1800' .github/workflows/deepseek-qore-review.yml
+          grep -q 'LANE LAUNCHED != LANE COMPLETED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'VALIDATION BLOCKED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
           grep -q 'REVIEWER_RECOVERY_GENERATIONS_EXHAUSTED' scripts/reviewer_resilient_runner.py
-          grep -q 'REVIEWER_CHECKPOINT_STAGNATION' scripts/reviewer_resilient_runner.py
-
-      - name: Certify routing and recovery cost controls
-        run: |
-          set -euo pipefail
-          grep -q 'deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
-          grep -q 'ONE ACTIVE HARNESS WORK AT A TIME' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
-          grep -q '19:45' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
-          grep -q 'harness_resilient_runner.py' .github/workflows/deepseek-harness-engineer-resilient.yml
-          grep -q 'max-generations 4' .github/workflows/deepseek-harness-engineer-resilient.yml
-          grep -q 'Require warm LSP cache before API spend' .github/workflows/deepseek-harness-engineer-resilient.yml
-          grep -q 'Restore verified recovery candidate before API spend' .github/workflows/deepseek-harness-engineer-resilient.yml
