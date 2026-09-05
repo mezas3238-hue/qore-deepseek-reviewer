@@ -1,0 +1,16 @@
+{
+  "schema": "qore-cibo-cognitive-internal-expert-clean-materialize-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "pr_number": 486,
+  "run_id": 33980312719,
+  "artifact_id": 9974478966,
+  "artifact_digest": "sha256:34acdc5ab37d81d162cbe7b6f6ae3a319f0edf466c9db4f42410ca88af53e922",
+  "expected_head": "fda9101415595ebca30ba1b71c7dc26f4ad2b025",
+  "expected_tree": "f8e11d8bccbe556a96deeeb6d6f354364a46e1f2",
+  "clean_patch_sha256": "33a5aeec99c9f32cee70b5a51c841e30ec87fc6eb0ba8bb9c780f28a261a9817",
+  "target_branch": "agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize",
+  "expected_changed_files": [
+    "src/qore/modules/cibo/cognitive_contracts.py",
+    "tests/modules/cibo/test_cibo_cognitive_contracts.py"
+  ]
+}
