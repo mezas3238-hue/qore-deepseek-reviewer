@@ -1,0 +1,365 @@
+name: DeepSeek CIBO Functions artifact External Expert
+run-name: Functions External Expert · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - external_artifact_review_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: qore-functions-artifact-external-expert
+  cancel-in-progress: false
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Checkout reviewer infrastructure
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate artifact review request
+        id: req
+        run: |
+          set -euo pipefail
+          R=external_artifact_review_requests/current.json
+          jq -e '
+            .schema == "qore-functions-artifact-external-review-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            .review_mode == "expert" and
+            (.package_id | type == "string" and length > 0) and
+            (.source_run_id | type == "number") and
+            (.artifact_id | type == "number") and
+            (.artifact_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.expected_start | test("^[0-9a-f]{40}$")) and
+            (.expected_tree | test("^[0-9a-f]{40}$")) and
+            (.clean_patch_sha256 | test("^[0-9a-f]{64}$")) and
+            (.expected_changed_files == 57) and
+            (.prompt_path | type == "string" and length > 0)
+          ' "$R" >/dev/null
+          for k in package_id source_run_id artifact_id artifact_digest expected_start expected_tree clean_patch_sha256 expected_changed_files prompt_path; do
+            echo "$k=$(jq -r --arg k "$k" '.[$k]' "$R")" >> "$GITHUB_OUTPUT"
+          done
+          python3 -m py_compile scripts/reviewer_resilient_runner.py scripts/harness_reasoning_audit.py scripts/harness_usage_meter.py scripts/deepseek_balance_meter.py
+          PYTHONPATH=scripts python3 scripts/test_reviewer_resilient_runner.py
+          test -s harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          test -s "$(jq -r '.prompt_path' "$R")"
+
+      - name: Create read-only qore-core token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+
+      - name: Checkout exact Functions START
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.req.outputs.expected_start }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Restore exact semantic candidate and create isolated local HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.req.outputs.source_run_id }}
+          ARTIFACT_ID: ${{ steps.req.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ steps.req.outputs.artifact_digest }}
+          EXPECTED_START: ${{ steps.req.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.req.outputs.expected_tree }}
+          CLEAN_PATCH_SHA256: ${{ steps.req.outputs.clean_patch_sha256 }}
+          EXPECTED_CHANGED_FILES: ${{ steps.req.outputs.expected_changed_files }}
+        run: |
+          set -euo pipefail
+          test "$(git -C workspace/qore-core rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git -C workspace/qore-core show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID})"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip > artifact.zip
+          test "sha256:$(sha256sum artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+          unzip -q artifact.zip -d artifact
+          test -s artifact/internal-expert-final-candidate.patch
+          grep -Fq '"status": "CLEAN"' artifact/internal-expert-recovery-output.md
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0 and .engineer_sessions == 0 and .internal_expert_knows_engineer_identity == false' artifact/internal-expert-recovery-metadata.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re, os
+          src=Path('artifact/internal-expert-final-candidate.patch').read_text()
+          chunks=[]; cur=''
+          for line in src.splitlines(True):
+              if line.startswith('diff --git '):
+                  if cur: chunks.append(cur)
+                  cur=line
+              else: cur+=line
+          if cur: chunks.append(cur)
+          kept=[]; dropped=[]
+          for c in chunks:
+              first=c.splitlines()[0]
+              m=re.match(r'diff --git a/(.*?) b/', first)
+              if not m: raise SystemExit(first)
+              p=m.group(1)
+              if p == '.qore-harness-recovery/candidate.patch': dropped.append(p)
+              else: kept.append((p,c))
+          if dropped != ['.qore-harness-recovery/candidate.patch']:
+              raise SystemExit(f'helper mismatch {dropped}')
+          kept.sort(key=lambda x:x[0])
+          out=''.join(c for _,c in kept)
+          if len(kept) != int(os.environ['EXPECTED_CHANGED_FILES']):
+              raise SystemExit(f'file count {len(kept)}')
+          got=hashlib.sha256(out.encode()).hexdigest()
+          if got != os.environ['CLEAN_PATCH_SHA256']:
+              raise SystemExit(f'patch sha {got}')
+          Path('clean.patch').write_text(out)
+          Path('semantic-files.txt').write_text('\n'.join(p for p,_ in kept)+'\n')
+          PY
+          git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/clean.patch"
+          git -C workspace/qore-core apply --index "$GITHUB_WORKSPACE/clean.patch"
+          git -C workspace/qore-core diff --cached --check
+          test "$(git -C workspace/qore-core diff --cached --name-only | wc -l)" = "$EXPECTED_CHANGED_FILES"
+          git -C workspace/qore-core config user.name 'QORE External Review Local Binder'
+          git -C workspace/qore-core config user.email 'qore-external-review-local@users.noreply.github.com'
+          GIT_AUTHOR_DATE='2000-01-01T00:00:00Z' GIT_COMMITTER_DATE='2000-01-01T00:00:00Z' git -C workspace/qore-core commit -m 'Local bind CIBO Functions candidate for external review'
+          git -C workspace/qore-core rev-parse HEAD > artifact-review-head.txt
+          git -C workspace/qore-core show -s --format=%T HEAD > artifact-review-tree.txt
+          git -C workspace/qore-core diff --name-status "$EXPECTED_START" HEAD > artifact-review-changed-files.txt
+          git -C workspace/qore-core remote remove origin || true
+          test -z "$(git -C workspace/qore-core remote)"
+          git -C workspace/qore-core diff --quiet HEAD --
+          git -C workspace/qore-core diff --cached --quiet HEAD --
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core dependencies for semantic LSP
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore exact DSH plus LSP cache
+        id: dsh-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Require warm DSH LSP cache
+        run: |
+          set -euo pipefail
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || exit 78
+          ROOT="${{ runner.temp }}/qore-dsh-engineer-lsp-install"
+          test -x "$ROOT/node_modules/.bin/dsh"
+          test -x "$ROOT/node_modules/.bin/pyright-langserver"
+
+      - name: Prepare independent External Expert runtime
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-functions-external-expert
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+        run: |
+          set -euo pipefail
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
+          chmod 700 "$DSH_HOME"
+          cp -R harness/skills/. "$DSH_HOME/skills/"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          REASONING_PLUGIN="$DSH_HOME/profiles/headless/qore-adaptive-reasoning-controller.mjs"
+          cp harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs "$REASONING_PLUGIN"
+          cat > "$DSH_HOME/settings.yaml" <<'YAML'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: high
+          YAML
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          - insert:
+              - id: qore-adaptive-reasoning-controller
+                name: '${REASONING_PLUGIN}'
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" > functions-external-lsp-smoke.json
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' functions-external-lsp-smoke.json >/dev/null
+
+      - name: Capture DeepSeek balance baseline
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py snapshot "$RUNNER_TEMP/functions-external-before.json"
+
+      - name: Initialize External Expert prompt and checkpoint
+        working-directory: workspace/qore-core
+        env:
+          PACKAGE_ID: ${{ steps.req.outputs.package_id }}
+          TARGET_PROMPT_PATH: ${{ github.workspace }}/${{ steps.req.outputs.prompt_path }}
+          EXPECTED_START: ${{ steps.req.outputs.expected_start }}
+          CLEAN_PATCH_SHA256: ${{ steps.req.outputs.clean_patch_sha256 }}
+        run: |
+          set -euo pipefail
+          HEAD="$(cat "$GITHUB_WORKSPACE/artifact-review-head.txt")"
+          TREE="$(cat "$GITHUB_WORKSPACE/artifact-review-tree.txt")"
+          CHECKPOINT_PATH="$RUNNER_TEMP/functions-external-checkpoints.md"
+          PROMPT_FILE="$RUNNER_TEMP/functions-external-prompt.md"
+          cat > "$CHECKPOINT_PATH" <<EOF
+          QORE_CHECKPOINT_BEGIN
+          package_id: ${PACKAGE_ID}
+          review_mode: expert
+          checkpoint_sequence: 0
+          phase: HOST_INITIALIZED
+          binding: START=${EXPECTED_START} LOCAL_HEAD=${HEAD} TREE=${TREE} PATCH_SHA256=${CLEAN_PATCH_SHA256}
+          completed: exact artifact reconstruction and isolation reached
+          PENDING NEXT ACTION: independent External Expert begins falsification
+          SAFE RESUME INSTRUCTION: preserve this exact artifact/tree binding
+          QORE_CHECKPOINT_END
+          EOF
+          cat "$GITHUB_WORKSPACE/harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md" > "$PROMPT_FILE"
+          cat >> "$PROMPT_FILE" <<EOF
+
+          # TARGET-SPECIFIC REVIEW PACKAGE
+          $(cat "$TARGET_PROMPT_PATH")
+
+          # HOST RUNTIME BINDING
+          package_id=${PACKAGE_ID}
+          review_mode=expert
+          expected_start=${EXPECTED_START}
+          local_head=${HEAD}
+          expected_tree=${TREE}
+          exact_semantic_patch_sha256=${CLEAN_PATCH_SHA256}
+          checkpoint_path=${CHECKPOINT_PATH}
+
+          The local commit exists only to bind this exact reconstructed candidate. It is not a published qore-core commit. Review the exact TREE and patch above. No prior auditor transcript is supplied as proof.
+          Append checkpoints to the host path. LANE LAUNCHED != LANE COMPLETED. Finish only with VALIDACIÓN OK + HALLAZGOS: NINGUNO, VALIDACIÓN NO OK, or VALIDATION BLOCKED. Mark RESUME STATE COMPLETE for a terminal disposition.
+          Candidate is read-only. Semantic LSP mandatory. HIGH baseline; MAX where required. No repository edits, push, publication, network research, Production authority or real-capital action.
+          EOF
+
+      - name: Run resilient External Expert
+        id: reviewer
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-functions-external-expert
+          DSH_PERMISSION_MODE: workspace-write
+          QORE_REASONING_AUDIT_PATH: /tmp/qore-functions-external-reasoning.jsonl
+          NODE_OPTIONS: --max-old-space-size=4096
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          set -euo pipefail
+          python3 ../../scripts/reviewer_resilient_runner.py \
+            --dsh-bin "$RUNNER_TEMP/qore-dsh-engineer-lsp-install/node_modules/.bin/dsh" \
+            --profile headless \
+            --prompt-file "$RUNNER_TEMP/functions-external-prompt.md" \
+            --checkpoints "$RUNNER_TEMP/functions-external-checkpoints.md" \
+            --output "$GITHUB_WORKSPACE/functions-external-review.md" \
+            --journal-output "$GITHUB_WORKSPACE/functions-external-generations.md" \
+            --metadata "$GITHUB_WORKSPACE/functions-external-resilience.json" \
+            --max-generations 4 \
+            --generation-timeout-seconds 1800 \
+            --max-stagnant-generations 2
+          test "$(jq -r '.terminal' "$GITHUB_WORKSPACE/functions-external-resilience.json")" = "true"
+          DISPOSITION="$(jq -r '.terminal_disposition' "$GITHUB_WORKSPACE/functions-external-resilience.json")"
+          case "$DISPOSITION" in PASS|MATERIAL_FINDINGS|BLOCKED) ;; *) exit 1 ;; esac
+          echo "terminal_disposition=$DISPOSITION" >> "$GITHUB_OUTPUT"
+          grep -q '^## VERDICT$' "$GITHUB_WORKSPACE/functions-external-review.md"
+          grep -Eq 'VALIDACIÓN OK|VALIDACION OK|VALIDACIÓN NO OK|VALIDACION NO OK|VALIDATION BLOCKED' "$GITHUB_WORKSPACE/functions-external-review.md"
+
+      - name: Enforce candidate immutability
+        if: ${{ steps.reviewer.outcome == 'success' }}
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          test -z "$(git remote)"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Measure reviewer usage and reasoning
+        if: ${{ always() }}
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-functions-external-expert
+        run: |
+          set +e
+          if find "$DSH_HOME/sessions" -type f -name session.jsonl -print -quit 2>/dev/null | grep -q .; then
+            python3 scripts/harness_usage_meter.py --sessions "$DSH_HOME/sessions" --output functions-external-usage.json
+            python3 scripts/harness_reasoning_audit.py --sessions "$DSH_HOME/sessions" --controller-audit /tmp/qore-functions-external-reasoning.jsonl --output functions-external-reasoning-audit.json
+          fi
+
+      - name: Capture DeepSeek balance delta
+        if: ${{ always() }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set +e
+          python3 scripts/deepseek_balance_meter.py delta "$RUNNER_TEMP/functions-external-before.json" functions-external-billing-delta.json || true
+
+      - name: Collect checkpoint evidence
+        if: ${{ always() }}
+        run: |
+          cp "$RUNNER_TEMP/functions-external-checkpoints.md" functions-external-checkpoints.md 2>/dev/null || true
+
+      - name: Upload External Expert evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-functions-external-${{ steps.req.outputs.package_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            functions-external-review.md
+            functions-external-generations.md
+            functions-external-resilience.json
+            functions-external-checkpoints.md
+            functions-external-lsp-smoke.json
+            functions-external-usage.json
+            functions-external-reasoning-audit.json
+            functions-external-billing-delta.json
+            artifact-review-head.txt
+            artifact-review-tree.txt
+            artifact-review-changed-files.txt
+            clean.patch
+            semantic-files.txt
+
+      - name: External review complete
+        if: ${{ always() }}
+        run: echo "Functions External Expert terminal=${{ steps.reviewer.outputs.terminal_disposition }}"
