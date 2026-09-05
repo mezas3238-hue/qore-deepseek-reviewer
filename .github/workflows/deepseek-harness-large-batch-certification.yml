@@ -25,6 +25,7 @@ jobs:
             scripts/harness_large_batch_state.py \
             scripts/harness_resilient_runner.py \
             scripts/test_harness_large_batch_state.py \
+            scripts/test_harness_dual_role_state.py \
             scripts/test_harness_resilient_runner.py \
             scripts/test_harness_terminal_markers.py \
             scripts/test_harness_cost_window.py
@@ -33,10 +34,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 test_harness_large_batch_state.py
+          python3 test_harness_dual_role_state.py
           python3 test_harness_resilient_runner.py
           python3 test_harness_terminal_markers.py
           python3 test_harness_cost_window.py
-      - name: Certify Harness one-shot complete-delivery and six-subagent authority
+      - name: Certify Harness one-shot dual-role and six-subagent authority
         run: |
           set -euo pipefail
           grep -q 'PENDING LANE != BATCH FAILURE' docs/harness-large-batch-resilience-001.md
@@ -53,11 +55,35 @@ jobs:
           grep -q 'Fresh post-implementation independent self-falsification' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'did NOT propose or implement the patch' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          test -s harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
+          grep -q 'HARNESS_ENGINEER_MODE' harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
+          grep -q 'HARNESS_INTERNAL_EXPERT_MODE' harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
+          grep -q 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
+          grep -q 'ENGINEER -> INTERNAL EXPERT -> FINDING -> ENGINEER FIX -> INTERNAL EXPERT AGAIN' harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
+          grep -q 'QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md' harness/skills/qore-engineer-authority/SKILL.md
+          grep -q 'HARNESS_INTERNAL_EXPERT_MODE' harness/skills/qore-engineer-authority/SKILL.md
+          grep -q 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' harness/skills/qore-engineer-authority/SKILL.md
           grep -q 'QORE_SUBAGENT_STATE' scripts/harness_large_batch_state.py
           grep -q 'all_subagents_complete' scripts/harness_large_batch_state.py
           grep -q 'subagent identity .* reused across lanes' scripts/harness_large_batch_state.py
+          grep -q 'dual_role_gate_passed' scripts/harness_large_batch_state.py
+          grep -q 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' scripts/harness_large_batch_state.py
+          grep -q 'HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN' scripts/harness_large_batch_state.py
           grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
           ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
+      - name: Certify External Expert roadmap independence and intake law
+        run: |
+          set -euo pipefail
+          test -s harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
+          grep -q 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
+          grep -q 'INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
+          grep -q 'HARNESS_QUALITY_FAILURE' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
+          grep -q 'NO EXTERNAL EXPERT PASS + NO IA PASS = CODER BLOCKED' harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
+          grep -q 'QORE-EXPERT-WORK-ROADMAP-V1.md' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q '^## HARNESS DUAL-ROLE INTAKE' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'EXTERNAL MATERIAL ESCAPE AFTER VALID INTERNAL CLEAN = HARNESS_QUALITY_FAILURE' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'QORE-EXPERT-WORK-ROADMAP-V1.md' prompts/shared/expert-common.md
+          grep -q 'INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS' prompts/shared/expert-common.md
       - name: Certify routing, global single-work, recovery memory and cost-window fail-closed gates
         run: |
           set -euo pipefail
