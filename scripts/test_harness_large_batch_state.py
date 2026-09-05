@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from harness_large_batch_state import (
     StateError,
+    _restore_recovery_journal,
     parse_checkpoint_file,
     parse_checkpoint_text,
     write_initial,
@@ -218,6 +221,62 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
         text += f"binding: START={START} TREE={TREE}\n"
         with self.assertRaises(StateError):
             parse_checkpoint_text(text, require_binding=True)
+
+    def test_successor_recovery_preserves_completed_lanes_and_converts_running(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.md"
+            destination = root / "destination.md"
+            source.write_text(
+                bound_cp(
+                    "QORE_LANE_STATE lane=1 state=COMPLETED generation=2",
+                    "QORE_LANE_STATE lane=2 state=RUNNING generation=3",
+                    "QORE_LANE_STATE lane=3 state=CHECKPOINTED generation=2",
+                    "QORE_LANE_STATE lane=4 state=NOT_STARTED generation=0",
+                    "QORE_LANE_STATE lane=5 state=COMPLETED generation=1",
+                    "QORE_LANE_STATE lane=6 state=NOT_STARTED generation=0",
+                    package="PREDECESSOR",
+                ),
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"RECOVERY_ARTIFACT_ID": "12345"}, clear=False):
+                state = _restore_recovery_journal(
+                    destination,
+                    package_id="SUCCESSOR",
+                    start=START,
+                    tree=TREE,
+                    source=source,
+                )
+            self.assertEqual(state.package_id, "SUCCESSOR")
+            self.assertEqual(state.completed, [1, 5])
+            self.assertEqual(state.lanes[2], "RECOVERY_REQUIRED")
+            self.assertEqual(state.generations[2], 4)
+            self.assertEqual(state.lanes[3], "CHECKPOINTED")
+            text = destination.read_text(encoding="utf-8")
+            self.assertIn("predecessor_package_id=PREDECESSOR", text)
+            self.assertNotIn("package_id: PREDECESSOR", text)
+
+    def test_recovery_import_rejects_start_tree_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "source.md"
+            destination = root / "destination.md"
+            source.write_text(
+                bound_cp(
+                    "QORE_LANE_STATE lane=1 state=COMPLETED generation=1",
+                    package="PREDECESSOR",
+                    tree="d" * 40,
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaises(StateError):
+                _restore_recovery_journal(
+                    destination,
+                    package_id="SUCCESSOR",
+                    start=START,
+                    tree=TREE,
+                    source=source,
+                )
 
 
 if __name__ == "__main__":
