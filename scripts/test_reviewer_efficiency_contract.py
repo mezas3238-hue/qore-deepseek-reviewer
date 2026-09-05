@@ -9,7 +9,7 @@ CODER = ROOT / "harness/reviewer/prompts/qore-deepseek-coder-swarm-v1.md"
 HARNESS = ROOT / "harness/engineer/prompts/qore-harness-engineer-v2.md"
 POLICY = ROOT / "harness/docs/QORE-REVIEW-EFFICIENCY-NO-QUALITY-LOSS-V1.md"
 
-COMMON_REQUIRED = (
+REVIEWER_COMMON_REQUIRED = (
     "SHARED_EVIDENCE_MAP",
     "CAUSAL_FAMILY_LEDGER",
     "EFFICIENCY != REDUCED COVERAGE",
@@ -50,14 +50,38 @@ CODER_REQUIRED = (
     "VALIDACIÓN OK",
 )
 
+# Harness v3 deliberately supersedes the old prose-shape markers. The efficiency
+# contract now certifies stronger semantic closure properties instead of requiring
+# wording from the pre-v3 prompt.
 HARNESS_REQUIRED = (
-    "Exactly six distinct logical lanes",
-    "SHARED_EVIDENCE_MAP SNAPSHOT",
-    "CAUSAL_FAMILY_LEDGER SNAPSHOT",
-    "Root-Family Exhaustion",
+    "SHARED_EVIDENCE_MAP",
+    "CAUSAL_FAMILY_LEDGER",
+    "EFFICIENCY != REDUCED COVERAGE",
+    "COMPACTION != EVIDENCE LOSS",
+    "DEDUPLICATION != WITNESS LOSS",
+    "SMART STOP != EARLY PASS",
+    "Exactly six logical lanes",
+    "FULL_FAMILY_RECERTIFICATION",
+    "FAMILY_MODEL",
+    "MATERIAL_GAP",
+    "L1–L5",
+    "L6",
+    "POST-IMPLEMENTATION INDEPENDENT SELF-FALSIFICATION",
+    "fresh adversarial subagent/context",
+    "did NOT propose or implement the patch",
+    "RECURRENT FAMILY RECERTIFICATION MATRIX",
     "CANDIDATE_READY_FOR_EXTERNAL_QG",
-    "Completed lanes are durable carry-forward evidence",
-    "semantic `lsp`",
+    "Completed work is durable carry-forward evidence",
+    "Semantic LSP",
+    "findReferences",
+    "goToDefinition",
+    "goToImplementation",
+    "hover",
+    "HIGH",
+    "MAX",
+    "Root-Family Exhaustion",
+    "## SELF-FALSIFICATION GATE",
+    "## EFFICIENCY SUMMARY",
 )
 
 POLICY_REQUIRED = (
@@ -77,11 +101,11 @@ def require(path: Path, markers: tuple[str, ...]) -> None:
 
 
 def main() -> int:
-    require(EXPERT, COMMON_REQUIRED + EXPERT_REQUIRED)
-    require(CODER, COMMON_REQUIRED + CODER_REQUIRED)
-    require(HARNESS, COMMON_REQUIRED + HARNESS_REQUIRED)
-    require(POLICY, COMMON_REQUIRED[:4] + POLICY_REQUIRED)
-    print("reviewer/Harness efficiency-no-quality-loss contract: PASS")
+    require(EXPERT, REVIEWER_COMMON_REQUIRED + EXPERT_REQUIRED)
+    require(CODER, REVIEWER_COMMON_REQUIRED + CODER_REQUIRED)
+    require(HARNESS, HARNESS_REQUIRED)
+    require(POLICY, REVIEWER_COMMON_REQUIRED[:4] + POLICY_REQUIRED)
+    print("reviewer/Harness efficiency-no-quality-loss contract v3: PASS")
     return 0
 
 
