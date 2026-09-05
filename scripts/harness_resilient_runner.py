@@ -60,8 +60,7 @@ def _resume_complete(text: str) -> bool:
             j += 1
         if j >= len(lines):
             return False
-        value = lines[j].strip()
-        return value in {"COMPLETE", "`COMPLETE`"}
+        return lines[j].strip() in {"COMPLETE", "`COMPLETE`"}
     return False
 
 
@@ -273,11 +272,7 @@ def _reviewer_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def _engineer_role_prompt(
-    *,
-    base_prompt: str,
-    host_checkpoint: Path,
-) -> str:
+def _engineer_role_prompt(*, base_prompt: str, host_checkpoint: Path) -> str:
     role = (
         _reviewer_root()
         / "harness/engineer/prompts/qore-harness-engineer-independent-v1.md"
@@ -328,7 +323,9 @@ def _create_audit_workspace(workspace: Path, patch_path: Path, target: Path) -> 
 
 
 def _audit_patch_hash(audit_workspace: Path) -> str:
-    temp = Path(tempfile.mkstemp(prefix="qore-audit-hash-", suffix=".patch")[1])
+    fd, name = tempfile.mkstemp(prefix="qore-audit-hash-", suffix=".patch")
+    os.close(fd)
+    temp = Path(name)
     try:
         digest, _ = _candidate_patch(audit_workspace, temp)
         return digest
@@ -338,7 +335,6 @@ def _audit_patch_hash(audit_workspace: Path) -> str:
 
 def _internal_expert_prompt(
     *,
-    base_prompt: str,
     initial_hash: str,
     current_hash: str,
     changed_files: list[str],
@@ -352,15 +348,15 @@ def _internal_expert_prompt(
     ).read_text(encoding="utf-8")
     return (
         role
-        + "\n\n# IMMUTABLE AUDIT ORIGIN\n"
+        + "\n\n# IMMUTABLE TECHNICAL AUDIT ORIGIN\n"
         + f"START={start}\nTREE={tree}\n"
         + f"initial_candidate_patch_sha256={initial_hash}\n"
         + f"current_candidate_patch_sha256={current_hash}\n"
         + f"audit_session={audit_session}\n"
         + "changed_files=" + json.dumps(changed_files, ensure_ascii=False) + "\n"
-        + "\n# BOUNDED AUDIT CONTRACT\n"
-        + _extract_package_context(base_prompt)
-        + "\n\nThe candidate author and implementation process are intentionally unknown to you. Do not ask for them. Audit, repair every material defect you can safely repair inside this contract, and then perform a full five-lane re-audit. Do not emit an interim finding list as a handoff to the implementer. Return CLEAN only after your final corrected candidate is fully clean.\n"
+        + "\n# TECHNICAL AUDIT SCOPE\n"
+        + "Audit the exact candidate in this isolated checkout and all causally adjacent reachable behavior needed to determine correctness of the changed work. Use repository contracts, code, tests, callers, retained state, serialization/replay and semantic LSP as evidence. Do not assume anything about who authored the candidate or how it was produced.\n"
+        + "\nAudit, repair every material defect you can safely repair inside the candidate's existing bounded scope, and then perform a full five-lane re-audit. Do not emit an interim finding list as a handoff to an implementer. Return CLEAN only after your final corrected candidate is fully clean.\n"
     )
 
 
@@ -398,19 +394,15 @@ def _validate_internal_result(
         raise RunnerError("Internal Expert initial candidate hash mismatch")
     if result.get("final_candidate_patch_sha256") != actual_final_hash:
         raise RunnerError("Internal Expert final candidate hash mismatch")
-
     audit_pass_count = result.get("audit_pass_count")
     repair_count = result.get("repair_count")
     if type(audit_pass_count) is not int or audit_pass_count < 1:
         raise RunnerError("Internal Expert audit_pass_count invalid")
     if type(repair_count) is not int or repair_count < 0:
         raise RunnerError("Internal Expert repair_count invalid")
-
     if status == "CLEAN":
         lanes = result.get("lanes")
-        if not isinstance(lanes, dict) or any(
-            lanes.get(lane) != "COMPLETED" for lane in FIVE_LANES
-        ):
+        if not isinstance(lanes, dict) or any(lanes.get(lane) != "COMPLETED" for lane in FIVE_LANES):
             raise RunnerError("Internal Expert CLEAN lacks five completed final lanes")
         if result.get("last_full_audit_material_findings") != 0:
             raise RunnerError("Internal Expert CLEAN final audit still has findings")
@@ -492,10 +484,7 @@ def _append_host_clean_checkpoint(
 
 
 def _metadata_write(path: Path, value: dict[str, Any]) -> None:
-    path.write_text(
-        json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    path.write_text(json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def main() -> int:
@@ -510,7 +499,6 @@ def main() -> int:
     parser.add_argument("--generation-timeout-seconds", type=int, default=2100)
     parser.add_argument("--max-stagnant-generations", type=int, default=1)
     args = parser.parse_args()
-
     if args.max_generations < 1 or args.max_generations > 8:
         parser.error("max-generations must be in [1, 8]")
     if args.generation_timeout_seconds < MIN_SESSION_SECONDS:
@@ -520,17 +508,11 @@ def main() -> int:
     template_home = Path(os.environ.get("DSH_HOME", "")).resolve()
     if not template_home.is_dir():
         parser.error("DSH_HOME template is missing")
-
     base_prompt = args.prompt_file.read_text(encoding="utf-8")
     args.output.write_text("", encoding="utf-8")
     local_checkpoint = _prepare_engineer_checkpoint(args.checkpoints, workspace)
     _, local_patch = _workspace_paths(workspace)
-    role_root = Path(
-        tempfile.mkdtemp(
-            prefix="qore-independent-audit-repair-",
-            dir=os.environ.get("RUNNER_TEMP") or None,
-        )
-    )
+    role_root = Path(tempfile.mkdtemp(prefix="qore-independent-audit-repair-", dir=os.environ.get("RUNNER_TEMP") or None))
 
     attempts: list[dict[str, Any]] = []
     terminal_reason = "INDEPENDENT_AUDIT_REPAIR_SESSION_BUDGET_EXHAUSTED"
@@ -547,7 +529,6 @@ def main() -> int:
     audit_started = False
 
     try:
-        # Phase 1: Engineer works independently until its six engineering lanes are complete.
         while sessions_used < session_budget:
             state = parse_checkpoint_file(args.checkpoints)
             if state.blocked:
@@ -556,55 +537,33 @@ def main() -> int:
                 break
             if _engineering_complete(state):
                 break
-
             remaining = _cost_window_remaining_seconds()
             if remaining is not None and remaining < MIN_SESSION_SECONDS:
                 terminal_reason = "COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION"
                 final_rc = 79
                 break
-            timeout = args.generation_timeout_seconds
-            if remaining is not None:
-                timeout = max(MIN_SESSION_SECONDS, min(timeout, remaining))
-
+            timeout = args.generation_timeout_seconds if remaining is None else max(MIN_SESSION_SECONDS, min(args.generation_timeout_seconds, remaining))
             sessions_used += 1
             engineer_sessions += 1
             before = state
             _atomic_write(local_checkpoint, args.checkpoints.read_text(encoding="utf-8"))
-            engineer_home = _fresh_role_home(
-                template_home,
-                role_root / f"engineer-{engineer_sessions}",
-            )
+            engineer_home = _fresh_role_home(template_home, role_root / f"engineer-{engineer_sessions}")
             rc, text, timed_out = _run_role(
                 dsh_bin=args.dsh_bin,
                 profile=args.profile,
-                prompt=_engineer_role_prompt(
-                    base_prompt=base_prompt,
-                    host_checkpoint=args.checkpoints,
-                ),
+                prompt=_engineer_role_prompt(base_prompt=base_prompt, host_checkpoint=args.checkpoints),
                 timeout_seconds=timeout,
                 role_home=engineer_home,
                 cwd=workspace,
                 permission_mode="workspace-write",
             )
-            _append_output(
-                args.output,
-                role="ENGINEER",
-                cycle=engineer_sessions,
-                rc=rc,
-                timed_out=timed_out,
-                text=text,
-            )
+            _append_output(args.output, role="ENGINEER", cycle=engineer_sessions, rc=rc, timed_out=timed_out, text=text)
             try:
-                state = _harvest_engineer_checkpoint(
-                    args.checkpoints,
-                    local_checkpoint,
-                    before,
-                )
+                state = _harvest_engineer_checkpoint(args.checkpoints, local_checkpoint, before)
             except StateError as exc:
                 terminal_reason = f"CORRUPT_ENGINEER_CHECKPOINT:{exc}"
                 final_rc = 65
                 break
-
             patch_hash: str | None = None
             changed_files: list[str] = []
             try:
@@ -612,18 +571,16 @@ def main() -> int:
             except RunnerError:
                 if _engineering_complete(state):
                     raise
-            attempts.append(
-                {
-                    "role": "ENGINEER",
-                    "session": engineer_sessions,
-                    "exit_code": rc,
-                    "timed_out": timed_out,
-                    "completed_lanes": state.completed,
-                    "pending_lanes": state.pending,
-                    "candidate_patch_sha256": patch_hash,
-                    "changed_files": changed_files,
-                }
-            )
+            attempts.append({
+                "role": "ENGINEER",
+                "session": engineer_sessions,
+                "exit_code": rc,
+                "timed_out": timed_out,
+                "completed_lanes": state.completed,
+                "pending_lanes": state.pending,
+                "candidate_patch_sha256": patch_hash,
+                "changed_files": changed_files,
+            })
             if ENGINEERING_BLOCKED in text:
                 terminal_reason = "ENGINEERING_BLOCKED"
                 final_rc = 2
@@ -638,21 +595,14 @@ def main() -> int:
                 terminal_reason = "ENGINEERING_NOT_COMPLETE_WITHIN_SESSION_BUDGET"
                 final_rc = 70
             else:
-                # Phase 2: hand off exact candidate to an unknown independent auditor-remediator.
-                initial_patch_hash, changed_files = _candidate_patch(workspace, local_patch)
+                initial_patch_hash, _ = _candidate_patch(workspace, local_patch)
                 final_patch_hash = initial_patch_hash
                 audit_started = True
                 audit_workspace = role_root / "internal-expert-workspace"
                 _create_audit_workspace(workspace, local_patch, audit_workspace)
                 if _audit_patch_hash(audit_workspace) != initial_patch_hash:
                     raise RunnerError("initial audit workspace patch binding mismatch")
-
-                # One isolated Internal Expert role owns all audit/repair work. The same role home
-                # and candidate workspace survive bounded retry sessions; Engineer never re-enters.
-                audit_home = _fresh_role_home(
-                    template_home,
-                    role_root / "internal-expert",
-                )
+                audit_home = _fresh_role_home(template_home, role_root / "internal-expert")
 
                 while sessions_used < session_budget:
                     remaining = _cost_window_remaining_seconds()
@@ -660,22 +610,15 @@ def main() -> int:
                         terminal_reason = "COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION"
                         final_rc = 79
                         break
-                    timeout = args.generation_timeout_seconds
-                    if remaining is not None:
-                        timeout = max(MIN_SESSION_SECONDS, min(timeout, remaining))
-
+                    timeout = args.generation_timeout_seconds if remaining is None else max(MIN_SESSION_SECONDS, min(args.generation_timeout_seconds, remaining))
                     audit_sessions += 1
                     sessions_used += 1
                     current_patch = role_root / f"audit-current-{audit_sessions}.patch"
-                    current_hash, current_changed = _candidate_patch(
-                        audit_workspace,
-                        current_patch,
-                    )
+                    current_hash, current_changed = _candidate_patch(audit_workspace, current_patch)
                     rc, text, timed_out = _run_role(
                         dsh_bin=args.dsh_bin,
                         profile=args.profile,
                         prompt=_internal_expert_prompt(
-                            base_prompt=base_prompt,
                             initial_hash=initial_patch_hash,
                             current_hash=current_hash,
                             changed_files=current_changed,
@@ -688,14 +631,7 @@ def main() -> int:
                         cwd=audit_workspace,
                         permission_mode="workspace-write",
                     )
-                    _append_output(
-                        args.output,
-                        role="INTERNAL_EXPERT",
-                        cycle=audit_sessions,
-                        rc=rc,
-                        timed_out=timed_out,
-                        text=text,
-                    )
+                    _append_output(args.output, role="INTERNAL_EXPERT", cycle=audit_sessions, rc=rc, timed_out=timed_out, text=text)
                     actual_after_hash = _audit_patch_hash(audit_workspace)
                     record: dict[str, Any] = {
                         "role": "INTERNAL_EXPERT",
@@ -708,12 +644,10 @@ def main() -> int:
                         "engineer_transcript_shared": False,
                         "engineer_reentered": False,
                     }
-
                     if rc != 0:
                         record["status"] = "RECOVERY_REQUIRED"
                         attempts.append(record)
                         continue
-
                     try:
                         result = _parse_internal_result(text)
                         status, audit_pass_count, repair_count = _validate_internal_result(
@@ -726,19 +660,15 @@ def main() -> int:
                         record["error"] = str(exc)
                         attempts.append(record)
                         continue
-
                     record["status"] = status
                     record["audit_pass_count"] = audit_pass_count
                     record["repair_count"] = repair_count
                     attempts.append(record)
-
                     if status == "BLOCKED":
                         terminal_reason = "INTERNAL_EXPERT_AUDIT_REPAIR_BLOCKED"
                         final_rc = 2
                         break
 
-                    # CLEAN: export the auditor-remediator's exact final candidate and replace
-                    # the Engineer candidate mechanically. No return to Engineer is permitted.
                     final_patch = role_root / "internal-expert-final.patch"
                     exported_hash, _ = _candidate_patch(audit_workspace, final_patch)
                     if exported_hash != actual_after_hash:
@@ -747,7 +677,6 @@ def main() -> int:
                     canonical_hash, _ = _candidate_patch(workspace, local_patch)
                     if canonical_hash != exported_hash:
                         raise RunnerError("canonical candidate differs from Internal Expert CLEAN patch")
-
                     final_patch_hash = canonical_hash
                     final_repair_count = repair_count
                     final_audit_pass_count = audit_pass_count
@@ -762,13 +691,8 @@ def main() -> int:
                         terminal_reason = "HOST_CLEAN_MARKERS_DID_NOT_CLOSE_STATE"
                         final_rc = 68
                         break
-
                     with args.output.open("a", encoding="utf-8") as handle:
-                        handle.write(
-                            "\n## RESUME STATE\nCOMPLETE\n"
-                            "## ENGINEER VERDICT\n"
-                            f"{FINAL_READY}\n"
-                        )
+                        handle.write("\n## RESUME STATE\nCOMPLETE\n## ENGINEER VERDICT\n" + FINAL_READY + "\n")
                     terminal_reason = "CANDIDATE_COMPLETE"
                     final_rc = 0
                     break
@@ -780,34 +704,31 @@ def main() -> int:
         terminal_reason = f"RUNNER_ERROR:{type(exc).__name__}:{exc}"
         final_rc = 69
     finally:
-        _metadata_write(
-            args.metadata,
-            {
-                "schema": "qore-harness-independent-audit-repair-runner-v2",
-                "policy": "QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2",
-                "terminal_reason": terminal_reason,
-                "exit_code": final_rc,
-                "elapsed_seconds": int(time.monotonic() - started),
-                "attempts": attempts,
-                "independent_roles": True,
-                "engineer_transcript_shared_with_internal_expert": False,
-                "internal_expert_knows_engineer_identity": False,
-                "engineer_reentered_after_audit_handoff": False,
-                "internal_expert_can_repair": True,
-                "internal_expert_reaudits_after_repairs": True,
-                "audit_started": audit_started,
-                "engineer_sessions": engineer_sessions,
-                "internal_expert_sessions": audit_sessions,
-                "initial_candidate_patch_sha256": initial_patch_hash,
-                "final_candidate_patch_sha256": final_patch_hash,
-                "final_internal_expert_repair_count": final_repair_count,
-                "final_internal_expert_audit_pass_count": final_audit_pass_count,
-                "sessions_used": sessions_used,
-                "session_budget": session_budget,
-            },
-        )
+        _metadata_write(args.metadata, {
+            "schema": "qore-harness-independent-audit-repair-runner-v2",
+            "policy": "QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2",
+            "terminal_reason": terminal_reason,
+            "exit_code": final_rc,
+            "elapsed_seconds": int(time.monotonic() - started),
+            "attempts": attempts,
+            "independent_roles": True,
+            "engineer_transcript_shared_with_internal_expert": False,
+            "internal_expert_knows_engineer_identity": False,
+            "implementation_package_context_shared_with_internal_expert": False,
+            "engineer_reentered_after_audit_handoff": False,
+            "internal_expert_can_repair": True,
+            "internal_expert_reaudits_after_repairs": True,
+            "audit_started": audit_started,
+            "engineer_sessions": engineer_sessions,
+            "internal_expert_sessions": audit_sessions,
+            "initial_candidate_patch_sha256": initial_patch_hash,
+            "final_candidate_patch_sha256": final_patch_hash,
+            "final_internal_expert_repair_count": final_repair_count,
+            "final_internal_expert_audit_pass_count": final_audit_pass_count,
+            "sessions_used": sessions_used,
+            "session_budget": session_budget,
+        })
         shutil.rmtree(role_root, ignore_errors=True)
-
     return final_rc
 
 
