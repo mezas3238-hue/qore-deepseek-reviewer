@@ -36,20 +36,26 @@ jobs:
           python3 test_harness_resilient_runner.py
           python3 test_harness_terminal_markers.py
           python3 test_harness_cost_window.py
-      - name: Certify Harness v3 recurrent-family invariants and six-lane authority
+      - name: Certify Harness one-shot complete-delivery and six-subagent authority
         run: |
           set -euo pipefail
           grep -q 'PENDING LANE != BATCH FAILURE' docs/harness-large-batch-resilience-001.md
           grep -q 'ONE LANE INTERRUPTION != RESTART ALL LANES' docs/harness-large-batch-resilience-001.md
           grep -q 'DURABLE COMPLETED LANE != REPEATABLE WORK' docs/harness-large-batch-resilience-001.md
           grep -q 'RECOVERABLE MODEL EXIT != MATERIAL FAILURE' docs/harness-large-batch-resilience-001.md
-          grep -q 'FULL_FAMILY_RECERTIFICATION' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'ONE WORK PACKAGE = ONE HARNESS DELIVERY' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'ONE DISPATCH -> ONE COMPLETE SOLUTION OR BLOCKED' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'NO NORMAL CORRECTION CHAIN' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'EXPERT PASS IS THE ACCEPTANCE TARGET OF EVERY HARNESS DELIVERY' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'HARNESS_QUALITY_FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'FAMILY_MODEL' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'MATERIAL_GAP' harness/engineer/prompts/qore-harness-engineer-v2.md
-          grep -q 'POST-IMPLEMENTATION INDEPENDENT SELF-FALSIFICATION' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'Fresh post-implementation independent self-falsification' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'did NOT propose or implement the patch' harness/engineer/prompts/qore-harness-engineer-v2.md
-          grep -q 'RECURRENT FAMILY RECERTIFICATION MATRIX' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'QORE_SUBAGENT_STATE' scripts/harness_large_batch_state.py
+          grep -q 'all_subagents_complete' scripts/harness_large_batch_state.py
+          grep -q 'subagent identity .* reused across lanes' scripts/harness_large_batch_state.py
           grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
           ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
       - name: Certify routing, recovery memory and cost-window fail-closed gates
@@ -66,6 +72,7 @@ jobs:
           grep -q 'deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'HOST_RECOVERY_IMPORTED' scripts/harness_large_batch_state.py
           grep -q 'RECOVERY_REQUIRED' scripts/harness_large_batch_state.py
+          grep -q 'completed_subagent_lanes' scripts/harness_large_batch_state.py
           grep -q 'America/Asuncion' scripts/harness_resilient_runner.py
           grep -q '21:25' scripts/harness_resilient_runner.py
           grep -q 'COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION' scripts/harness_resilient_runner.py
