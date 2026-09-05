@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-R7-CORRECTION-011-FULL-FAMILY-RECERTIFICATION-DUAL-ROLE-RESUME-001",
-  "expected_start": "d3b79224729b62727f5b02542bf75c4e1f3b1787",
-  "expected_tree": "00e3eff2262bc2214099426d28ab098e3dd21106",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-r7-correction-011-full-family-recertification-resume-001.md",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-R8-RF1-QUALITY-FAILURE-ONE-SHOT-001",
+  "expected_start": "fda9101415595ebca30ba1b71c7dc26f4ad2b025",
+  "expected_tree": "f8e11d8bccbe556a96deeeb6d6f354364a46e1f2",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-r8-rf1-harness-quality-failure-one-shot-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-r7-correction-011-full-family-recertification-dual-role-resume-001-20260905-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-r8-rf1-quality-failure-one-shot-001-20260905-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
