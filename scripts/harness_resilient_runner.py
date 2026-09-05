@@ -8,7 +8,9 @@ import shutil
 import signal
 import subprocess
 import time
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from harness_large_batch_state import Snapshot, StateError, parse_checkpoint_file
 
@@ -21,6 +23,10 @@ AGENT_RECOVERY_DIR = ".qore-harness-recovery"
 WORK_PACKAGE_MARKER = "# WORK PACKAGE"
 CHECKPOINT_BEGIN = "QORE_CHECKPOINT_BEGIN"
 CHECKPOINT_END = "QORE_CHECKPOINT_END"
+COST_WINDOW_TZ = ZoneInfo("America/Asuncion")
+COST_WINDOW_HARD_STOP_HOUR = 21
+COST_WINDOW_HARD_STOP_MINUTE = 25
+MIN_GENERATION_SECONDS = 60
 
 
 def _has_exact_section_value(text: str, header: str, value: str) -> bool:
@@ -55,6 +61,24 @@ def _candidate_complete(text: str, *, all_complete: bool, rc: int) -> bool:
     exact_contract = READY in text and _resume_complete(text)
     semantic_fallback = _semantic_candidate_ready(text)
     return all_complete and rc == 0 and (exact_contract or semantic_fallback)
+
+
+def _cost_window_remaining_seconds(now: datetime | None = None) -> int | None:
+    """Return model-spend seconds remaining before 21:25 America/Asuncion.
+
+    The guard is active only in a real DeepSeek execution environment. Unit tests and
+    deterministic local tooling without DEEPSEEK_API_KEY remain time-independent.
+    """
+    if not os.environ.get("DEEPSEEK_API_KEY"):
+        return None
+    current = now.astimezone(COST_WINDOW_TZ) if now is not None else datetime.now(COST_WINDOW_TZ)
+    cutoff = current.replace(
+        hour=COST_WINDOW_HARD_STOP_HOUR,
+        minute=COST_WINDOW_HARD_STOP_MINUTE,
+        second=0,
+        microsecond=0,
+    )
+    return max(0, int((cutoff - current).total_seconds()))
 
 
 def _append_generation_output(
@@ -282,24 +306,20 @@ def _recovery_prompt(
 ) -> str:
     post_lane_instruction = (
         "All six lanes are already durable COMPLETED carry-forward evidence. Do not relaunch any lane. "
-        "Resume only the unfinished post-lane synthesis, implementation, validation, LSP-after, "
-        "Root-Family Exhaustion, diff audit, and final report gates. "
+        "Resume only the unfinished final synthesis, validation, Root-Family Exhaustion, diff audit and report gates. "
         if not pending
         else
-        "Run only pending/recovery-required lanes, then synthesize all six using inherited evidence. "
-        "If a pending lane was merely delayed, consume its result if available; otherwise relaunch only that lane. "
+        "Run only pending/recovery-required work using inherited completed evidence. Respect the v3 rule that L6 is post-implementation only. "
+        "If a pending lane was merely interrupted, consume durable evidence first and relaunch only the exact missing unit. "
     )
     compact_contract = (
         "# HARNESS COMPACT RECOVERY CONTRACT\n"
-        "This generation is a continuation of the SAME immutable six-lane package. "
+        "This generation is a continuation of the SAME immutable six-lane package/successor recovery chain. "
         "EFFICIENCY != REDUCED COVERAGE. COMPACTION != EVIDENCE LOSS. "
         "DEDUPLICATION != WITNESS LOSS. SMART STOP != EARLY PASS. "
-        "Reuse the bound SHARED_EVIDENCE_MAP and CAUSAL_FAMILY_LEDGER from durable evidence. "
-        "Do not repeat broad discovery or completed-lane narrative unless a concrete contradiction, "
-        "unusable evidence, or binding change requires a bounded re-check. "
-        "Semantic LSP-before/after obligations, HIGH/MAX reasoning, adversarial/property coverage, "
-        "Root-Family Exhaustion, all six logical lanes, durable checkpoints, full synthesis and the "
-        "external FULL QG contract remain mandatory.\n\n"
+        "Reuse bound SHARED_EVIDENCE_MAP, CAUSAL_FAMILY_LEDGER and FAMILY_MODEL evidence. "
+        "Do not repeat broad discovery or completed-lane narrative unless a concrete contradiction, unusable evidence, or binding change requires a bounded re-check. "
+        "Semantic LSP-before/after, HIGH/MAX, recurrent-family recertification, post-implementation L6 self-falsification, durable checkpoints and external FULL QG remain mandatory.\n\n"
     )
     return (
         compact_contract
@@ -311,9 +331,8 @@ def _recovery_prompt(
         + f"pending_or_recovery_lanes={pending}\n\n"
         + "Completed lanes are certified carry-forward work: DO NOT relaunch, repeat, or reconstruct them. "
         + post_lane_instruction
-        + "Before any new long operation append a checkpoint with QORE_LANE_STATE entries and refresh the compact "
-        + "SHARED_EVIDENCE_MAP SNAPSHOT / CAUSAL_FAMILY_LEDGER SNAPSHOT when material state changes. "
-        + "A wait/pause response is not a valid terminal response: continue until COMPLETE, MATERIAL_BLOCKED, or the host timeout.\n\n"
+        + "Before any new long operation append a checkpoint with QORE_LANE_STATE entries and refresh compact evidence snapshots when material state changes. "
+        + "A wait/pause response is not a valid terminal response: continue until COMPLETE, MATERIAL_BLOCKED, host timeout, or cost-window cutoff.\n\n"
         + "# COMPACT DURABLE RESUME CONTEXT — LATEST COMPLETE CHECKPOINT\n"
         + _latest_complete_checkpoint(checkpoints)
     )
@@ -334,7 +353,7 @@ def main() -> int:
 
     if args.max_generations < 1 or args.max_generations > 8:
         parser.error("max-generations must be in [1, 8]")
-    if args.generation_timeout_seconds < 60:
+    if args.generation_timeout_seconds < MIN_GENERATION_SECONDS:
         parser.error("generation timeout is too small")
 
     raw_base_prompt = args.prompt_file.read_text(encoding="utf-8")
@@ -372,6 +391,30 @@ def main() -> int:
                 final_rc = 2
                 break
 
+            cost_remaining = _cost_window_remaining_seconds()
+            if cost_remaining is not None and cost_remaining < MIN_GENERATION_SECONDS:
+                terminal_reason = "COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION"
+                final_rc = 79
+                attempts.append(
+                    {
+                        "generation": generation,
+                        "exit_code": 79,
+                        "checkpoint_count": before.checkpoint_count,
+                        "completed_lanes": before.completed,
+                        "pending_lanes": before.pending,
+                        "blocked_lanes": before.blocked,
+                        "cost_window_remaining_seconds": cost_remaining,
+                        "generation_not_started_due_to_cost_window": True,
+                    }
+                )
+                break
+
+            effective_timeout = args.generation_timeout_seconds
+            cost_limited = False
+            if cost_remaining is not None and cost_remaining < effective_timeout:
+                effective_timeout = max(MIN_GENERATION_SECONDS, cost_remaining)
+                cost_limited = True
+
             if sandbox_localized:
                 _prepare_agent_checkpoint(args.checkpoints, agent_checkpoint)
 
@@ -391,7 +434,7 @@ def main() -> int:
                 dsh_bin=args.dsh_bin,
                 profile=args.profile,
                 prompt=prompt,
-                timeout_seconds=args.generation_timeout_seconds,
+                timeout_seconds=effective_timeout,
                 output_path=args.output,
                 generation=generation,
             )
@@ -413,17 +456,15 @@ def main() -> int:
                             "checkpoint_error": str(exc),
                             "checkpoint_publication_failed": True,
                             "prompt_chars": len(prompt),
+                            "effective_timeout_seconds": effective_timeout,
+                            "cost_window_limited": cost_limited,
                         }
                     )
                     with args.output.open("a", encoding="utf-8") as handle:
-                        handle.write(
-                            "\n\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT BEGIN -->\n"
-                        )
+                        handle.write("\n\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT BEGIN -->\n")
                         if agent_checkpoint.is_file():
                             handle.write(agent_checkpoint.read_text(encoding="utf-8"))
-                        handle.write(
-                            "\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT END -->\n"
-                        )
+                        handle.write("\n<!-- QORE_UNPUBLISHED_AGENT_CHECKPOINT END -->\n")
                     break
 
             try:
@@ -437,6 +478,8 @@ def main() -> int:
                         "exit_code": rc,
                         "checkpoint_error": str(exc),
                         "prompt_chars": len(prompt),
+                        "effective_timeout_seconds": effective_timeout,
+                        "cost_window_limited": cost_limited,
                     }
                 )
                 break
@@ -470,6 +513,8 @@ def main() -> int:
                     "sandbox_checkpoint_localized": sandbox_localized,
                     "prompt_chars": len(prompt),
                     "recovery_context_mode": "full-initial" if generation == 1 else "compact-latest-checkpoint",
+                    "effective_timeout_seconds": effective_timeout,
+                    "cost_window_limited": cost_limited,
                 }
             )
 
@@ -481,6 +526,11 @@ def main() -> int:
             if _candidate_complete(text, all_complete=after.all_complete, rc=rc):
                 terminal_reason = "CANDIDATE_COMPLETE"
                 final_rc = 0
+                break
+
+            if rc == 124 and cost_limited:
+                terminal_reason = "COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION"
+                final_rc = 79
                 break
 
             if after.pending or after.all_complete:
@@ -503,7 +553,7 @@ def main() -> int:
         final = last_valid
 
     metadata = {
-        "schema": "qore-harness-resilient-runner-v1",
+        "schema": "qore-harness-resilient-runner-v2",
         "terminal_reason": terminal_reason,
         "exit_code": final_rc,
         "elapsed_seconds": int(time.monotonic() - started),
@@ -517,6 +567,9 @@ def main() -> int:
         "recovery_generations_used": max(0, len(attempts) - 1),
         "sandbox_checkpoint_localized": sandbox_localized,
         "recovery_context_policy": "compact-latest-complete-checkpoint",
+        "deepseek_cost_window_timezone": "America/Asuncion",
+        "deepseek_cost_window_hard_stop": "21:25",
+        "deepseek_cost_window_enforced": bool(os.environ.get("DEEPSEEK_API_KEY")),
     }
     args.metadata.write_text(
         json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8"
