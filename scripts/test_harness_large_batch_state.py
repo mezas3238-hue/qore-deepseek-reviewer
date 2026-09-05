@@ -50,6 +50,14 @@ def annotated_bound_cp(annotation: str, *lane_lines: str) -> str:
     )
 
 
+def completed_lane_and_subagent(lane: int, identity: str | None = None) -> list[str]:
+    agent_id = identity or f"agent-{lane}"
+    return [
+        f"QORE_LANE_STATE lane={lane} state=COMPLETED generation=1",
+        f"QORE_SUBAGENT_STATE lane={lane} id={agent_id} state=COMPLETED generation=1",
+    ]
+
+
 class HarnessLargeBatchStateTests(unittest.TestCase):
     def test_delayed_lane_does_not_invalidate_completed_lanes(self) -> None:
         text = cp(
@@ -99,7 +107,7 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
         self.assertEqual(state.blocked, [4])
         self.assertNotIn(4, state.pending)
 
-    def test_all_six_complete(self) -> None:
+    def test_all_six_lane_markers_without_subagents_are_not_complete(self) -> None:
         state = parse_checkpoint_text(
             cp(
                 *[
@@ -108,8 +116,35 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
                 ]
             )
         )
+        self.assertEqual(state.completed, [1, 2, 3, 4, 5, 6])
+        self.assertFalse(state.all_subagents_complete)
+        self.assertFalse(state.all_complete)
+
+    def test_all_six_distinct_subagents_and_lanes_complete(self) -> None:
+        lines: list[str] = []
+        for lane in range(1, 7):
+            lines.extend(completed_lane_and_subagent(lane))
+        state = parse_checkpoint_text(cp(*lines))
+        self.assertTrue(state.all_subagents_complete)
         self.assertTrue(state.all_complete)
         self.assertEqual(state.pending, [])
+        self.assertEqual(state.completed_subagents, [1, 2, 3, 4, 5, 6])
+
+    def test_duplicate_completed_subagent_identity_across_lanes_fails_closed(self) -> None:
+        text = cp(
+            *completed_lane_and_subagent(1, "same-agent"),
+            *completed_lane_and_subagent(2, "same-agent"),
+        )
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text)
+
+    def test_completed_subagent_identity_cannot_change(self) -> None:
+        text = cp(
+            "QORE_SUBAGENT_STATE lane=1 id=agent-a state=COMPLETED generation=1",
+            "QORE_SUBAGENT_STATE lane=1 id=agent-b state=COMPLETED generation=2",
+        )
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text)
 
     def test_initialization_is_non_destructive(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -117,6 +152,7 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
             write_initial(path, PACKAGE, START, TREE)
             first = path.read_text(encoding="utf-8")
             self.assertIn("lane=6 state=NOT_STARTED", first)
+            self.assertIn("QORE_SUBAGENT_STATE lane=6 id=UNASSIGNED-6 state=NOT_STARTED", first)
             with self.assertRaises(StateError):
                 write_initial(path, PACKAGE, START, TREE)
 
@@ -216,13 +252,19 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
         with self.assertRaises(StateError):
             parse_checkpoint_text(text, require_binding=True)
 
+    def test_durable_subagent_state_outside_checkpoint_fails_closed(self) -> None:
+        text = bound_cp("QORE_LANE_STATE lane=1 state=RUNNING generation=1")
+        text += "QORE_SUBAGENT_STATE lane=1 id=agent-1 state=RUNNING generation=1\n"
+        with self.assertRaises(StateError):
+            parse_checkpoint_text(text, require_binding=True)
+
     def test_binding_outside_checkpoint_fails_closed(self) -> None:
         text = bound_cp("QORE_LANE_STATE lane=1 state=COMPLETED generation=1")
         text += f"binding: START={START} TREE={TREE}\n"
         with self.assertRaises(StateError):
             parse_checkpoint_text(text, require_binding=True)
 
-    def test_successor_recovery_preserves_completed_lanes_and_converts_running(self) -> None:
+    def test_successor_recovery_preserves_completed_lanes_subagents_and_converts_running(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / "source.md"
@@ -230,11 +272,17 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
             source.write_text(
                 bound_cp(
                     "QORE_LANE_STATE lane=1 state=COMPLETED generation=2",
+                    "QORE_SUBAGENT_STATE lane=1 id=agent-1 state=COMPLETED generation=2",
                     "QORE_LANE_STATE lane=2 state=RUNNING generation=3",
+                    "QORE_SUBAGENT_STATE lane=2 id=agent-2 state=RUNNING generation=3",
                     "QORE_LANE_STATE lane=3 state=CHECKPOINTED generation=2",
+                    "QORE_SUBAGENT_STATE lane=3 id=agent-3 state=CHECKPOINTED generation=2",
                     "QORE_LANE_STATE lane=4 state=NOT_STARTED generation=0",
+                    "QORE_SUBAGENT_STATE lane=4 id=UNASSIGNED-4 state=NOT_STARTED generation=0",
                     "QORE_LANE_STATE lane=5 state=COMPLETED generation=1",
+                    "QORE_SUBAGENT_STATE lane=5 id=agent-5 state=COMPLETED generation=1",
                     "QORE_LANE_STATE lane=6 state=NOT_STARTED generation=0",
+                    "QORE_SUBAGENT_STATE lane=6 id=UNASSIGNED-6 state=NOT_STARTED generation=0",
                     package="PREDECESSOR",
                 ),
                 encoding="utf-8",
@@ -249,8 +297,11 @@ class HarnessLargeBatchStateTests(unittest.TestCase):
                 )
             self.assertEqual(state.package_id, "SUCCESSOR")
             self.assertEqual(state.completed, [1, 5])
+            self.assertEqual(state.completed_subagents, [1, 5])
             self.assertEqual(state.lanes[2], "RECOVERY_REQUIRED")
             self.assertEqual(state.generations[2], 4)
+            self.assertEqual(state.subagent_states[2], "RECOVERY_REQUIRED")
+            self.assertEqual(state.subagent_generations[2], 4)
             self.assertEqual(state.lanes[3], "CHECKPOINTED")
             text = destination.read_text(encoding="utf-8")
             self.assertIn("predecessor_package_id=PREDECESSOR", text)
