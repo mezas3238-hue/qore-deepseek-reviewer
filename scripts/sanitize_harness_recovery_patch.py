@@ -16,11 +16,21 @@ _HEADER = re.compile(br"(?m)^diff --git ")
 
 
 def sanitize(data: bytes) -> tuple[bytes, tuple[str, ...]]:
+    """Remove recovery-helper diffs and canonicalize semantic chunk ordering.
+
+    Git's deterministic ``git diff --binary HEAD --`` output is path-sorted.  A
+    recovered Harness artifact may contain the same semantic diff chunks in
+    generation order instead.  Sorting the untouched chunks by repository path
+    makes the sanitized artifact byte-identical to the canonical patch that the
+    deterministic gate and Internal Expert runner regenerate from the workspace.
+    Chunk contents are never rewritten.
+    """
     starts = [match.start() for match in _HEADER.finditer(data)]
     if not starts:
         raise RuntimeError("input contains no git diff headers")
 
-    output: list[bytes] = [data[: starts[0]]]
+    preamble = data[: starts[0]]
+    semantic_chunks: list[tuple[bytes, bytes]] = []
     removed: list[str] = []
     for index, start in enumerate(starts):
         end = starts[index + 1] if index + 1 < len(starts) else len(data)
@@ -34,14 +44,19 @@ def sanitize(data: bytes) -> tuple[bytes, tuple[str, ...]]:
         if path in _HELPER_PATHS:
             removed.append(path.decode("utf-8"))
             continue
-        output.append(chunk)
+        semantic_chunks.append((path, chunk))
 
     if len(removed) != len(_HELPER_PATHS) or frozenset(path.encode() for path in removed) != _HELPER_PATHS:
         raise RuntimeError(
             "expected exactly the two Harness recovery helper diffs; "
             f"removed={removed!r}"
         )
-    sanitized = b"".join(output)
+
+    paths = [path for path, _chunk in semantic_chunks]
+    if len(paths) != len(set(paths)):
+        raise RuntimeError("semantic patch contains duplicate repository paths")
+
+    sanitized = preamble + b"".join(chunk for _path, chunk in sorted(semantic_chunks))
     for helper in _HELPER_PATHS:
         marker = b"diff --git a/" + helper + b" b/" + helper
         if marker in sanitized:
