@@ -24,10 +24,12 @@ jobs:
           python3 -m py_compile \
             scripts/harness_large_batch_state.py \
             scripts/harness_resilient_runner.py \
+            scripts/harness_internal_expert_gate.py \
             scripts/reviewer_resilient_runner.py \
             scripts/test_harness_large_batch_state.py \
             scripts/test_harness_dual_role_state.py \
             scripts/test_harness_resilient_runner.py \
+            scripts/test_harness_internal_expert_gate.py \
             scripts/test_harness_terminal_markers.py \
             scripts/test_harness_cost_window.py \
             scripts/test_reviewer_resilient_runner.py
@@ -38,6 +40,7 @@ jobs:
           python3 test_harness_large_batch_state.py
           python3 test_harness_dual_role_state.py
           python3 test_harness_resilient_runner.py
+          python3 test_harness_internal_expert_gate.py
           python3 test_harness_terminal_markers.py
           python3 test_harness_cost_window.py
           python3 test_reviewer_resilient_runner.py
@@ -74,6 +77,25 @@ jobs:
           grep -q 'HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN' scripts/harness_large_batch_state.py
           grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
           ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
+      - name: Certify blind differential Internal Expert V2 and exact patch binding
+        run: |
+          set -euo pipefail
+          test -s harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'BLIND_DIFFERENTIAL_FALSIFICATION_V2' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'INTERNAL_EXPERT_FAMILY_MODEL' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'COVERAGE_DELTA != NONE' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'at least 24 novel adversarial probe cases' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'at least 12 benign/negative controls' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'at least 12 cross-interaction probes' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'candidate_patch_sha256' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'MIN_NOVEL_PROBES = 24' scripts/harness_internal_expert_gate.py
+          grep -q 'MIN_BENIGN_CONTROLS = 12' scripts/harness_internal_expert_gate.py
+          grep -q 'MIN_CROSS_INTERACTIONS = 12' scripts/harness_internal_expert_gate.py
+          grep -q 'Internal Expert CLEAN is stale' scripts/harness_internal_expert_gate.py
+          grep -q 'QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'Host-verify blind differential Internal Expert CLEAN' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'harness_internal_expert_gate.py' .github/workflows/deepseek-harness-engineer-resilient.yml
+          grep -q 'harness-internal-expert-gate.json' .github/workflows/deepseek-harness-engineer-resilient.yml
       - name: Certify External Expert roadmap independence, synchronous lanes and terminal verdict law
         run: |
           set -euo pipefail
