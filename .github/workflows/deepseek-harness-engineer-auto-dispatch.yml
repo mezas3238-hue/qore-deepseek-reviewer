@@ -44,7 +44,7 @@ jobs:
             echo "Harness DeepSeek dispatch permitted before 19:45 America/Asuncion safe-start cutoff."
           fi
 
-      - name: Validate immutable Engineer request and dispatch resilient workflow
+      - name: Validate immutable request and dispatch independent audit-repair workflow
         if: ${{ steps.cost_window.outputs.allowed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,7 +67,6 @@ jobs:
           RECOVERY_PATCH_SHA256="$(jq -r '.recovery_patch_sha256 // ""' <<<"$VALIDATED")"
 
           test -f "$TASK_PATH"
-
           if test "$RECOVERY_ARTIFACT_ID" != "0"; then
             test -n "$RECOVERY_PATCH_SHA256"
             test "${#RECOVERY_PATCH_SHA256}" -eq 64
@@ -75,11 +74,11 @@ jobs:
             test -z "$RECOVERY_PATCH_SHA256"
           fi
 
-          # Global single-work invariant: Harness may have only ONE active work package at a time.
-          # A different package is not allowed to start while any legacy or resilient Harness run
-          # is queued, in progress, waiting, requested, or pending.
           ACTIVE_HARNESS=""
-          for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
+          for WORKFLOW in \
+            deepseek-harness-engineer.yml \
+            deepseek-harness-engineer-resilient.yml \
+            deepseek-harness-independent-audit-repair.yml; do
             ACTIVE="$(
               gh api --paginate \
                 "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
@@ -98,23 +97,26 @@ jobs:
           if test -n "$ACTIVE_HARNESS"; then
             echo "Harness dispatch DEFERRED: ONE ACTIVE HARNESS WORK AT A TIME is enforced." >&2
             echo "$ACTIVE_HARNESS" >&2
-            echo "Request ${PACKAGE_ID} remains the requested work but no second Harness job was launched." >&2
+            echo "Request ${PACKAGE_ID} remains requested but no second Harness job was launched." >&2
             exit 0
           fi
 
-          for WORKFLOW in deepseek-harness-engineer.yml deepseek-harness-engineer-resilient.yml; do
+          for WORKFLOW in \
+            deepseek-harness-engineer.yml \
+            deepseek-harness-engineer-resilient.yml \
+            deepseek-harness-independent-audit-repair.yml; do
             EXISTING="$(
               gh api --paginate \
                 "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
                 --jq '.workflow_runs[].display_title' 2>/dev/null || true
             )"
             if grep -Fqx "DeepSeek Harness Engineer · ${PACKAGE_ID}" <<<"$EXISTING"; then
-              echo "Refusing duplicate Harness Engineer dispatch for package ${PACKAGE_ID}; found in ${WORKFLOW}." >&2
+              echo "Refusing duplicate Harness dispatch for package ${PACKAGE_ID}; found in ${WORKFLOW}." >&2
               exit 1
             fi
           done
 
-          gh workflow run deepseek-harness-engineer-resilient.yml \
+          gh workflow run deepseek-harness-independent-audit-repair.yml \
             --ref main \
             -f "request_commit=${REQUEST_COMMIT}" \
             -f "package_id=${PACKAGE_ID}" \
@@ -129,4 +131,4 @@ jobs:
             -f "recovery_artifact_id=${RECOVERY_ARTIFACT_ID}" \
             -f "recovery_patch_sha256=${RECOVERY_PATCH_SHA256}"
 
-          echo "Resilient DeepSeek Harness Engineer dispatch accepted for ${PACKAGE_ID}."
+          echo "Independent audit-repair Harness dispatch accepted for ${PACKAGE_ID}."
