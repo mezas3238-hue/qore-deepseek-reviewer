@@ -1,0 +1,12 @@
+{
+  "schema": "qore-cibo-functions-final-materialize-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "source_run_id": 33987252007,
+  "artifact_id": 9975847925,
+  "artifact_digest": "sha256:6a594a534697faa2063c61665d8e4d921c2fed13957f46ef69a410c78139bd20",
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "clean_patch_sha256": "f9df62020d76061bbb6421d114380bb39d96beeb196d543e77d8112112edd3d9",
+  "target_branch": "agent/qore-cibo-functions-demo-acceleration-001",
+  "expected_changed_files": 57
+}
