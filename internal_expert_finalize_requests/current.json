@@ -1,0 +1,24 @@
+{
+  "package_id": "QORE-CIBO-FUNCTIONS-INTERNAL-EXPERT-FINALIZE-001",
+  "source_run_id": 33987252007,
+  "source_artifact_id": 9975847925,
+  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
+  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
+  "expected_final_patch_sha256": "f9df62020d76061bbb6421d114380bb39d96beeb196d543e77d8112112edd3d9",
+  "allowed_paths": [
+    "docs/architecture/QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001.md",
+    "docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md",
+    "src/qore/governance/cibo",
+    "src/qore/infrastructure/cibo",
+    "src/qore/infrastructure/cibo_trader_development_review.py",
+    "src/qore/infrastructure/cibo_trader_manager.py",
+    "src/qore/modules/cibo/contracts.py",
+    "tests/governance/test_cibo",
+    "tests/infrastructure/test_cibo",
+    "tests/infrastructure/test_cibo_trader_development_review.py",
+    "tests/infrastructure/test_cibo_trader_manager.py",
+    "tests/modules/cibo"
+  ],
+  "max_changed_files": 64,
+  "max_diff_lines": 20000
+}
