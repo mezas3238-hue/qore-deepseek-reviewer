@@ -24,7 +24,7 @@ def append_engineering_complete(path: Path) -> None:
             handle.write(
                 f"QORE_SUBAGENT_STATE lane={lane} id=agent-{lane} state=COMPLETED generation=1\n"
             )
-        handle.write("PENDING NEXT ACTION: host validation\n")
+        handle.write("PENDING NEXT ACTION: host handoff\n")
         handle.write("SAFE RESUME INSTRUCTION: preserve engineering evidence\n")
         handle.write("QORE_CHECKPOINT_END\n")
 
@@ -39,17 +39,25 @@ class HarnessTerminalMarkerTests(unittest.TestCase):
             self.assertFalse(state.all_complete)
             self.assertFalse(state.internal_expert_clean)
 
-    def test_host_mints_terminal_clean_only_after_exact_audit(self) -> None:
+    def test_host_mints_terminal_clean_only_after_exact_audit_repair_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "journal.md"
             write_initial(path, PACKAGE, START, TREE)
             append_engineering_complete(path)
             digest = "c" * 64
-            state = _append_host_clean_checkpoint(path, digest, 1)
+            state = _append_host_clean_checkpoint(
+                path,
+                initial_hash=digest,
+                final_hash=digest,
+                audit_pass_count=1,
+                repair_count=0,
+            )
             self.assertTrue(state.all_complete)
             text = path.read_text(encoding="utf-8")
             self.assertIn("HARNESS_INTERNAL_EXPERT_STATUS: CLEAN", text)
-            self.assertIn(f"candidate_patch_sha256={digest}", text)
+            self.assertIn(f"initial_candidate_patch_sha256={digest}", text)
+            self.assertIn(f"final_candidate_patch_sha256={digest}", text)
+            self.assertIn("engineer_reentered_after_audit_handoff=false", text)
 
 
 if __name__ == "__main__":
