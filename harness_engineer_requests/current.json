@@ -1,11 +1,11 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-EXPERT-R7-CORRECTION-011-ROOT-FAMILY-CLOSURE-001",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-R7-CORRECTION-011-FULL-FAMILY-RECERTIFICATION-DUAL-ROLE-RESUME-001",
   "expected_start": "d3b79224729b62727f5b02542bf75c4e1f3b1787",
   "expected_tree": "00e3eff2262bc2214099426d28ab098e3dd21106",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-expert-r7-correction-011-root-family-closure-001.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-r7-correction-011-full-family-recertification-resume-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-expert-r7-correction-011-root-family-closure-001-20260904-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-r7-correction-011-full-family-recertification-dual-role-resume-001-20260905-r1",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
