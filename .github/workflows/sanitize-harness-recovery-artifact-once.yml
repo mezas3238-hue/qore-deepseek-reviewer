@@ -103,8 +103,11 @@ jobs:
           git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
           git -C workspace/qore-core apply "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
           git -C workspace/qore-core diff --check
-          test "$(git -C workspace/qore-core diff --name-only | wc -l | tr -d ' ')" = "$EXPECTED_CHANGED_FILES"
-          git -C workspace/qore-core diff --name-only > sanitized-changed-files.txt
+          STATUS_COUNT="$(git -C workspace/qore-core status --porcelain=v1 --untracked-files=all | wc -l | tr -d ' ')"
+          test "$STATUS_COUNT" = "$EXPECTED_CHANGED_FILES"
+          git -C workspace/qore-core status --porcelain=v1 --untracked-files=all \
+            | sed -E 's/^.. //' > sanitized-changed-files.txt
+          test "$(wc -l < sanitized-changed-files.txt | tr -d ' ')" = "$EXPECTED_CHANGED_FILES"
           sha256sum harness-engineer-candidate.patch > sanitized-patch.sha256
 
       - name: Upload sanitized candidate
