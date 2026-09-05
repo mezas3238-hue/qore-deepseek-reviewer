@@ -1,11 +1,11 @@
 {
-  "dispatch_nonce": "PR486-FDA9101-FINAL-DS-EXPERT-R8-001",
+  "dispatch_nonce": "PR486-FDA9101-FINAL-DS-EXPERT-R8-RESUME-001",
   "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
   "expected_head": "fda9101415595ebca30ba1b71c7dc26f4ad2b025",
   "expected_synthetic": "ef8589b083242cdcd26eb32637e6a788622b5c5e",
-  "package_id": "QORE-PR486-CIBO-COGNITIVE-FINAL-DS-EXPERT-R8-001",
+  "package_id": "QORE-PR486-CIBO-COGNITIVE-FINAL-DS-EXPERT-R8-RESUME-001",
   "pr_number": 486,
-  "prompt_path": "prompts/qore-pr486-cibo-cognitive-final-expert-r8.md",
+  "prompt_path": "prompts/qore-pr486-cibo-cognitive-final-expert-r8-resume-001.md",
   "qg_summary": {
     "coverage_missed_statements": 7077,
     "coverage_percent": 87,
