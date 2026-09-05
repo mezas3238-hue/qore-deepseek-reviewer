@@ -1,10 +1,10 @@
 {
-  "package_id": "QORE-CIBO-FUNCTIONS-DEMO-ACCELERATION-INTERNAL-EXPERT-RECOVERY-001",
+  "package_id": "QORE-CIBO-FUNCTIONS-DEMO-ACCELERATION-INTERNAL-EXPERT-RECOVERY-002",
   "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
   "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
-  "source_run_id": 33987041095,
-  "recovery_artifact_id": 9975471075,
-  "recovery_patch_sha256": "4971afe58039d46e9990d19a06de0646d40ecfa5edf4bf751383b9ad79633f33",
+  "source_run_id": 33987224446,
+  "recovery_artifact_id": 9975525989,
+  "recovery_patch_sha256": "4470cd7f08fa712d7d84f01b996fcfb8f83cf69c47e974e6ca9f2ef4fed0c493",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001.md",
     "docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md",
@@ -22,5 +22,5 @@
   "max_changed_files": 64,
   "max_diff_lines": 20000,
   "run_full_qg": true,
-  "dispatch_nonce": "cibo-functions-demo-acceleration-internal-expert-recovery-001-20260905"
+  "dispatch_nonce": "cibo-functions-demo-acceleration-internal-expert-recovery-002-20260905"
 }
