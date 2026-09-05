@@ -22,6 +22,10 @@ def append_checkpoint(path: Path, seq: int, states: dict[int, str], generation: 
         handle.write(f"phase: TEST_GENERATION_{generation}\n")
         for lane, state in states.items():
             handle.write(f"QORE_LANE_STATE lane={lane} state={state} generation={generation}\n")
+            handle.write(
+                f"QORE_SUBAGENT_STATE lane={lane} id=agent-{lane} "
+                f"state={state} generation={generation}\n"
+            )
         handle.write("PENDING NEXT ACTION: continue pending lanes\n")
         handle.write("SAFE RESUME INSTRUCTION: never repeat completed lanes\n")
         handle.write("QORE_CHECKPOINT_END\n")
