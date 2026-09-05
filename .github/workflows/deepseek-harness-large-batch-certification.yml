@@ -24,11 +24,13 @@ jobs:
           python3 -m py_compile \
             scripts/harness_large_batch_state.py \
             scripts/harness_resilient_runner.py \
+            scripts/reviewer_resilient_runner.py \
             scripts/test_harness_large_batch_state.py \
             scripts/test_harness_dual_role_state.py \
             scripts/test_harness_resilient_runner.py \
             scripts/test_harness_terminal_markers.py \
-            scripts/test_harness_cost_window.py
+            scripts/test_harness_cost_window.py \
+            scripts/test_reviewer_resilient_runner.py
       - name: Run adversarial state-machine and runner tests
         working-directory: scripts
         run: |
@@ -38,6 +40,7 @@ jobs:
           python3 test_harness_resilient_runner.py
           python3 test_harness_terminal_markers.py
           python3 test_harness_cost_window.py
+          python3 test_reviewer_resilient_runner.py
       - name: Certify Harness one-shot dual-role and six-subagent authority
         run: |
           set -euo pipefail
@@ -71,7 +74,7 @@ jobs:
           grep -q 'HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN' scripts/harness_large_batch_state.py
           grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
           ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
-      - name: Certify External Expert roadmap independence and intake law
+      - name: Certify External Expert roadmap independence, synchronous lanes and terminal verdict law
         run: |
           set -euo pipefail
           test -s harness/reviewer/QORE-EXPERT-WORK-ROADMAP-V1.md
@@ -82,9 +85,13 @@ jobs:
           grep -q 'QORE-EXPERT-WORK-ROADMAP-V1.md' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
           grep -q '^## HARNESS DUAL-ROLE INTAKE' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
           grep -q 'EXTERNAL MATERIAL ESCAPE AFTER VALID INTERNAL CLEAN = HARNESS_QUALITY_FAILURE' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'Mandatory synchronous lane-collection gate' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'LANE LAUNCHED != LANE COMPLETED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'must actively collect native subagent results' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
+          grep -q 'VALIDATION BLOCKED' harness/reviewer/prompts/qore-deepseek-expert-swarm-v1.md
           grep -q 'QORE-EXPERT-WORK-ROADMAP-V1.md' prompts/shared/expert-common.md
           grep -q 'INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS' prompts/shared/expert-common.md
-      - name: Certify routing, global single-work, recovery memory and cost-window fail-closed gates
+      - name: Certify routing, global single-work, recovery memory, cost-window and reviewer resilience gates
         run: |
           set -euo pipefail
           grep -q 'deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
@@ -107,3 +114,10 @@ jobs:
           grep -q 'COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION' scripts/harness_resilient_runner.py
           grep -q 'start_new_session=True' scripts/harness_resilient_runner.py
           grep -q 'os.killpg' scripts/harness_resilient_runner.py
+          grep -q 'reviewer_resilient_runner.py' .github/workflows/deepseek-qore-review.yml
+          grep -q 'max-generations 4' .github/workflows/deepseek-qore-review.yml
+          grep -q 'generation-timeout-seconds 1800' .github/workflows/deepseek-qore-review.yml
+          grep -q 'REVIEWER_RECOVERY_GENERATIONS_EXHAUSTED' scripts/reviewer_resilient_runner.py
+          grep -q 'REVIEWER_CHECKPOINT_STAGNATION' scripts/reviewer_resilient_runner.py
+          grep -q 'start_new_session=True' scripts/reviewer_resilient_runner.py
+          grep -q 'os.killpg' scripts/reviewer_resilient_runner.py
