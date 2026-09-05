@@ -1,0 +1,10 @@
+{
+  "schema": "qore-cibo-cognitive-ia-r9-polarity-correction-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "pr_number": 486,
+  "expected_head": "9f306d6c850bb14fd8581729b4d7cd6490e2b08a",
+  "expected_tree": "683bcd6aa4ff51975df0becefcf20907d08d3f39",
+  "target_branch": "agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize",
+  "finding": "Causal evidence channel/polarity laundering: evidence_for/evidence_against/contradictions/limitations do not bind required polarity at constructor and recursive revalidation boundaries.",
+  "disposition": "IA_DIRECT_CORRECTION"
+}
