@@ -2,174 +2,122 @@
 
 ## Status
 
-MANDATORY GLOBAL POLICY for every Harness Engineer work package.
+MANDATORY GLOBAL POLICY.
 
-This policy applies to all current and future Harness Engineer work. It is not project-specific, finding-specific, CIBO-specific, or chat-specific.
+The canonical execution architecture is now:
+
+`harness/engineer/QORE-HARNESS-INDEPENDENT-DUAL-AGENT-POLICY-V1.md`
+
+This document preserves the one-shot law while replacing the former interpretation in which one Harness session changed posture and reused the same six subagents for self-review.
 
 ## Supreme rule
 
-`HARNESS WORK IS NOT COMPLETE WHEN ENGINEERING IS COMPLETE.`
+`ONE WORK PACKAGE = ONE COMPLETE HARNESS DELIVERY`
 
-`HARNESS WORK IS COMPLETE ONLY WHEN ENGINEERING IS COMPLETE + INTERNAL EXPERT IS CLEAN.`
+`WORK COMPLETE = ENGINEERING COMPLETE + INDEPENDENT INTERNAL AUDIT CLEAN`
 
-Every Harness work package is executed as two mandatory logical roles inside the SAME Harness workflow and the SAME work package:
+The two required roles are now two separate agents/contexts inside the same Harness workflow:
 
-1. `HARNESS_ENGINEER_MODE` — builds, fixes, tests, models and integrates the complete assigned scope.
-2. `HARNESS_INTERNAL_EXPERT_MODE` — independently attempts to break the exact candidate produced by Engineer Mode before external handoff.
+1. `HARNESS_ENGINEER_AGENT`
+2. `HARNESS_INTERNAL_EXPERT_AGENT`
 
-The six Harness subagents support BOTH roles. Harness may iterate between the two roles as many times as necessary inside the same work package.
+They MUST NOT share transcripts, hidden reasoning, session memory or subagent contexts.
 
-## One work package, one complete delivery
+## Engineer side
 
-Hard laws:
+Engineer owns implementation and has exactly six engineering lanes:
 
-`ONE WORK PACKAGE = ONE HARNESS DELIVERY`
+1. architecture/contracts/runtime/trust boundaries;
+2. witness reproduction/adversarial engineering;
+3. security/Unicode/normalization/parsing/input boundaries;
+4. property/metamorphic/systematic engineering exploration;
+5. historical regression/replay/integration/callers;
+6. implementation-impact/final engineering coherence.
 
-`ONE HARNESS WORKFLOW = ENGINEER + INTERNAL EXPERT`
+Those six lanes belong only to Engineer.
 
-`NO MATERIAL DEFECT MAY BE DEFERRED TO EXTERNAL EXPERT`
+Engineer may receive only normalized host `VALIDATION_FINDINGS` after an audit fails. It does not receive the auditor identity, transcript, reasoning, lane notes or session memory.
 
-`INTERNAL FINDING = FIX INSIDE THE SAME HARNESS WORK PACKAGE`
+## Internal Expert side
 
-`INTERNAL EXPERT CLEAN IS REQUIRED BEFORE HANDOFF`
+Internal Expert is a fresh independent auditor over an isolated copy of the exact candidate. It has five reviewer lanes equivalent in purpose to External Expert:
 
-`EXTERNAL EXPERT PASS IS THE ACCEPTANCE TARGET`
+- IE-L1 architecture/contracts/runtime/trust-root falsification;
+- IE-L2 security/input/Unicode/normalization/boundary falsification;
+- IE-L3 historical regression/retained-state/replay/integration falsification;
+- IE-L4 property/metamorphic/systematic equivalence exploration;
+- IE-L5 final cross-interaction/reachable-path challenger.
 
-`EXTERNAL EXPERT REMAINS INDEPENDENT`
+Those five lanes belong only to Internal Expert.
 
-`EXTERNAL MATERIAL ESCAPE AFTER INTERNAL CLEAN = HARNESS_QUALITY_FAILURE`
+Internal Expert receives no Engineer transcript, rationale, checkpoint narrative, subagent output or prior audit reasoning. It sees only the bounded audit contract, exact START/TREE, isolated exact candidate, changed files and candidate patch SHA256.
 
-A chain such as Harness -> External Expert finding -> Harness Correction-N -> External Expert finding is NOT the intended operating model. Harness must consume the time necessary, including approximately two hours when the allowed window permits, to perform both engineering and adversarial falsification before it emits a candidate.
+## Mandatory host-controlled loop
 
-If the work cannot be completed to this standard inside the available execution window, Harness must return `BLOCKED` or an interruption/recovery state with durable evidence. It must not emit an optimistic candidate.
+`ENGINEER -> EXACT PATCH SNAPSHOT -> FRESH INTERNAL EXPERT FULL AUDIT`
 
-## Phase A — HARNESS_ENGINEER_MODE
+If Internal Expert returns material findings:
 
-Harness Engineer owns complete engineering closure of the assigned scope.
+`STRUCTURED FINDINGS -> ENGINEER REPAIR -> NEW PATCH SHA256 -> NEW FRESH INTERNAL EXPERT FULL AUDIT`
 
-Required behavior:
-- verify exact START/TREE and recovery state;
-- use semantic LSP before design and after implementation;
-- invoke exactly six distinct subagent lanes with evidence of identity/context;
-- reproduce accepted findings and derive root causes;
-- build FAMILY_MODEL coverage for each material causal family;
-- inspect directly reachable callers, retained state, serialization/replay and integration boundaries;
-- implement family-complete corrections, not witness patches;
-- add normal, adversarial, exhaustive/property/metamorphic and benign-control tests;
-- run focused validation while iterating;
-- preserve prior accepted closures and fail-closed laws;
-- refresh durable checkpoints and recovery patch continuously.
+Repeat inside the SAME work package until CLEAN or honest BLOCKED/interrupted.
 
-Engineer Mode does NOT authorize candidate-ready by itself.
+A prior audit is invalid after any candidate mutation.
 
-## Phase B — HARNESS_INTERNAL_EXPERT_MODE
+## Structured boundary
 
-After Engineer Mode has a candidate and focused/systematic validation plus LSP-after are complete, Harness MUST change posture.
+Only structured defect evidence crosses from validation to engineering:
 
-Internal Expert Mode is an adversarial reviewer, not a defender of Engineer Mode.
+- finding_id
+- severity
+- root_family
+- witness
+- expected
+- observed
+- affected_paths
+- violated_invariant
+- reproduction
 
-The Internal Expert must treat all implementation rationale, closure claims and tests from Engineer Mode as hypotheses to falsify, not as proof.
+No reasoning transcript crosses the boundary.
 
-Internal Expert Mode must receive the exact candidate and independently attempt to break it across the complete assigned scope, aided by all six logical subagent specialties.
+## Candidate binding
 
-The six adversarial specialties are:
+Every Internal Expert audit is bound to exact `candidate_patch_sha256`.
 
-1. architecture/contracts/runtime-types/trust-root falsification;
-2. witness-independent adversarial red-team and alternate reachable paths;
-3. security/Unicode/normalization/parsing/input-boundary/false-positive-negative attacks;
-4. property/metamorphic/exhaustive equivalence and cross-product attacks;
-5. historical regression/retained-state/serialization/replay/integration attacks;
-6. fresh final cross-interaction challenger over the exact final patch.
+The host creates an isolated audit checkout and verifies the patch before review. If the audit copy is mutated during review, that audit is invalid and cannot produce CLEAN.
 
-Each adversarial pass must generate NEW probes in addition to replaying known witnesses.
-
-Internal Expert must challenge, where reachable:
-- exact runtime types and subclass/type laundering;
-- malformed/fabricated/post-construction-corrupted retained state;
-- constructor/revalidate parity;
-- serialization/replay and deterministic identity;
-- authority/trust-root laundering;
-- caller-asserted evidence or causation;
-- normalization/confusables/delimiters/Unicode transforms;
-- false positives and false negatives;
-- historical witnesses and prior closures;
-- alternate callers and integration paths;
-- family-model equivalence assumptions;
-- second-order cross-interactions among dimensions;
-- tests that mirror implementation instead of proving invariants.
-
-## Mandatory internal repair loop
-
-If Internal Expert or ANY of the six adversarial subagents finds a material defect:
-
-1. Harness MUST NOT finish.
-2. Record the witness, root family, affected dimension and evidence in the durable journal.
-3. Return to `HARNESS_ENGINEER_MODE` inside the SAME work package.
-4. Correct the whole affected causal class, not only the witness.
-5. Rerun affected focused/property/metamorphic tests and semantic LSP-after.
-6. Refresh the exact recovery patch.
-7. Start a NEW `HARNESS_INTERNAL_EXPERT_MODE` adversarial pass against the mutated candidate.
-
-Repeat:
-
-`ENGINEER -> INTERNAL EXPERT -> FINDING -> ENGINEER FIX -> INTERNAL EXPERT AGAIN`
-
-until either:
-- no material finding remains and Internal Expert is clean; or
-- an honest blocker/interruption prevents completion.
-
-A failed internal adversarial pass is evidence, not a reason to create a new Correction job.
-
-## Internal Expert Clean gate
-
-Harness may hand off only when ALL conditions are true:
-- Engineer Mode complete;
-- exactly 6/6 real subagent identities evidenced;
-- all material causal families modeled and closed without `MATERIAL_GAP`;
-- all accepted witnesses reject after correction;
-- generated adversarial/property/metamorphic probes pass;
-- benign controls pass;
-- prior relevant closures remain intact;
-- LSP-before and LSP-after evidence complete;
-- Internal Expert Mode executed after the final engineering mutation;
-- all six adversarial specialties were covered on the final candidate;
-- the final cross-interaction challenger is clean;
-- zero known material defect or material uncertainty is deferred to External Expert;
-- no semantic mutation occurred after the final clean Internal Expert pass;
-- canonical external FULL QG can be run on the unchanged patch.
-
-Required terminal evidence:
+A CLEAN result may be minted into Harness terminal markers only by the deterministic host, never by Engineer:
 
 `HARNESS_INTERNAL_EXPERT_STATUS: CLEAN`
 
 `HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN`
 
-`HARNESS_HANDOFF_TARGET: EXTERNAL_EXPERT_EXPECTED_PASS`
+## One-shot repair law
 
-This means Harness has reached its acceptance target. It does NOT authorize the external Expert to trust Harness or fabricate PASS.
+A material Internal Expert finding is not a new Correction job. It is repaired inside the same Harness work package.
 
-## External Expert independence
+`ENGINEER -> AUDIT -> FINDING -> ENGINEER FIX -> FRESH AUDIT AGAIN`
 
-External DeepSeek Expert remains a separate read-only falsifier over the exact frozen candidate.
+continues until clean or blocked.
 
-`INTERNAL EXPERT CLEAN != EXTERNAL EXPERT PASS`
+## Recovery
 
-External Expert must attempt to break the candidate independently and retain its own five-lane, LSP, HIGH/MAX, checkpoint and root-family obligations.
+Workflow interruption does not restart engineering or create a new assignment. Engineer patch/checkpoints remain durable. An audit may be reused only when it was produced under the independent dual-agent policy and the exact candidate patch SHA256 is unchanged.
 
-However, a Harness candidate reaching External Expert is expected to have already survived Engineer + Internal Expert adversarial closure. Therefore an external material finding that should have been discoverable under this policy is classified:
+## External Expert
 
-`HARNESS_QUALITY_FAILURE`
+External Expert remains a separate later gate and receives no special trust from Internal Expert CLEAN.
 
-It is not treated as a normal healthy correction loop.
+However, the quality target is that External Expert confirms rather than routinely discovers defects. An external material escape from a family validly audited CLEAN is:
 
-## Recovery semantics
-
-A cancellation, quota loss, timeout or cost-window stop does not create a new engineering assignment. Recovery continues the SAME Harness work package from its durable checkpoints and patch.
-
-Completed Engineer/Internal-Expert work is inherited when binding is unchanged. A partially executed Internal Expert pass resumes only missing adversarial units; if the candidate mutates after recovery, the final Internal Expert clean pass must be rerun against the new exact patch.
+`HARNESS_QUALITY_FAILURE / INTERNAL_EXPERT_ESCAPE`
 
 ## Final law
 
-`HARNESS DOES NOT DELIVER WHAT IT HAS FINISHED BUILDING.`
+`ENGINEER BUILDS IN ITS OWN CONTEXT.`
 
-`HARNESS DELIVERS ONLY WHAT IT HAS FINISHED BUILDING AND THEN FAILED TO BREAK.`
+`INTERNAL EXPERT AUDITS IN A DIFFERENT FRESH CONTEXT.`
+
+`THE HOST PASSES ONLY STRUCTURED DEFECT EVIDENCE BETWEEN THEM.`
+
+`ANY FIX REQUIRES A NEW FULL INDEPENDENT AUDIT.`
