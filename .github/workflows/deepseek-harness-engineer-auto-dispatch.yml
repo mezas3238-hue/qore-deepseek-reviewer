@@ -26,7 +26,26 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Enforce Harness DeepSeek cost-window start gate
+        id: cost_window
+        run: |
+          set -euo pipefail
+          LOCAL_DATE="$(TZ=America/Asuncion date +%F)"
+          LOCAL_TIME="$(TZ=America/Asuncion date +%H:%M:%S)"
+          LOCAL_HHMM="$(TZ=America/Asuncion date +%H%M)"
+          LAST_START_HHMM=1945
+          echo "America/Asuncion local time: ${LOCAL_DATE} ${LOCAL_TIME}"
+          if (( 10#$LOCAL_HHMM >= 10#$LAST_START_HHMM )); then
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            echo "Harness DeepSeek dispatch DEFERRED: local time ${LOCAL_TIME} is at/after the 19:45 safe-start cutoff."
+            echo "No DeepSeek workflow was launched. Preserve the request and dispatch/resume in the next permitted cost window."
+          else
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+            echo "Harness DeepSeek dispatch permitted before 19:45 America/Asuncion safe-start cutoff."
+          fi
+
       - name: Validate immutable Engineer request and dispatch resilient workflow
+        if: ${{ steps.cost_window.outputs.allowed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REQUEST: harness_engineer_requests/current.json
