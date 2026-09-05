@@ -1,0 +1,351 @@
+name: DeepSeek Internal Expert Recovery
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - internal_expert_recovery_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: deepseek-internal-expert-recovery
+  cancel-in-progress: false
+
+jobs:
+  audit_repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 190
+    steps:
+      - name: Checkout exact recovery request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate IA recovery request and direct-audit controls
+        id: request
+        run: |
+          set -euo pipefail
+          REQUEST=internal_expert_recovery_requests/current.json
+          NORMALIZED="$(python3 scripts/internal_expert_recovery_contract.py "$REQUEST")"
+          echo "$NORMALIZED" > internal-expert-recovery-request.normalized.json
+          echo "package_id=$(jq -r '.package_id' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "expected_start=$(jq -r '.expected_start' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "expected_tree=$(jq -r '.expected_tree' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "source_run_id=$(jq -r '.source_run_id' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "artifact_id=$(jq -r '.recovery_artifact_id' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "patch_sha=$(jq -r '.recovery_patch_sha256' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "max_changed_files=$(jq -r '.max_changed_files' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "max_diff_lines=$(jq -r '.max_diff_lines' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+          echo "allowed_paths=$(jq -c '.allowed_paths' <<<"$NORMALIZED")" >> "$GITHUB_OUTPUT"
+
+          python3 -m py_compile \
+            scripts/internal_expert_recovery_contract.py \
+            scripts/harness_internal_expert_recovery_runner.py \
+            scripts/harness_resilient_runner.py \
+            scripts/harness_internal_expert_gate.py \
+            scripts/harness_engineer_gate.py
+          PYTHONPATH=scripts python3 scripts/test_harness_resilient_runner.py
+          PYTHONPATH=scripts python3 scripts/test_harness_internal_expert_gate.py
+          ! grep -q '_engineer_role_prompt' scripts/harness_internal_expert_recovery_runner.py
+          ! grep -q 'role="ENGINEER"' scripts/harness_internal_expert_recovery_runner.py
+          grep -q '"engineer_sessions": 0' scripts/harness_internal_expert_recovery_runner.py
+          grep -q 'audit_recovery_only' scripts/harness_internal_expert_recovery_runner.py
+
+      - name: Enforce DeepSeek safe-start cost window
+        run: |
+          set -euo pipefail
+          LOCAL_HHMM="$(TZ=America/Asuncion date +%H%M)"
+          LOCAL_TIME="$(TZ=America/Asuncion date +%F' '%T)"
+          echo "America/Asuncion local time: ${LOCAL_TIME}"
+          if (( 10#$LOCAL_HHMM >= 1945 )); then
+            echo "Direct Internal Expert recovery refused at/after 19:45 America/Asuncion." >&2
+            exit 79
+          fi
+
+      - name: Checkout exact qore-core origin candidate
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_start }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact START TREE and restore artifact candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_START: ${{ steps.request.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          ARTIFACT_ID: ${{ steps.request.outputs.artifact_id }}
+          EXPECTED_PATCH_SHA: ${{ steps.request.outputs.patch_sha }}
+          ALLOWED_PATHS_JSON: ${{ steps.request.outputs.allowed_paths }}
+          MAX_CHANGED_FILES: ${{ steps.request.outputs.max_changed_files }}
+          MAX_DIFF_LINES: ${{ steps.request.outputs.max_diff_lines }}
+        run: |
+          set -euo pipefail
+          test "$(git -C workspace/qore-core rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git -C workspace/qore-core show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          git -C workspace/qore-core diff --quiet HEAD --
+          git -C workspace/qore-core diff --cached --quiet HEAD --
+
+          META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = "false"
+
+          RECOVERY_DIR="$RUNNER_TEMP/internal-expert-recovery-artifact"
+          ZIP="$RUNNER_TEMP/internal-expert-recovery.zip"
+          mkdir -p "$RECOVERY_DIR"
+          gh api -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > "$ZIP"
+          unzip -q "$ZIP" -d "$RECOVERY_DIR"
+          SOURCE_PATCH="$(find "$RECOVERY_DIR" -type f -name harness-engineer-candidate.patch -print -quit)"
+          test -n "$SOURCE_PATCH"
+          ACTUAL="$(sha256sum "$SOURCE_PATCH" | awk '{print $1}')"
+          test "$ACTUAL" = "$EXPECTED_PATCH_SHA"
+          git -C workspace/qore-core apply --check "$SOURCE_PATCH"
+          git -C workspace/qore-core apply "$SOURCE_PATCH"
+          git -C workspace/qore-core diff --check
+          git -C workspace/qore-core remote remove origin || true
+          test -z "$(git -C workspace/qore-core remote)"
+
+          jq -n \
+            --arg expected_start "$EXPECTED_START" \
+            --arg expected_tree "$EXPECTED_TREE" \
+            --argjson allowed_paths "$ALLOWED_PATHS_JSON" \
+            --argjson max_changed_files "$MAX_CHANGED_FILES" \
+            --argjson max_diff_lines "$MAX_DIFF_LINES" \
+            '{expected_start:$expected_start,expected_tree:$expected_tree,allowed_paths:$allowed_paths,max_changed_files:$max_changed_files,max_diff_lines:$max_diff_lines}' \
+            > internal-expert-recovery-package.json
+
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package internal-expert-recovery-package.json \
+            --patch internal-expert-recovered-candidate.patch \
+            --metadata internal-expert-recovered-candidate-gate.json
+          test "$(sha256sum internal-expert-recovered-candidate.patch | awk '{print $1}')" = "$EXPECTED_PATCH_SHA"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore exact DSH and semantic LSP cache
+        id: dsh-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Require warm DSH LSP cache before API spend
+        run: |
+          set -euo pipefail
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || exit 78
+
+      - name: Prepare isolated Internal Expert DSH template and LSP
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-internal-expert-template
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+        run: |
+          set -euo pipefail
+          for PACKAGE in dsh dsh-lsp dsh-lsp-stdio dsh-tool-lsp; do
+            test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/@deepseek-ai/${PACKAGE}/package.json').version")" = "0.1.1-rc.2"
+          done
+          test "$(node -p "require('${DSH_INSTALL_ROOT}/node_modules/pyright/package.json').version")" = "1.1.413"
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
+          chmod 700 "$DSH_HOME"
+          cp -R harness/skills/. "$DSH_HOME/skills/"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          cat > "$DSH_HOME/settings.yaml" <<'YAML'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: high
+          YAML
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          - insert:
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/harness_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" | tee internal-expert-lsp-smoke.json
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' internal-expert-lsp-smoke.json >/dev/null
+
+      - name: Initialize IA recovery checkpoint and exact candidate patch
+        env:
+          PACKAGE_ID: ${{ steps.request.outputs.package_id }}
+          EXPECTED_START: ${{ steps.request.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          CHECKPOINT="$RUNNER_TEMP/internal-expert-recovery-checkpoints.md"
+          python3 scripts/harness_large_batch_state.py init \
+            --checkpoints "$CHECKPOINT" \
+            --package-id "$PACKAGE_ID" \
+            --start "$EXPECTED_START" \
+            --tree "$EXPECTED_TREE"
+          mkdir -p workspace/qore-core/.qore-harness-recovery
+          cp internal-expert-recovered-candidate.patch workspace/qore-core/.qore-harness-recovery/candidate.patch
+
+      - name: Capture DeepSeek balance baseline
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py snapshot "$RUNNER_TEMP/internal-expert-balance-before.json"
+
+      - name: Run Internal Expert direct audit repair and re-audit
+        id: expert
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-dsh-internal-expert-template
+          DSH_PERMISSION_MODE: workspace-write
+          NODE_OPTIONS: --max-old-space-size=4096
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-internal-expert.coverage
+          EXPECTED_PATCH_SHA: ${{ steps.request.outputs.patch_sha }}
+        run: |
+          set -euo pipefail
+          set +e
+          python3 ../../scripts/harness_internal_expert_recovery_runner.py \
+            --dsh-bin "$RUNNER_TEMP/qore-dsh-engineer-lsp-install/node_modules/.bin/dsh" \
+            --profile headless \
+            --checkpoints "$RUNNER_TEMP/internal-expert-recovery-checkpoints.md" \
+            --output "$GITHUB_WORKSPACE/internal-expert-recovery-output.md" \
+            --metadata "$GITHUB_WORKSPACE/internal-expert-recovery-metadata.json" \
+            --expected-patch-sha256 "$EXPECTED_PATCH_SHA" \
+            --max-sessions 4 \
+            --session-timeout-seconds 2100
+          STATUS=$?
+          set -e
+          exit "$STATUS"
+
+      - name: Collect direct recovery evidence
+        if: ${{ always() }}
+        run: |
+          set +e
+          cp "$RUNNER_TEMP/internal-expert-recovery-checkpoints.md" internal-expert-recovery-checkpoints.md 2>/dev/null || true
+          python3 scripts/harness_recovery_snapshot.py \
+            --workspace workspace/qore-core \
+            --output internal-expert-final-candidate.patch || true
+
+      - name: Verify Internal Expert direct-recovery CLEAN and final scope
+        if: ${{ steps.expert.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.audit_recovery_only == true and .engineer_sessions == 0' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.engineer_reentered_after_recovery_handoff == false' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.internal_expert_knows_engineer_identity == false and .implementation_package_context_shared_with_internal_expert == false' internal-expert-recovery-metadata.json >/dev/null
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package internal-expert-recovery-package.json \
+            --patch internal-expert-final-candidate.patch \
+            --metadata internal-expert-final-candidate-gate.json
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints internal-expert-recovery-checkpoints.md \
+            --patch internal-expert-final-candidate.patch \
+            --output internal-expert-clean-gate.json
+
+      - name: Run canonical FULL QORE quality gate
+        if: ${{ steps.expert.outcome == 'success' }}
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-internal-expert-full-qg.coverage
+        run: |
+          set -euo pipefail
+          git diff --check
+          ruff check . | tee "$GITHUB_WORKSPACE/internal-expert-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/internal-expert-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/internal-expert-pytest.log"
+
+      - name: Revalidate exact final candidate after FULL QG
+        if: ${{ steps.expert.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package internal-expert-recovery-package.json \
+            --patch internal-expert-final-candidate.patch \
+            --metadata internal-expert-final-candidate-gate.json
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints internal-expert-recovery-checkpoints.md \
+            --patch internal-expert-final-candidate.patch \
+            --output internal-expert-clean-gate.json
+
+      - name: Measure DeepSeek billing
+        if: ${{ always() }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set +e
+          python3 scripts/deepseek_balance_meter.py delta \
+            "$RUNNER_TEMP/internal-expert-balance-before.json" \
+            internal-expert-billing-delta.json || true
+
+      - name: Upload Internal Expert recovery evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-expert-recovery-${{ steps.request.outputs.package_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            internal-expert-recovery-request.normalized.json
+            internal-expert-recovery-package.json
+            internal-expert-recovered-candidate.patch
+            internal-expert-recovered-candidate-gate.json
+            internal-expert-recovery-output.md
+            internal-expert-recovery-metadata.json
+            internal-expert-recovery-checkpoints.md
+            internal-expert-final-candidate.patch
+            internal-expert-final-candidate-gate.json
+            internal-expert-clean-gate.json
+            internal-expert-lsp-smoke.json
+            internal-expert-ruff.log
+            internal-expert-mypy.log
+            internal-expert-pytest.log
+            internal-expert-billing-delta.json
+
+      - name: Direct Internal Expert recovery complete
+        if: ${{ success() }}
+        run: |
+          echo "Internal Expert recovery completed with zero Engineer model sessions, exact patch binding, audit-repair re-audit, and FULL QG."
