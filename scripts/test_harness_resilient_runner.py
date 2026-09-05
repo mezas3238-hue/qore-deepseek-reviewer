@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from harness_large_batch_state import write_initial
 import harness_resilient_runner as runner
 
 
@@ -103,6 +104,22 @@ class HarnessIndependentAuditRepairRunnerTests(unittest.TestCase):
                 initial_hash=before,
                 actual_final_hash=after,
             )
+
+    def test_engineer_prompt_discloses_no_downstream_auditor(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            checkpoint = Path(tmp) / "checkpoint.md"
+            write_initial(checkpoint, "PKG", "a" * 40, "b" * 40)
+            prompt = runner._engineer_role_prompt(
+                base_prompt="# WORK PACKAGE\ntechnical objective only\n",
+                host_checkpoint=checkpoint,
+            )
+            lowered = prompt.lower()
+            self.assertIn("engineering_ready_for_host_handoff", lowered)
+            self.assertNotIn("internal expert", lowered)
+            self.assertNotIn("unknown auditor", lowered)
+            self.assertNotIn("independent_audit", lowered)
+            self.assertNotIn("validation_findings", lowered)
+            self.assertIn("no downstream process information is available", lowered)
 
     def test_internal_expert_prompt_contains_no_implementation_package_context(self) -> None:
         prompt = runner._internal_expert_prompt(
