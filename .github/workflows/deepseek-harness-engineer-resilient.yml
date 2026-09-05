@@ -85,19 +85,25 @@ jobs:
           CURRENT="$(python3 scripts/harness_engineer_package_contract.py request harness_engineer_requests/current.json)"
           test "$CURRENT" = "$(cat harness-engineer-package.json)"
           test -f "${{ inputs.task_path }}"
+          test -s harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
           python3 -m py_compile \
             scripts/harness_large_batch_state.py \
             scripts/harness_resilient_runner.py \
             scripts/harness_engineer_gate.py \
+            scripts/harness_internal_expert_gate.py \
             scripts/harness_recovery_snapshot.py \
             scripts/harness_usage_meter.py \
             scripts/deepseek_balance_meter.py
           python3 scripts/test_harness_large_batch_state.py
           python3 scripts/test_harness_resilient_runner.py
           python3 scripts/test_harness_engineer_package_contract.py
+          python3 scripts/test_harness_internal_expert_gate.py
           grep -q 'QORE_LANE_STATE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'PENDING LANE != BATCH FAILURE' harness/engineer/prompts/qore-harness-engineer-v2.md
           grep -q 'Never write free-form prose after `binding:`' harness/engineer/prompts/qore-harness-engineer-v2.md
+          grep -q 'BLIND_DIFFERENTIAL_FALSIFICATION_V2' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'COVERAGE_DELTA != NONE' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
+          grep -q 'candidate_patch_sha256' harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md
 
       - name: Reject duplicate package dispatch across legacy and resilient Harness
         env:
@@ -300,6 +306,8 @@ jobs:
           fi
           ALLOWED_PATHS="$(jq -r '.[] | "- " + .' <<<"$ALLOWED_PATHS_JSON")"
           cat harness/engineer/prompts/qore-harness-engineer-v2.md > "$RUNNER_TEMP/harness-engineer-prompt.md"
+          printf '\n\n# MANDATORY INTERNAL EXPERT V2 PROTOCOL\n' >> "$RUNNER_TEMP/harness-engineer-prompt.md"
+          cat harness/engineer/QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2.md >> "$RUNNER_TEMP/harness-engineer-prompt.md"
           cat >> "$RUNNER_TEMP/harness-engineer-prompt.md" <<EOF
 
           # WORK PACKAGE
@@ -383,6 +391,15 @@ jobs:
             --patch harness-engineer-candidate.patch \
             --metadata harness-engineer-gate.json
 
+      - name: Host-verify blind differential Internal Expert CLEAN
+        if: ${{ steps.harness.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints harness-engineer-checkpoints.md \
+            --patch harness-engineer-candidate.patch \
+            --output harness-internal-expert-gate.json
+
       - name: Run external canonical FULL QORE quality gate
         if: ${{ steps.harness.outcome == 'success' }}
         working-directory: workspace/qore-core
@@ -395,7 +412,7 @@ jobs:
           mypy src tests | tee "$GITHUB_WORKSPACE/harness-engineer-mypy.log"
           pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/harness-engineer-pytest.log"
 
-      - name: Revalidate candidate after FULL QG
+      - name: Revalidate candidate and Internal Expert binding after FULL QG
         if: ${{ steps.harness.outcome == 'success' }}
         run: |
           set -euo pipefail
@@ -404,6 +421,10 @@ jobs:
             --package harness-engineer-package.json \
             --patch harness-engineer-candidate.patch \
             --metadata harness-engineer-gate.json
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints harness-engineer-checkpoints.md \
+            --patch harness-engineer-candidate.patch \
+            --output harness-internal-expert-gate.json
 
       - name: Measure usage and billing
         if: ${{ always() }}
@@ -432,6 +453,7 @@ jobs:
             harness-engineer-lane-state.json
             harness-engineer-resilience.json
             harness-engineer-gate.json
+            harness-internal-expert-gate.json
             harness-engineer-usage.json
             harness-engineer-billing-delta.json
             harness-engineer-lsp-smoke.json
@@ -446,4 +468,4 @@ jobs:
       - name: Resilient artifact-only completion
         if: ${{ success() }}
         run: |
-          echo "Harness large-batch candidate completed with all six durable lanes, deterministic scope gate and FULL QG."
+          echo "Harness candidate completed with six durable lanes, blind differential Internal Expert V2, exact patch binding, deterministic scope gate and FULL QG."
