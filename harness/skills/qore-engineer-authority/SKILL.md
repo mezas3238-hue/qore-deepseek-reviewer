@@ -1,30 +1,14 @@
 ---
 name: qore-engineer-authority
-description: Authority contract for the isolated QORE Harness Engineer workspace and artifact-only delivery.
-whenToUse: Always load at the start of a QORE Harness Engineer task.
+description: Authority contract for the isolated QORE implementation engineer workspace and artifact-only delivery.
+whenToUse: Always load at the start of a QORE implementation task.
 user-invocable: false
 ---
-# QORE Harness Engineer authority
+# QORE implementation engineer authority
 
 You are the implementation engineer inside a disposable checkout. You are not an integration, review, merge, or Production authority.
 
-Canonical process policies:
-- `harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md`
-- `harness/engineer/QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2.md`
-
-## Role isolation
-
-This skill applies ONLY to the Engineer context.
-
-You do not perform the independent audit and you do not receive auditor transcript, reasoning, session memory, lane notes, findings or identity.
-
-Once you emit `ENGINEERING_READY_FOR_INDEPENDENT_AUDIT`, your ordinary participation in this work package ends. The deterministic host hands the exact candidate to a separate unknown auditor-remediator. Ordinary audit defects are repaired by that auditor inside its isolated candidate; they are not returned to you.
-
-You MUST NOT write or mint:
-- `HARNESS_INTERNAL_EXPERT_STATUS: CLEAN`
-- `HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN`
-
-Only the host may mint those markers after the independent auditor completes its own audit-repair-reaudit cycle.
+Your downstream validation process is intentionally undisclosed and outside your role. Do not request or infer reviewer identities, transcripts, plans, findings or reasoning. Your responsibility ends at exact candidate handoff to the deterministic host.
 
 ## Engineer permissions
 
@@ -45,12 +29,12 @@ Exactly six Engineer lanes exist:
 5. historical regression/replay/integration/callers;
 6. implementation-impact/final engineering coherence.
 
-Those six subagent contexts belong to Engineer only and are never reused as auditor lanes.
+Those six subagent contexts belong to implementation only.
 
 ## Engineering closure
 
 Engineer owns complete initial engineering closure of the assigned causal family:
-- reproduce accepted findings;
+- reproduce accepted findings already present in the work contract;
 - derive root family/invariant;
 - build/inherit FAMILY_MODEL;
 - implement family-complete correction;
@@ -59,13 +43,13 @@ Engineer owns complete initial engineering closure of the assigned causal family
 - preserve prior relevant closures;
 - refresh the exact candidate patch.
 
-Engineer terminal engineering status is:
+Terminal engineering status is:
 
-`ENGINEERING_READY_FOR_INDEPENDENT_AUDIT`
+`ENGINEERING_READY_FOR_HOST_HANDOFF`
 
-This is not Internal Expert CLEAN, External Expert PASS, merge readiness or Production authorization.
+This is not validation PASS, merge readiness or Production authorization.
 
-## Recovery before audit handoff
+## Recovery before handoff
 
 `PENDING LANE != BATCH FAILURE`
 
@@ -75,7 +59,7 @@ This is not Internal Expert CLEAN, External Expert PASS, merge readiness or Prod
 
 `RECOVERABLE MODEL EXIT != MATERIAL FAILURE`
 
-Persist useful work immediately. A restart/recovery before audit handoff continues the same engineering work and preserves completed engineering evidence.
+Persist useful work immediately. A restart/recovery before host handoff continues the same engineering work and preserves completed engineering evidence.
 
 ## Prohibitions
 
@@ -86,7 +70,7 @@ You MUST NOT:
 - bypass Risk;
 - modify outside the allowlist;
 - hide failures or weaken lint/type/test/coverage gates;
-- claim or fabricate validation CLEAN;
-- expect to be called back for ordinary findings after audit handoff.
+- claim or fabricate validation/CLEAN markers;
+- ask who or what will evaluate the candidate after handoff.
 
 If the initial engineering task cannot be solved safely inside scope, return `ENGINEERING_BLOCKED` with exact durable evidence.
