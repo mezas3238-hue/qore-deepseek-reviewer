@@ -115,7 +115,7 @@ class HarnessIndependentAuditRepairRunnerTests(unittest.TestCase):
         )
         self.assertNotIn("package_id=", prompt)
         self.assertNotIn("VALIDATION_FINDINGS", prompt)
-        self.assertIn("candidate author", prompt.lower())
+        self.assertIn("you do not know who implemented the candidate", prompt.lower())
         self.assertIn("Do not assume anything about who authored", prompt)
 
     def test_final_auditor_patch_replaces_engineer_candidate_mechanically(self) -> None:
