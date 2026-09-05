@@ -58,11 +58,14 @@ jobs:
           grep -q 'subagent identity .* reused across lanes' scripts/harness_large_batch_state.py
           grep -q 'exactly six native subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
           ! grep -q 'at most two useful subagent delegations' harness/skills/qore-engineer-authority/SKILL.md
-      - name: Certify routing, recovery memory and cost-window fail-closed gates
+      - name: Certify routing, global single-work, recovery memory and cost-window fail-closed gates
         run: |
           set -euo pipefail
           grep -q 'deepseek-harness-engineer-resilient.yml' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
           grep -q '19:45' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'ONE ACTIVE HARNESS WORK AT A TIME' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending")' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+          grep -q 'Request ${PACKAGE_ID} remains the requested work but no second Harness job was launched.' .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
           grep -q 'harness_resilient_runner.py' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'qore-harness-engineer-v2.md' .github/workflows/deepseek-harness-engineer-resilient.yml
           grep -q 'all_complete == true' .github/workflows/deepseek-harness-engineer-resilient.yml
