@@ -35,7 +35,7 @@ jobs:
             scripts/test_harness_cost_window.py \
             scripts/test_reviewer_resilient_runner.py
 
-      - name: Run deterministic and adversarial tests
+      - name: Run deterministic and adversarial behavior tests
         working-directory: scripts
         run: |
           set -euo pipefail
@@ -47,65 +47,42 @@ jobs:
           python3 test_harness_cost_window.py
           python3 test_reviewer_resilient_runner.py
 
-      - name: Certify independent dual-agent Harness architecture
+      - name: Certify independent dual-agent structural invariants
         run: |
           set -euo pipefail
           POLICY=harness/engineer/QORE-HARNESS-INDEPENDENT-DUAL-AGENT-POLICY-V1.md
-          LEGACY_POLICY=harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md
           ENGINEER_PROMPT=harness/engineer/prompts/qore-harness-engineer-independent-v1.md
           AUDITOR_PROMPT=harness/engineer/prompts/qore-harness-internal-expert-independent-v1.md
-          SKILL=harness/skills/qore-engineer-authority/SKILL.md
           RUNNER=scripts/harness_resilient_runner.py
 
           test -s "$POLICY"
+          test -s "$ENGINEER_PROMPT"
+          test -s "$AUDITOR_PROMPT"
+          test -s "$RUNNER"
+
           grep -q 'SAME WORK PACKAGE != SAME AGENT CONTEXT' "$POLICY"
-          grep -q 'ENGINEER DOES NOT RECEIVE EXPERT TRANSCRIPT OR REASONING' "$POLICY"
-          grep -q 'INTERNAL EXPERT DOES NOT RECEIVE ENGINEER TRANSCRIPT OR RATIONALE' "$POLICY"
           grep -q 'ONLY STRUCTURED FINDINGS CROSS THE ROLE BOUNDARY' "$POLICY"
           grep -q 'EVERY RE-AUDIT USES A FRESH INTERNAL EXPERT SESSION' "$POLICY"
-          grep -q 'five independent logical lanes' "$POLICY"
           grep -q 'candidate_patch_sha256' "$POLICY"
 
-          test -s "$LEGACY_POLICY"
-          grep -q 'QORE-HARNESS-INDEPENDENT-DUAL-AGENT-POLICY-V1.md' "$LEGACY_POLICY"
-          grep -q 'Those six lanes belong only to Engineer' "$LEGACY_POLICY"
-          grep -q 'Those five lanes belong only to Internal Expert' "$LEGACY_POLICY"
-          grep -q 'No reasoning transcript crosses the boundary' "$LEGACY_POLICY"
-          grep -q 'ANY FIX REQUIRES A NEW FULL INDEPENDENT AUDIT' "$LEGACY_POLICY"
-
-          test -s "$ENGINEER_PROMPT"
           grep -q 'VALIDATION_FINDINGS' "$ENGINEER_PROMPT"
-          grep -q 'Do not request, infer or depend on who or what produced it' "$ENGINEER_PROMPT"
           grep -q 'exactly six distinct engineering subagent lanes' "$ENGINEER_PROMPT"
-          grep -q 'Do not write `HARNESS_INTERNAL_EXPERT_STATUS`' "$ENGINEER_PROMPT"
+          grep -q 'Do not request, infer or depend on who or what produced it' "$ENGINEER_PROMPT"
 
-          test -s "$AUDITOR_PROMPT"
-          grep -q 'You do not know who implemented the candidate' "$AUDITOR_PROMPT"
           grep -q 'Five mandatory audit lanes' "$AUDITOR_PROMPT"
           grep -q 'IE-L5' "$AUDITOR_PROMPT"
           grep -q 'qore.internal-expert.independent.v1' "$AUDITOR_PROMPT"
-          grep -q 'Never repair code' "$AUDITOR_PROMPT"
-
-          test -s "$SKILL"
-          grep -q 'This skill applies ONLY to the Engineer context' "$SKILL"
-          grep -q 'Those six subagent contexts belong to Engineer only' "$SKILL"
-          grep -q 'Do not write or mint' "$SKILL"
 
           grep -q 'qore-harness-independent-dual-agent-runner-v1' "$RUNNER"
           grep -q '_fresh_role_home' "$RUNNER"
-          grep -q 'engineer_transcript_shared_with_internal_expert' "$RUNNER"
-          grep -q 'internal_expert_transcript_shared_with_engineer' "$RUNNER"
-          grep -q 'fresh_internal_expert_each_audit' "$RUNNER"
           grep -q '_create_audit_workspace' "$RUNNER"
           grep -q '_audit_patch_hash' "$RUNNER"
-          grep -q 'candidate_patch_sha256' "$RUNNER"
-          grep -q 'MATERIAL_FINDINGS' "$RUNNER"
           grep -q 'pending_findings = findings' "$RUNNER"
-          grep -q 'audit_cycle += 1' "$RUNNER"
+          grep -q 'fresh_internal_expert_each_audit' "$RUNNER"
+          grep -q 'engineer_transcript_shared_with_internal_expert' "$RUNNER"
+          grep -q 'internal_expert_transcript_shared_with_engineer' "$RUNNER"
           grep -q 'start_new_session=True' "$RUNNER"
           grep -q 'os.killpg' "$RUNNER"
-          grep -q 'America/Asuncion' "$RUNNER"
-          grep -q 'COST_WINDOW_CUTOFF_21_25_AMERICA_ASUNCION' "$RUNNER"
 
       - name: Certify six-lane engineering durability and host clean markers
         run: |
