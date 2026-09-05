@@ -1,0 +1,187 @@
+name: QORE CIBO Cognitive Internal Expert clean materializer
+run-name: Materialize Cognitive Internal Expert CLEAN · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cibo_cognitive_internal_expert_materialize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: qore-cibo-cognitive-internal-expert-clean-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate request
+        id: req
+        run: |
+          set -euo pipefail
+          R=cibo_cognitive_internal_expert_materialize_requests/current.json
+          jq -e '
+            .schema == "qore-cibo-cognitive-internal-expert-clean-materialize-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            .pr_number == 486 and
+            (.run_id | type == "number") and
+            (.artifact_id | type == "number") and
+            (.artifact_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.expected_tree | test("^[0-9a-f]{40}$")) and
+            (.clean_patch_sha256 | test("^[0-9a-f]{64}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            (.expected_changed_files == ["src/qore/modules/cibo/cognitive_contracts.py","tests/modules/cibo/test_cibo_cognitive_contracts.py"])
+          ' "$R" >/dev/null
+          for k in run_id artifact_id artifact_digest expected_head expected_tree clean_patch_sha256 target_branch; do
+            echo "$k=$(jq -r --arg k "$k" '.[$k]' "$R")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify live PR binding
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.req.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.req.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/486)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+
+      - name: Download and authenticate Internal Expert artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.req.outputs.run_id }}
+          ARTIFACT_ID: ${{ steps.req.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ steps.req.outputs.artifact_digest }}
+          CLEAN_PATCH_SHA256: ${{ steps.req.outputs.clean_patch_sha256 }}
+        run: |
+          set -euo pipefail
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID})"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip > artifact.zip
+          test "sha256:$(sha256sum artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+          unzip -q artifact.zip -d artifact
+          test -s artifact/internal-expert-final-candidate.patch
+          test -s artifact/internal-expert-recovery-output.md
+          test -s artifact/internal-expert-recovery-metadata.json
+          grep -Fq '"status": "CLEAN"' artifact/internal-expert-recovery-output.md
+          grep -Fq "\"final_candidate_patch_sha256\": \"${CLEAN_PATCH_SHA256}\"" artifact/internal-expert-recovery-output.md
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0 and .engineer_sessions == 0 and .internal_expert_knows_engineer_identity == false' artifact/internal-expert-recovery-metadata.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('artifact/internal-expert-final-candidate.patch').read_text()
+          chunks=[]; cur=''
+          for line in src.splitlines(True):
+              if line.startswith('diff --git '):
+                  if cur: chunks.append(cur)
+                  cur=line
+              else:
+                  cur+=line
+          if cur: chunks.append(cur)
+          kept=[]; dropped=[]
+          for c in chunks:
+              first=c.splitlines()[0] if c.splitlines() else ''
+              if '.qore-harness-recovery/candidate.patch' in first:
+                  dropped.append(first)
+              else:
+                  kept.append(c)
+          if len(dropped) != 1:
+              raise SystemExit(f'expected exactly one recovery-helper diff, got {dropped}')
+          Path('clean.patch').write_text(''.join(kept))
+          PY
+          test "$(sha256sum clean.patch | awk '{print $1}')" = "$CLEAN_PATCH_SHA256"
+          grep '^diff --git ' clean.patch | sed -E 's#diff --git a/([^ ]+) b/.*#\1#' | sort > actual-files.txt
+          jq -r '.expected_changed_files[]' cibo_cognitive_internal_expert_materialize_requests/current.json | sort > expected-files.txt
+          diff -u expected-files.txt actual-files.txt
+
+      - name: Checkout exact qore-core candidate start
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.req.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply CLEAN patch and run FULL QG
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.req.outputs.expected_head }}
+          EXPECTED_TREE: ${{ steps.req.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          git apply --check "$GITHUB_WORKSPACE/clean.patch"
+          git apply --index "$GITHUB_WORKSPACE/clean.patch"
+          git diff --cached --check
+          git diff --cached --name-only | sort > actual-files.txt
+          jq -r '.expected_changed_files[]' "$GITHUB_WORKSPACE/cibo_cognitive_internal_expert_materialize_requests/current.json" | sort > expected-files.txt
+          diff -u expected-files.txt actual-files.txt
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          ruff check . | tee "$GITHUB_WORKSPACE/cognitive-final-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/cognitive-final-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/cognitive-final-pytest.log"
+
+      - name: Commit exact candidate
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.req.outputs.expected_head }}
+        run: |
+          set -euo pipefail
+          git config user.name 'QORE Cognitive IA Materializer'
+          git config user.email 'qore-cognitive-ia-materializer@users.noreply.github.com'
+          git commit -m 'Materialize Cognitive Internal Expert CLEAN repairs' -m 'Source: Internal Expert recovery run 33980312719; sanitized helper-only recovery diff; semantic candidate unchanged.'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git rev-parse HEAD > "$RUNNER_TEMP/new-head"
+          git show -s --format=%T HEAD > "$RUNNER_TEMP/new-tree"
+
+      - name: Atomically advance PR branch
+        working-directory: workspace/qore-core
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.req.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.req.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/486)"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+          NEW_HEAD="$(cat "$RUNNER_TEMP/new-head")"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          for _ in $(seq 1 20); do
+            LIVE="$(gh api repos/mezas3238-hue/qore-core/pulls/486 --jq '.head.sha')"
+            test "$LIVE" = "$NEW_HEAD" && break
+            sleep 2
+          done
+          test "$(gh api repos/mezas3238-hue/qore-core/pulls/486 --jq '.head.sha')" = "$NEW_HEAD"
+          echo "CIBO_COGNITIVE_MATERIALIZED_HEAD=$NEW_HEAD"
+          echo "CIBO_COGNITIVE_MATERIALIZED_TREE=$(cat "$RUNNER_TEMP/new-tree")"
