@@ -1,0 +1,206 @@
+name: QORE CIBO Functions final materializer
+run-name: Materialize Functions Internal Expert CLEAN · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cibo_functions_external_materialize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: qore-cibo-functions-final-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate request
+        id: req
+        run: |
+          set -euo pipefail
+          R=cibo_functions_external_materialize_requests/current.json
+          jq -e '
+            .schema == "qore-cibo-functions-final-materialize-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.source_run_id | type == "number") and
+            (.artifact_id | type == "number") and
+            (.artifact_digest | test("^sha256:[0-9a-f]{64}$")) and
+            (.expected_start | test("^[0-9a-f]{40}$")) and
+            (.expected_tree | test("^[0-9a-f]{40}$")) and
+            (.clean_patch_sha256 | test("^[0-9a-f]{64}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            (.expected_changed_files == 57)
+          ' "$R" >/dev/null
+          for k in source_run_id artifact_id artifact_digest expected_start expected_tree clean_patch_sha256 target_branch expected_changed_files; do
+            echo "$k=$(jq -r --arg k "$k" '.[$k]' "$R")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Checkout exact Functions START
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.req.outputs.expected_start }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Authenticate CLEAN artifact and reconstruct semantic patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.req.outputs.source_run_id }}
+          ARTIFACT_ID: ${{ steps.req.outputs.artifact_id }}
+          ARTIFACT_DIGEST: ${{ steps.req.outputs.artifact_digest }}
+          EXPECTED_START: ${{ steps.req.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.req.outputs.expected_tree }}
+          CLEAN_PATCH_SHA256: ${{ steps.req.outputs.clean_patch_sha256 }}
+          EXPECTED_CHANGED_FILES: ${{ steps.req.outputs.expected_changed_files }}
+        run: |
+          set -euo pipefail
+          test "$(git -C workspace/qore-core rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git -C workspace/qore-core show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          git -C workspace/qore-core merge-base --is-ancestor 9672c4d999bd5d3e6db544f349243bc6abea0363 "$EXPECTED_START"
+
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID})"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip > artifact.zip
+          test "sha256:$(sha256sum artifact.zip | awk '{print $1}')" = "$ARTIFACT_DIGEST"
+          unzip -q artifact.zip -d artifact
+          test -s artifact/internal-expert-final-candidate.patch
+          test -s artifact/internal-expert-recovery-output.md
+          test -s artifact/internal-expert-recovery-metadata.json
+          grep -Fq '"status": "CLEAN"' artifact/internal-expert-recovery-output.md
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0 and .engineer_sessions == 0 and .internal_expert_knows_engineer_identity == false' artifact/internal-expert-recovery-metadata.json >/dev/null
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, re, os
+          src = Path('artifact/internal-expert-final-candidate.patch').read_text()
+          chunks=[]; cur=''
+          for line in src.splitlines(True):
+              if line.startswith('diff --git '):
+                  if cur: chunks.append(cur)
+                  cur=line
+              else:
+                  cur+=line
+          if cur: chunks.append(cur)
+          kept=[]; dropped=[]
+          for c in chunks:
+              first=c.splitlines()[0]
+              m=re.match(r'diff --git a/(.*?) b/', first)
+              if not m: raise SystemExit(f'bad diff header: {first}')
+              path=m.group(1)
+              if path == '.qore-harness-recovery/candidate.patch':
+                  dropped.append(path)
+              else:
+                  kept.append((path,c))
+          if dropped != ['.qore-harness-recovery/candidate.patch']:
+              raise SystemExit(f'unexpected helper diffs: {dropped}')
+          kept.sort(key=lambda x:x[0])
+          out=''.join(c for _,c in kept)
+          Path('clean.patch').write_text(out)
+          paths=[p for p,_ in kept]
+          if len(paths) != int(os.environ['EXPECTED_CHANGED_FILES']):
+              raise SystemExit(f'expected 57 semantic files, got {len(paths)}')
+          allowed_prefixes=(
+              'docs/architecture/QORE-CIBO-FUNCTIONAL-EXECUTIVE-SYSTEM-001.md',
+              'docs/architecture/QORE-CIBO-TRADER-DEVELOPMENT-MANAGER-001.md',
+              'src/qore/governance/cibo',
+              'src/qore/infrastructure/cibo',
+              'src/qore/infrastructure/cibo_trader_development_review.py',
+              'src/qore/infrastructure/cibo_trader_manager.py',
+              'src/qore/modules/cibo/contracts.py',
+              'tests/governance/test_cibo',
+              'tests/infrastructure/test_cibo',
+              'tests/infrastructure/test_cibo_trader_development_review.py',
+              'tests/infrastructure/test_cibo_trader_manager.py',
+              'tests/modules/cibo',
+          )
+          bad=[p for p in paths if not any(p==a or p.startswith(a.rstrip('/') + '/') for a in allowed_prefixes)]
+          if bad: raise SystemExit(f'out of scope: {bad}')
+          got=hashlib.sha256(out.encode()).hexdigest()
+          if got != os.environ['CLEAN_PATCH_SHA256']:
+              raise SystemExit(f'clean patch sha mismatch {got}')
+          Path('semantic-files.txt').write_text('\n'.join(paths)+'\n')
+          print(f'CLEAN_PATCH_SHA256={got}')
+          print(f'SEMANTIC_FILES={len(paths)}')
+          PY
+
+          git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/clean.patch"
+          git -C workspace/qore-core apply --index "$GITHUB_WORKSPACE/clean.patch"
+          git -C workspace/qore-core diff --cached --check
+          test "$(git -C workspace/qore-core diff --cached --name-only | wc -l)" = "$EXPECTED_CHANGED_FILES"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-cibo-functions-final.coverage
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          git diff --cached --check
+          ruff check . | tee "$GITHUB_WORKSPACE/functions-final-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/functions-final-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/functions-final-pytest.log"
+
+      - name: Commit and publish exact Functions candidate
+        working-directory: workspace/qore-core
+        env:
+          TARGET_BRANCH: ${{ steps.req.outputs.target_branch }}
+          EXPECTED_START: ${{ steps.req.outputs.expected_start }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_START"
+          git config user.name 'QORE Functions IA Materializer'
+          git config user.email 'qore-functions-ia-materializer@users.noreply.github.com'
+          git commit -m 'Materialize CIBO Functions Internal Expert CLEAN candidate'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_START"
+          NEW_HEAD="$(git rev-parse HEAD)"
+          NEW_TREE="$(git show -s --format=%T HEAD)"
+          git push origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          echo "FUNCTIONS_HEAD=$NEW_HEAD" | tee "$GITHUB_WORKSPACE/functions-materialized.txt"
+          echo "FUNCTIONS_TREE=$NEW_TREE" | tee -a "$GITHUB_WORKSPACE/functions-materialized.txt"
+
+      - name: Upload materialization evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibo-functions-final-materialization
+          retention-days: 30
+          path: |
+            clean.patch
+            semantic-files.txt
+            functions-final-ruff.log
+            functions-final-mypy.log
+            functions-final-pytest.log
+            functions-materialized.txt
