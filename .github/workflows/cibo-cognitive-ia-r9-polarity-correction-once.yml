@@ -1,0 +1,179 @@
+name: QORE CIBO Cognitive IA R9 polarity correction
+run-name: Cognitive IA correction · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cognitive_ia_correction_requests/current.json
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: qore-cibo-cognitive-ia-r9-polarity-correction
+  cancel-in-progress: false
+
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate request
+        id: req
+        run: |
+          set -euo pipefail
+          R=cognitive_ia_correction_requests/current.json
+          jq -e '
+            .schema == "qore-cibo-cognitive-ia-r9-polarity-correction-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            .pr_number == 486 and
+            .expected_head == "9f306d6c850bb14fd8581729b4d7cd6490e2b08a" and
+            .expected_tree == "683bcd6aa4ff51975df0becefcf20907d08d3f39" and
+            .target_branch == "agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize"
+          ' "$R" >/dev/null
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify live PR binding
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/486)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "9f306d6c850bb14fd8581729b4d7cd6490e2b08a"
+
+      - name: Checkout exact Cognitive HEAD
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 9f306d6c850bb14fd8581729b4d7cd6490e2b08a
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply IA causal polarity family correction
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('src/qore/infrastructure/cibo_cognitive_causality.py')
+          text = src.read_text()
+
+          old = '''def _canonical_evidence(\n    values: tuple[CausalEvidence, ...], *, field: str\n) -> tuple[CausalEvidence, ...]:\n'''
+          new = '''def _canonical_evidence(\n    values: tuple[CausalEvidence, ...],\n    *,\n    field: str,\n    polarity: CausalEvidencePolarity | None = None,\n) -> tuple[CausalEvidence, ...]:\n'''
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+
+          old = '''    for item in values:\n        item.revalidate()\n    # Dedup over canonical instant semantics'''
+          new = '''    for item in values:\n        item.revalidate()\n        if polarity is not None and item.polarity is not polarity:\n            raise CausalityValidationError(\n                f"{field} must carry only {polarity.value} evidence"\n            )\n    # Dedup over canonical instant semantics'''
+          assert text.count(old) == 1
+          text = text.replace(old, new, 1)
+
+          replacements = {
+              '_canonical_evidence(self.evidence_for, field="causal evidence for")': '_canonical_evidence(\n                self.evidence_for,\n                field="causal evidence for",\n                polarity=CausalEvidencePolarity.SUPPORTS,\n            )',
+              '_canonical_evidence(self.evidence_against, field="causal evidence against")': '_canonical_evidence(\n                self.evidence_against,\n                field="causal evidence against",\n                polarity=CausalEvidencePolarity.AGAINST,\n            )',
+              '_canonical_evidence(self.contradictions, field="causal contradictions")': '_canonical_evidence(\n                self.contradictions,\n                field="causal contradictions",\n                polarity=CausalEvidencePolarity.CONTRADICTION,\n            )',
+              '_canonical_evidence(self.limitations, field="causal limitations")': '_canonical_evidence(\n                self.limitations,\n                field="causal limitations",\n                polarity=CausalEvidencePolarity.LIMITATION,\n            )',
+              '_canonical_evidence(tuple(evidence_for), field="causal evidence for")': '_canonical_evidence(\n        tuple(evidence_for),\n        field="causal evidence for",\n        polarity=CausalEvidencePolarity.SUPPORTS,\n    )',
+              '_canonical_evidence(\n        tuple(evidence_against), field="causal evidence against"\n    )': '_canonical_evidence(\n        tuple(evidence_against),\n        field="causal evidence against",\n        polarity=CausalEvidencePolarity.AGAINST,\n    )',
+              '_canonical_evidence(\n        tuple(contradictions), field="causal contradictions"\n    )': '_canonical_evidence(\n        tuple(contradictions),\n        field="causal contradictions",\n        polarity=CausalEvidencePolarity.CONTRADICTION,\n    )',
+              '_canonical_evidence(\n        tuple(limitations), field="causal limitations"\n    )': '_canonical_evidence(\n        tuple(limitations),\n        field="causal limitations",\n        polarity=CausalEvidencePolarity.LIMITATION,\n    )',
+          }
+          for old, new in replacements.items():
+              assert text.count(old) == 1, old
+              text = text.replace(old, new, 1)
+          src.write_text(text)
+
+          tests = Path('tests/infrastructure/test_cibo_cognitive_causality.py')
+          t = tests.read_text()
+          marker = '''\n\nclass TestCorrection011MechanismBindingAuthority:\n'''
+          assert t.count(marker) == 1
+          addition = '''\n\nclass TestIAR9CausalEvidenceChannelPolarity:\n    \"\"\"IA closure: evidence channel != caller-selected polarity.\"\"\"\n\n    @pytest.mark.parametrize(\n        (\"field\", \"wrong_polarity\"),\n        (\n            (\"evidence_for\", CausalEvidencePolarity.CONTRADICTION),\n            (\"evidence_against\", CausalEvidencePolarity.SUPPORTS),\n            (\"contradictions\", CausalEvidencePolarity.SUPPORTS),\n            (\"limitations\", CausalEvidencePolarity.SUPPORTS),\n        ),\n    )\n    def test_builder_rejects_cross_channel_polarity_laundering(\n        self, field: str, wrong_polarity: CausalEvidencePolarity\n    ) -> None:\n        evidence = _evidence(f\"evidence:ia-r9-{field}\", wrong_polarity)\n        with pytest.raises(CausalityValidationError, match=\"must carry only\"):\n            _claim(**{field: (evidence,)})\n\n    @pytest.mark.parametrize(\n        (\"field\", \"wrong_polarity\"),\n        (\n            (\"evidence_for\", CausalEvidencePolarity.CONTRADICTION),\n            (\"evidence_against\", CausalEvidencePolarity.SUPPORTS),\n            (\"contradictions\", CausalEvidencePolarity.SUPPORTS),\n            (\"limitations\", CausalEvidencePolarity.SUPPORTS),\n        ),\n    )\n    def test_revalidate_rejects_reflective_cross_channel_replacement(\n        self, field: str, wrong_polarity: CausalEvidencePolarity\n    ) -> None:\n        claim = _claim()\n        evidence = _evidence(f\"evidence:ia-r9-reflect-{field}\", wrong_polarity)\n        object.__setattr__(claim, field, (evidence,))\n        with pytest.raises(CausalityValidationError, match=\"must carry only\"):\n            claim.revalidate()\n'''
+          t = t.replace(marker, addition + marker, 1)
+          tests.write_text(t)
+          PY
+          git diff --check
+          git diff --name-only | sort | tee /tmp/changed.txt
+          printf '%s\n' \
+            src/qore/infrastructure/cibo_cognitive_causality.py \
+            tests/infrastructure/test_cibo_cognitive_causality.py | sort > /tmp/expected.txt
+          diff -u /tmp/expected.txt /tmp/changed.txt
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: workspace/qore-core
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run focused causal regression gate
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          pytest -q tests/infrastructure/test_cibo_cognitive_causality.py
+
+      - name: Run FULL QORE quality gate
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          git diff --check
+          ruff check . | tee "$GITHUB_WORKSPACE/cognitive-ia-r9-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/cognitive-ia-r9-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/cognitive-ia-r9-pytest.log"
+
+      - name: Commit and atomically advance Cognitive PR
+        working-directory: workspace/qore-core
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api repos/mezas3238-hue/qore-core/pulls/486 --jq '.head.sha')"
+          test "$LIVE" = "9f306d6c850bb14fd8581729b4d7cd6490e2b08a"
+          git config user.name 'QORE IA Cognitive Closure'
+          git config user.email 'qore-ia-cognitive-closure@users.noreply.github.com'
+          git add src/qore/infrastructure/cibo_cognitive_causality.py tests/infrastructure/test_cibo_cognitive_causality.py
+          git commit -m 'Close causal evidence channel polarity laundering' -m 'IA direct correction after External Expert R9 infrastructure block. Enforce channel-specific causal evidence polarity at constructor and recursive revalidation boundaries.'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          NEW_TREE="$(git show -s --format=%T HEAD)"
+          git push --force-with-lease="refs/heads/agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize:9f306d6c850bb14fd8581729b4d7cd6490e2b08a" origin "${NEW_HEAD}:refs/heads/agent/qore-cibo-cognitive-superarchitecture-001-independent-materialize"
+          echo "NEW_HEAD=$NEW_HEAD"
+          echo "NEW_TREE=$NEW_TREE"
+
+      - name: Upload IA correction evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cibo-cognitive-ia-r9-polarity-correction
+          path: |
+            cognitive-ia-r9-ruff.log
+            cognitive-ia-r9-mypy.log
+            cognitive-ia-r9-pytest.log
+          if-no-files-found: warn
+          retention-days: 30
