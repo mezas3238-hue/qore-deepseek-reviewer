@@ -9,88 +9,126 @@ from pathlib import Path
 from harness_internal_expert_gate import GateError, validate
 
 
-def checkpoint(patch_sha: str, *, novel: int = 24, benign: int = 12, cross: int = 12, delta: str = "NONE") -> str:
+def checkpoint(
+    initial_sha: str,
+    final_sha: str,
+    *,
+    passes: int = 1,
+    repairs: int = 0,
+    knows_engineer: str = "false",
+    transcript_shared: str = "false",
+    engineer_reentered: str = "false",
+) -> str:
     return f"""QORE_CHECKPOINT_BEGIN
 package_id: HARNESS-ENGINEER-TEST
 checkpoint_sequence: 9
-QORE_INTERNAL_EXPERT_EVIDENCE_BEGIN
-internal_expert_protocol=BLIND_DIFFERENTIAL_FALSIFICATION_V2
-candidate_patch_sha256={patch_sha}
-independent_family_model=COMPLETE
-engineer_rationale_seen_before_blind_model=false
-novel_probe_count={novel}
-benign_control_count={benign}
-cross_interaction_probe_count={cross}
-coverage_delta={delta}
-material_findings=0
-lsp_final_recheck=COMPLETE
-QORE_INTERNAL_EXPERT_EVIDENCE_END
+phase: HOST_INDEPENDENT_INTERNAL_EXPERT_AUDIT_REPAIR_CLEAN
+binding: START={'a' * 40} TREE={'b' * 40}
+evidence: policy=QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2
+evidence: initial_candidate_patch_sha256={initial_sha}
+evidence: final_candidate_patch_sha256={final_sha}
+evidence: internal_expert_audit_pass_count={passes}
+evidence: internal_expert_repair_count={repairs}
+evidence: internal_expert_knows_engineer_identity={knows_engineer}
+evidence: engineer_transcript_shared_with_internal_expert={transcript_shared}
+evidence: engineer_reentered_after_audit_handoff={engineer_reentered}
+evidence: internal_expert_audit_repair_authority=true
 HARNESS_INTERNAL_EXPERT_STATUS: CLEAN
 HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN
-HARNESS_HANDOFF_TARGET: EXTERNAL_EXPERT_EXPECTED_PASS
 PENDING NEXT ACTION: external qg
 SAFE RESUME INSTRUCTION: preserve exact clean patch
 QORE_CHECKPOINT_END
 """
 
 
-class InternalExpertGateTests(unittest.TestCase):
-    def _files(self, text_builder=checkpoint):
+class InternalExpertAuditRepairGateTests(unittest.TestCase):
+    def _files(self, *, initial_equals_final: bool = True, passes: int = 1, repairs: int = 0):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
         patch = root / "candidate.patch"
         patch.write_text("diff --git a/a b/a\n+secure\n", encoding="utf-8")
-        digest = hashlib.sha256(patch.read_bytes()).hexdigest()
+        final_digest = hashlib.sha256(patch.read_bytes()).hexdigest()
+        initial_digest = final_digest if initial_equals_final else "a" * 64
         journal = root / "checkpoints.md"
-        journal.write_text(text_builder(digest), encoding="utf-8")
-        output = root / "gate.json"
-        return temp, journal, patch, output, digest
+        journal.write_text(
+            checkpoint(initial_digest, final_digest, passes=passes, repairs=repairs),
+            encoding="utf-8",
+        )
+        return temp, journal, patch, initial_digest, final_digest
 
-    def test_valid_exact_patch_clean_passes(self) -> None:
-        temp, journal, patch, output, digest = self._files()
+    def test_clean_unchanged_candidate_passes(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files()
         with temp:
             result = validate(journal, patch)
             self.assertTrue(result["host_verified"])
-            self.assertEqual(result["candidate_patch_sha256"], digest)
-            self.assertEqual(result["novel_probe_count"], 24)
+            self.assertFalse(result["internal_expert_repaired_candidate"])
+            self.assertEqual(result["final_candidate_patch_sha256"], final_digest)
 
-    def test_stale_patch_hash_fails_closed(self) -> None:
-        temp, journal, patch, output, digest = self._files()
+    def test_repaired_candidate_requires_post_repair_reaudit(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files(
+            initial_equals_final=False,
+            passes=2,
+            repairs=1,
+        )
+        with temp:
+            result = validate(journal, patch)
+            self.assertTrue(result["internal_expert_repaired_candidate"])
+            self.assertEqual(result["internal_expert_audit_pass_count"], 2)
+            self.assertEqual(result["internal_expert_repair_count"], 1)
+
+    def test_repaired_candidate_without_reaudit_fails_closed(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files(
+            initial_equals_final=False,
+            passes=1,
+            repairs=1,
+        )
+        with temp:
+            with self.assertRaisesRegex(GateError, "post-repair full re-audit"):
+                validate(journal, patch)
+
+    def test_repaired_candidate_without_repair_count_fails_closed(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files(
+            initial_equals_final=False,
+            passes=2,
+            repairs=0,
+        )
+        with temp:
+            with self.assertRaisesRegex(GateError, "no Internal Expert repair"):
+                validate(journal, patch)
+
+    def test_stale_final_patch_hash_fails_closed(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files()
         with temp:
             patch.write_text("mutated\n", encoding="utf-8")
-            with self.assertRaises(GateError):
+            with self.assertRaisesRegex(GateError, "stale"):
                 validate(journal, patch)
 
-    def test_low_novel_probe_count_fails_closed(self) -> None:
-        temp, journal, patch, output, digest = self._files(lambda sha: checkpoint(sha, novel=23))
+    def test_engineer_identity_leak_fails_closed(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files()
         with temp:
-            with self.assertRaises(GateError):
+            journal.write_text(
+                checkpoint(
+                    initial_digest,
+                    final_digest,
+                    knows_engineer="true",
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(GateError, "identity isolation"):
                 validate(journal, patch)
 
-    def test_low_benign_control_count_fails_closed(self) -> None:
-        temp, journal, patch, output, digest = self._files(lambda sha: checkpoint(sha, benign=11))
+    def test_engineer_reentry_after_audit_handoff_fails_closed(self) -> None:
+        temp, journal, patch, initial_digest, final_digest = self._files()
         with temp:
-            with self.assertRaises(GateError):
-                validate(journal, patch)
-
-    def test_low_cross_interaction_count_fails_closed(self) -> None:
-        temp, journal, patch, output, digest = self._files(lambda sha: checkpoint(sha, cross=11))
-        with temp:
-            with self.assertRaises(GateError):
-                validate(journal, patch)
-
-    def test_coverage_delta_blocks_clean(self) -> None:
-        temp, journal, patch, output, digest = self._files(lambda sha: checkpoint(sha, delta="UNICODE_SEPARATOR_CLASS"))
-        with temp:
-            with self.assertRaises(GateError):
-                validate(journal, patch)
-
-    def test_missing_handoff_markers_fails_closed(self) -> None:
-        def builder(sha: str) -> str:
-            return checkpoint(sha).replace("HARNESS_HANDOFF_TARGET: EXTERNAL_EXPERT_EXPECTED_PASS\n", "")
-        temp, journal, patch, output, digest = self._files(builder)
-        with temp:
-            with self.assertRaises(GateError):
+            journal.write_text(
+                checkpoint(
+                    initial_digest,
+                    final_digest,
+                    engineer_reentered="true",
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(GateError, "re-entered"):
                 validate(journal, patch)
 
 
