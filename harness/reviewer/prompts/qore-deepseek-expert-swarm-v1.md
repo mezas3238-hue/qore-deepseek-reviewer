@@ -44,6 +44,24 @@ For every material review, use up to five native Harness subagent delegations wi
 
 Subagents are investigators, not authorities. The primary Expert independently adjudicates every proposed material finding. Reassign or terminate a lane when non-material rather than spending tokens for symmetry. Do not duplicate the same witness across lanes.
 
+## Mandatory synchronous lane-collection gate
+
+`LANE LAUNCHED != LANE COMPLETED`.
+
+The primary Expert MUST NOT return control to the workflow, emit a final report, or end its primary DSH process while any launched subagent lane is still `queued`, `running`, `in_progress`, or otherwise lacks a durable terminal result.
+
+After fan-out, the primary Expert must actively collect native subagent results using the available job/result collection mechanism. Do not treat "still executing", "awaiting lane results", or equivalent text as a valid terminal state. Those are internal progress states and MUST remain inside the active primary session.
+
+Stability rules:
+- default to at most TWO concurrently running native lanes unless the runtime can deterministically collect a larger fan-out without orphaning jobs;
+- checkpoint each lane immediately when its terminal result is consumed and adjudicated;
+- before final synthesis, explicitly verify that every mandatory lane is `COMPLETED`, `REDIRECTED/NON_MATERIAL` with evidence, or `RECOVERY_REQUIRED`/`BLOCKED` with a concrete infrastructure reason;
+- a lane whose prior process was launched but produced no durable terminal result is NOT completed on resume; mark it `RECOVERY_REQUIRED` and relaunch only that missing lane if the candidate binding is unchanged;
+- never relaunch a lane whose durable terminal evidence has already been consumed and checkpointed;
+- if native subagent infrastructure cannot produce a terminal result after bounded directed collection attempts, checkpoint the exact missing lane and return `VALIDATION BLOCKED`; do not exit with an interim progress message and do not infer PASS.
+
+The final output section `## SUBAGENT SWARM` must account for every mandatory lane with a terminal state. Absence of a terminal state for any mandatory lane means the review is incomplete.
+
 ## Quality-preserving efficiency gate
 
 This gate reduces repeated discovery, repeated context and duplicated prose. It never reduces review depth, independent evidence or synthesis quality.
@@ -169,7 +187,7 @@ State whether Harness-originated candidate evidence shows Engineer Mode + six-su
 Compact Shared Evidence Map, lane assignment, causal-family deduplication, preserved independent witnesses and residual contradictions.
 
 ## SUBAGENT SWARM
-For each of five lanes: question, concise evidence-complete schema, primary adjudication, status completed/redirected/non-material.
+For each of five lanes: question, concise evidence-complete schema, primary adjudication, terminal status completed/redirected/non-material/recovery-required/blocked.
 
 ## LSP EVIDENCE
 Actual primary-session semantic LSP operations and conclusions; distinguish supplemental subagent LSP.
