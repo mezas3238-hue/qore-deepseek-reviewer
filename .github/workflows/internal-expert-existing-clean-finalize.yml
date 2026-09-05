@@ -1,0 +1,221 @@
+name: Finalize completed Internal Expert artifact
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - internal_expert_finalize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: internal-expert-existing-clean-finalize
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout exact finalizer request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate request
+        id: request
+        run: |
+          set -euo pipefail
+          REQUEST=internal_expert_finalize_requests/current.json
+          jq -e 'keys == ["allowed_paths","expected_final_patch_sha256","expected_start","expected_tree","max_changed_files","max_diff_lines","package_id","source_artifact_id","source_run_id"]' "$REQUEST" >/dev/null
+          jq -er '.package_id|select(type=="string" and length>0)' "$REQUEST" >/dev/null
+          for KEY in expected_start expected_tree; do
+            VALUE="$(jq -r ".${KEY}" "$REQUEST")"
+            [[ "$VALUE" =~ ^[0-9a-f]{40}$ ]]
+          done
+          VALUE="$(jq -r '.expected_final_patch_sha256' "$REQUEST")"
+          [[ "$VALUE" =~ ^[0-9a-f]{64}$ ]]
+          jq -e '.source_run_id|type=="number" and .>=1' "$REQUEST" >/dev/null
+          jq -e '.source_artifact_id|type=="number" and .>=1' "$REQUEST" >/dev/null
+          jq -e '.allowed_paths|type=="array" and length>=1' "$REQUEST" >/dev/null
+          jq -e '.max_changed_files|type=="number" and .>=1' "$REQUEST" >/dev/null
+          jq -e '.max_diff_lines|type=="number" and .>=1' "$REQUEST" >/dev/null
+          echo "package_id=$(jq -r '.package_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "source_run_id=$(jq -r '.source_run_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "source_artifact_id=$(jq -r '.source_artifact_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "expected_start=$(jq -r '.expected_start' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "expected_tree=$(jq -r '.expected_tree' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "expected_final_patch_sha256=$(jq -r '.expected_final_patch_sha256' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "allowed_paths=$(jq -c '.allowed_paths' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "max_changed_files=$(jq -r '.max_changed_files' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "max_diff_lines=$(jq -r '.max_diff_lines' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact qore-core START
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_start }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Restore and canonicalize completed Internal Expert candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          SOURCE_ARTIFACT_ID: ${{ steps.request.outputs.source_artifact_id }}
+          EXPECTED_START: ${{ steps.request.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+          EXPECTED_FINAL_SHA: ${{ steps.request.outputs.expected_final_patch_sha256 }}
+          ALLOWED_PATHS_JSON: ${{ steps.request.outputs.allowed_paths }}
+          MAX_CHANGED_FILES: ${{ steps.request.outputs.max_changed_files }}
+          MAX_DIFF_LINES: ${{ steps.request.outputs.max_diff_lines }}
+        run: |
+          set -euo pipefail
+          test "$(git -C workspace/qore-core rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git -C workspace/qore-core show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+
+          META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}")"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = "false"
+
+          DIR="$RUNNER_TEMP/completed-internal-expert"
+          ZIP="$RUNNER_TEMP/completed-internal-expert.zip"
+          mkdir -p "$DIR"
+          gh api -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip" > "$ZIP"
+          unzip -q "$ZIP" -d "$DIR"
+          cp "$DIR/internal-expert-recovery-metadata.json" internal-expert-recovery-metadata.json
+          cp "$DIR/internal-expert-recovery-checkpoints.md" internal-expert-recovery-checkpoints.md
+          cp "$DIR/internal-expert-recovery-output.md" internal-expert-recovery-output.md
+          cp "$DIR/internal-expert-final-candidate.patch" internal-expert-final-candidate.raw.patch
+
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.audit_recovery_only == true and .engineer_sessions == 0 and .engineer_reentered_after_recovery_handoff == false' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.internal_expert_knows_engineer_identity == false and .implementation_package_context_shared_with_internal_expert == false' internal-expert-recovery-metadata.json >/dev/null
+          jq -e '.final_internal_expert_audit_pass_count >= 2 and .final_internal_expert_repair_count >= 0' internal-expert-recovery-metadata.json >/dev/null
+          test "$(jq -r '.final_candidate_patch_sha256' internal-expert-recovery-metadata.json)" = "$EXPECTED_FINAL_SHA"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, os, re
+          raw = Path('internal-expert-final-candidate.raw.patch').read_bytes()
+          starts = [m.start() for m in re.finditer(br'(?m)^diff --git ', raw)]
+          if not starts:
+              raise SystemExit('no diff headers')
+          prefix = raw[:starts[0]]
+          chunks = []
+          removed = []
+          for i, start in enumerate(starts):
+              end = starts[i + 1] if i + 1 < len(starts) else len(raw)
+              chunk = raw[start:end]
+              header = chunk.split(b'\n', 1)[0].split()
+              if len(header) < 4:
+                  raise SystemExit('malformed diff header')
+              path = header[2][2:] if header[2].startswith(b'a/') else header[2]
+              if path.startswith(b'.qore-harness-recovery/'):
+                  removed.append(path.decode())
+                  continue
+              chunks.append((path, chunk))
+          if removed != ['.qore-harness-recovery/candidate.patch']:
+              raise SystemExit(f'unexpected helper diffs: {removed!r}')
+          canonical = prefix + b''.join(chunk for path, chunk in sorted(chunks, key=lambda item: item[0]))
+          actual = hashlib.sha256(canonical).hexdigest()
+          expected = os.environ['EXPECTED_FINAL_SHA']
+          if actual != expected:
+              raise SystemExit(f'canonical final SHA mismatch expected={expected} actual={actual}')
+          Path('internal-expert-final-candidate.patch').write_bytes(canonical)
+          print(f'canonical_final_sha256={actual} changed_files={len(chunks)}')
+          PY
+
+          git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/internal-expert-final-candidate.patch"
+          git -C workspace/qore-core apply "$GITHUB_WORKSPACE/internal-expert-final-candidate.patch"
+          git -C workspace/qore-core diff --check
+          git -C workspace/qore-core remote remove origin || true
+          test -z "$(git -C workspace/qore-core remote)"
+
+          jq -n \
+            --arg expected_start "$EXPECTED_START" \
+            --arg expected_tree "$EXPECTED_TREE" \
+            --argjson allowed_paths "$ALLOWED_PATHS_JSON" \
+            --argjson max_changed_files "$MAX_CHANGED_FILES" \
+            --argjson max_diff_lines "$MAX_DIFF_LINES" \
+            '{expected_start:$expected_start,expected_tree:$expected_tree,allowed_paths:$allowed_paths,max_changed_files:$max_changed_files,max_diff_lines:$max_diff_lines}' \
+            > internal-expert-finalize-package.json
+
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package internal-expert-finalize-package.json \
+            --patch internal-expert-final-candidate.gated.patch \
+            --metadata internal-expert-final-candidate-gate.json
+          test "$(sha256sum internal-expert-final-candidate.gated.patch | awk '{print $1}')" = "$EXPECTED_FINAL_SHA"
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints internal-expert-recovery-checkpoints.md \
+            --patch internal-expert-final-candidate.gated.patch \
+            --output internal-expert-clean-gate.json
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run canonical FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-functions-internal-finalize.coverage
+        run: |
+          set -euo pipefail
+          git diff --check
+          ruff check . | tee "$GITHUB_WORKSPACE/internal-expert-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/internal-expert-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/internal-expert-pytest.log"
+
+      - name: Revalidate exact candidate after FULL QG
+        env:
+          EXPECTED_FINAL_SHA: ${{ steps.request.outputs.expected_final_patch_sha256 }}
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package internal-expert-finalize-package.json \
+            --patch internal-expert-final-candidate.gated.patch \
+            --metadata internal-expert-final-candidate-gate.json
+          test "$(sha256sum internal-expert-final-candidate.gated.patch | awk '{print $1}')" = "$EXPECTED_FINAL_SHA"
+          python3 scripts/harness_internal_expert_gate.py \
+            --checkpoints internal-expert-recovery-checkpoints.md \
+            --patch internal-expert-final-candidate.gated.patch \
+            --output internal-expert-clean-gate.json
+
+      - name: Upload finalized Internal Expert evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: finalized-internal-expert-${{ steps.request.outputs.package_id }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            internal-expert-recovery-metadata.json
+            internal-expert-recovery-checkpoints.md
+            internal-expert-recovery-output.md
+            internal-expert-final-candidate.patch
+            internal-expert-final-candidate.gated.patch
+            internal-expert-final-candidate-gate.json
+            internal-expert-clean-gate.json
+            internal-expert-ruff.log
+            internal-expert-mypy.log
+            internal-expert-pytest.log
+
+      - name: Finalization complete
+        run: |
+          echo "Completed Internal Expert candidate is deterministically CLEAN and FULL QG green; no DeepSeek call was made."
