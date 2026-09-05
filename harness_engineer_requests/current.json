@@ -1,11 +1,13 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-R8-RF1-QUALITY-FAILURE-ONE-SHOT-001",
+  "package_id": "HARNESS-ENGINEER-QORE-CIBO-COGNITIVE-R8-RF1-QUALITY-FAILURE-ONE-SHOT-RESUME-001",
   "expected_start": "fda9101415595ebca30ba1b71c7dc26f4ad2b025",
   "expected_tree": "f8e11d8bccbe556a96deeeb6d6f354364a46e1f2",
-  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-r8-rf1-harness-quality-failure-one-shot-001.md",
+  "task_path": "harness/engineer/tasks/qore-cibo-cognitive-r8-rf1-harness-quality-failure-one-shot-resume-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-cibo-cognitive-r8-rf1-quality-failure-one-shot-001-20260905-r1",
+  "dispatch_nonce": "qore-cibo-cognitive-r8-rf1-quality-failure-one-shot-resume-001-20260905-r1",
+  "recovery_artifact_id": 9971823948,
+  "recovery_patch_sha256": "5838ddcdecdcc8c7084113733ff9baefb678356f9c127cc1bdabb34287b58e4c",
   "allowed_paths": [
     "docs/architecture/QORE-CIBO-COGNITIVE-EXECUTIVE-001.md",
     "docs/architecture/QORE-CIBO-COGNITIVE-SUPERARCHITECTURE-001.md",
