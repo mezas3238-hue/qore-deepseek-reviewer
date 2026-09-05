@@ -21,6 +21,9 @@ TERMINAL_STATES = {"COMPLETED", "MATERIAL_BLOCKED"}
 LANE_RE = re.compile(
     r"^QORE_LANE_STATE\s+lane=(?P<lane>[1-6])\s+state=(?P<state>[A-Z_]+)(?:\s+generation=(?P<generation>\d+))?\s*$"
 )
+SUBAGENT_RE = re.compile(
+    r"^QORE_SUBAGENT_STATE\s+lane=(?P<lane>[1-6])\s+id=(?P<identity>[A-Za-z0-9._:@+-]{1,128})\s+state=(?P<state>[A-Z_]+)(?:\s+generation=(?P<generation>\d+))?\s*$"
+)
 BINDING_RE = re.compile(
     r"^binding:\s*START=(?P<start>[0-9a-fA-F]{7,64})\s+TREE=(?P<tree>[0-9a-fA-F]{7,64})(?:\s+(?P<annotation>VERIFIED_EXACT|\(unchanged\)|\(UNCHANGED\)))?\s*$"
 )
@@ -39,6 +42,9 @@ class Snapshot:
     checkpoint_count: int
     lanes: dict[int, str]
     generations: dict[int, int]
+    subagent_ids: dict[int, str | None]
+    subagent_states: dict[int, str]
+    subagent_generations: dict[int, int]
     package_id: str | None = None
     start: str | None = None
     tree: str | None = None
@@ -56,21 +62,39 @@ class Snapshot:
         return [lane for lane in LANES if self.lanes[lane] not in TERMINAL_STATES]
 
     @property
+    def completed_subagents(self) -> list[int]:
+        return [lane for lane in LANES if self.subagent_states[lane] == "COMPLETED"]
+
+    @property
+    def all_subagents_complete(self) -> bool:
+        identities = [self.subagent_ids[lane] for lane in LANES]
+        return (
+            len(self.completed_subagents) == len(LANES)
+            and all(identity is not None and not identity.startswith("UNASSIGNED-") for identity in identities)
+            and len(set(identities)) == len(LANES)
+        )
+
+    @property
     def all_complete(self) -> bool:
-        return len(self.completed) == len(LANES)
+        return len(self.completed) == len(LANES) and self.all_subagents_complete
 
     def as_dict(self) -> dict[str, object]:
         return {
-            "schema": "qore-harness-large-batch-state-v1",
+            "schema": "qore-harness-large-batch-state-v2-six-distinct-subagents",
             "checkpoint_count": self.checkpoint_count,
             "package_id": self.package_id,
             "start": self.start,
             "tree": self.tree,
             "lanes": {str(k): self.lanes[k] for k in LANES},
             "lane_generations": {str(k): self.generations[k] for k in LANES},
+            "subagent_ids": {str(k): self.subagent_ids[k] for k in LANES},
+            "subagent_states": {str(k): self.subagent_states[k] for k in LANES},
+            "subagent_generations": {str(k): self.subagent_generations[k] for k in LANES},
             "completed_lanes": self.completed,
             "pending_lanes": self.pending,
             "blocked_lanes": self.blocked,
+            "completed_subagent_lanes": self.completed_subagents,
+            "all_subagents_complete": self.all_subagents_complete,
             "all_complete": self.all_complete,
         }
 
@@ -93,7 +117,12 @@ def _checkpoint_blocks(text: str) -> list[list[str]]:
             continue
         if current is not None:
             current.append(raw)
-        elif stripped.startswith("QORE_LANE_STATE") or stripped.startswith("binding:") or stripped.startswith("package_id:"):
+        elif (
+            stripped.startswith("QORE_LANE_STATE")
+            or stripped.startswith("QORE_SUBAGENT_STATE")
+            or stripped.startswith("binding:")
+            or stripped.startswith("package_id:")
+        ):
             raise StateError("durable state material exists outside a checkpoint block")
     if current is not None:
         raise StateError("unterminated checkpoint")
@@ -106,7 +135,12 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
     blocks = _checkpoint_blocks(text)
     lanes = {lane: "NOT_STARTED" for lane in LANES}
     generations = {lane: 0 for lane in LANES}
+    subagent_ids: dict[int, str | None] = {lane: None for lane in LANES}
+    subagent_states = {lane: "NOT_STARTED" for lane in LANES}
+    subagent_generations = {lane: 0 for lane in LANES}
     seen_completed: set[int] = set()
+    seen_completed_subagents: set[int] = set()
+    completed_identity_owner: dict[str, int] = {}
     package_id: str | None = None
     start: str | None = None
     tree: str | None = None
@@ -138,21 +172,56 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
                 raise StateError(f"invalid checkpoint binding line: {stripped}")
 
             match = LANE_RE.match(stripped)
-            if not match:
+            if match:
+                lane = int(match.group("lane"))
+                state = match.group("state")
+                if state not in STATES:
+                    raise StateError(f"unknown lane state for lane {lane}: {state}")
+                generation = int(match.group("generation") or generations[lane])
+                if generation < generations[lane]:
+                    raise StateError(f"lane {lane} generation regressed")
+                if lane in seen_completed and state != "COMPLETED":
+                    raise StateError(f"completed lane {lane} regressed to {state}")
+                lanes[lane] = state
+                generations[lane] = generation
+                if state == "COMPLETED":
+                    seen_completed.add(lane)
                 continue
-            lane = int(match.group("lane"))
-            state = match.group("state")
-            if state not in STATES:
-                raise StateError(f"unknown lane state for lane {lane}: {state}")
-            generation = int(match.group("generation") or generations[lane])
-            if generation < generations[lane]:
-                raise StateError(f"lane {lane} generation regressed")
-            if lane in seen_completed and state != "COMPLETED":
-                raise StateError(f"completed lane {lane} regressed to {state}")
-            lanes[lane] = state
-            generations[lane] = generation
-            if state == "COMPLETED":
-                seen_completed.add(lane)
+
+            subagent_match = SUBAGENT_RE.match(stripped)
+            if subagent_match:
+                lane = int(subagent_match.group("lane"))
+                identity = subagent_match.group("identity")
+                state = subagent_match.group("state")
+                if state not in STATES:
+                    raise StateError(f"unknown subagent state for lane {lane}: {state}")
+                generation = int(
+                    subagent_match.group("generation") or subagent_generations[lane]
+                )
+                if generation < subagent_generations[lane]:
+                    raise StateError(f"subagent lane {lane} generation regressed")
+                if lane in seen_completed_subagents:
+                    if state != "COMPLETED":
+                        raise StateError(
+                            f"completed subagent for lane {lane} regressed to {state}"
+                        )
+                    if subagent_ids[lane] != identity:
+                        raise StateError(
+                            f"completed subagent identity for lane {lane} changed"
+                        )
+                if state == "COMPLETED" and not identity.startswith("UNASSIGNED-"):
+                    owner = completed_identity_owner.get(identity)
+                    if owner is not None and owner != lane:
+                        raise StateError(
+                            f"subagent identity {identity} reused across lanes {owner} and {lane}"
+                        )
+                    completed_identity_owner[identity] = lane
+                subagent_ids[lane] = identity
+                subagent_states[lane] = state
+                subagent_generations[lane] = generation
+                if state == "COMPLETED":
+                    seen_completed_subagents.add(lane)
+                continue
 
     if require_binding and (package_id is None or start is None or tree is None):
         raise StateError("checkpoint journal is missing immutable package/START/TREE binding")
@@ -161,6 +230,9 @@ def parse_checkpoint_text(text: str, *, require_binding: bool = False) -> Snapsh
         checkpoint_count=len(blocks),
         lanes=lanes,
         generations=generations,
+        subagent_ids=subagent_ids,
+        subagent_states=subagent_states,
+        subagent_generations=subagent_generations,
         package_id=package_id,
         start=start,
         tree=tree,
@@ -184,12 +256,14 @@ def write_initial(path: Path, package_id: str, start: str, tree: str) -> None:
         f"binding: START={start} TREE={tree}",
         "completed: workflow binding, isolated checkout, LSP preflight, and balance preflight reached",
     ]
-    lines.extend(
-        f"QORE_LANE_STATE lane={lane} state=NOT_STARTED generation=0" for lane in LANES
-    )
+    for lane in LANES:
+        lines.append(f"QORE_LANE_STATE lane={lane} state=NOT_STARTED generation=0")
+        lines.append(
+            f"QORE_SUBAGENT_STATE lane={lane} id=UNASSIGNED-{lane} state=NOT_STARTED generation=0"
+        )
     lines.extend(
         [
-            "PENDING NEXT ACTION: primary Harness verifies binding and starts/inherits the six-lane state machine",
+            "PENDING NEXT ACTION: primary Harness verifies binding and starts/inherits the six-lane six-subagent state machine",
             "SAFE RESUME INSTRUCTION: preserve exact START/TREE and never repeat a lane after it reaches COMPLETED",
             END,
             "",
@@ -274,6 +348,8 @@ def _restore_recovery_journal(
 
     imported_lanes: dict[int, str] = {}
     imported_generations: dict[int, int] = {}
+    imported_subagent_states: dict[int, str] = {}
+    imported_subagent_generations: dict[int, int] = {}
     for lane in LANES:
         state = source_state.lanes[lane]
         generation = source_state.generations[lane]
@@ -284,14 +360,31 @@ def _restore_recovery_journal(
         imported_generations[lane] = generation
         lines.append(f"QORE_LANE_STATE lane={lane} state={state} generation={generation}")
 
+        subagent_state = source_state.subagent_states[lane]
+        subagent_generation = source_state.subagent_generations[lane]
+        subagent_identity = source_state.subagent_ids[lane] or f"UNASSIGNED-{lane}"
+        if subagent_state == "RUNNING":
+            subagent_state = "RECOVERY_REQUIRED"
+            subagent_generation += 1
+        imported_subagent_states[lane] = subagent_state
+        imported_subagent_generations[lane] = subagent_generation
+        lines.append(
+            f"QORE_SUBAGENT_STATE lane={lane} id={subagent_identity} "
+            f"state={subagent_state} generation={subagent_generation}"
+        )
+
     completed = [lane for lane in LANES if imported_lanes[lane] == "COMPLETED"]
     pending = [lane for lane in LANES if imported_lanes[lane] not in TERMINAL_STATES]
+    completed_subagents = [
+        lane for lane in LANES if imported_subagent_states[lane] == "COMPLETED"
+    ]
     lines.extend(
         [
             f"evidence: inherited_completed_lanes={completed}",
             f"evidence: inherited_pending_lanes={pending}",
-            "PENDING NEXT ACTION: resume only pending/recovery-required work under the successor package; preserve completed lanes",
-            "SAFE RESUME INSTRUCTION: imported COMPLETED lanes are immutable carry-forward evidence; do not reconstruct or relaunch them",
+            f"evidence: inherited_completed_subagent_lanes={completed_subagents}",
+            "PENDING NEXT ACTION: resume only pending/recovery-required work under the successor package; preserve completed lanes and completed subagents",
+            "SAFE RESUME INSTRUCTION: imported COMPLETED lanes/subagents are immutable carry-forward evidence; do not reconstruct or relaunch them",
             END,
             "",
         ]
