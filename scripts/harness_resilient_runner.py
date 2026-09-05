@@ -290,7 +290,7 @@ def _engineer_role_prompt(*, base_prompt: str, host_checkpoint: Path) -> str:
         + f"pending_engineering_lanes={snapshot.pending}\n"
         + f"checkpoint_path={AGENT_RECOVERY_DIR}/checkpoints.md\n"
         + f"recovery_patch_path={AGENT_RECOVERY_DIR}/candidate.patch\n"
-        + "\nComplete engineering independently. After ENGINEERING_READY_FOR_INDEPENDENT_AUDIT the host will hand the candidate to a separate unknown auditor. You will not participate in that audit.\n"
+        + "\nComplete engineering independently. When all six engineering lanes are complete, emit ENGINEERING_READY_FOR_HOST_HANDOFF and hand the exact candidate to the deterministic host. No downstream process information is available in this role.\n"
     )
 
 
