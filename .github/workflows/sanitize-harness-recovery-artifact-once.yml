@@ -1,0 +1,123 @@
+name: Sanitize Harness recovery artifact once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - recovery_sanitize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: sanitize-harness-recovery-artifact-once
+  cancel-in-progress: false
+
+jobs:
+  sanitize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Validate request and sanitizer
+        id: request
+        run: |
+          set -euo pipefail
+          REQUEST=recovery_sanitize_requests/current.json
+          jq -e 'keys == ["dispatch_nonce","expected_changed_files","expected_raw_sha256","expected_semantic_sha256","expected_start","expected_tree","package_id","source_artifact_id","source_run_id"]' "$REQUEST" >/dev/null
+          jq -e '.source_run_id|type=="number" and .>=1' "$REQUEST" >/dev/null
+          jq -e '.source_artifact_id|type=="number" and .>=1' "$REQUEST" >/dev/null
+          jq -e '.expected_changed_files|type=="number" and .>=1 and .<=64' "$REQUEST" >/dev/null
+          jq -er '.package_id|select(type=="string" and length>0)' "$REQUEST" >/dev/null
+          jq -er '.dispatch_nonce|select(type=="string" and length>0)' "$REQUEST" >/dev/null
+          for KEY in expected_start expected_tree; do
+            VALUE="$(jq -r ".${KEY}" "$REQUEST")"
+            [[ "$VALUE" =~ ^[0-9a-f]{40}$ ]]
+          done
+          for KEY in expected_raw_sha256 expected_semantic_sha256; do
+            VALUE="$(jq -r ".${KEY}" "$REQUEST")"
+            [[ "$VALUE" =~ ^[0-9a-f]{64}$ ]]
+          done
+          python3 -m py_compile scripts/sanitize_harness_recovery_patch.py
+          echo "package_id=$(jq -r '.package_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "source_run_id=$(jq -r '.source_run_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "source_artifact_id=$(jq -r '.source_artifact_id' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "expected_start=$(jq -r '.expected_start' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "expected_tree=$(jq -r '.expected_tree' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "raw_sha=$(jq -r '.expected_raw_sha256' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "semantic_sha=$(jq -r '.expected_semantic_sha256' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "changed_files=$(jq -r '.expected_changed_files' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact qore-core START
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_start }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download authenticate sanitize and validate candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          SOURCE_ARTIFACT_ID: ${{ steps.request.outputs.source_artifact_id }}
+          EXPECTED_START: ${{ steps.request.outputs.expected_start }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+          RAW_SHA: ${{ steps.request.outputs.raw_sha }}
+          SEMANTIC_SHA: ${{ steps.request.outputs.semantic_sha }}
+          EXPECTED_CHANGED_FILES: ${{ steps.request.outputs.changed_files }}
+        run: |
+          set -euo pipefail
+          test "$(git -C workspace/qore-core rev-parse HEAD)" = "$EXPECTED_START"
+          test "$(git -C workspace/qore-core show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}")"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.expired' <<<"$META")" = "false"
+
+          RECOVERY_DIR="$RUNNER_TEMP/source-artifact"
+          ZIP="$RUNNER_TEMP/source-artifact.zip"
+          mkdir -p "$RECOVERY_DIR"
+          gh api -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/artifacts/${SOURCE_ARTIFACT_ID}/zip" > "$ZIP"
+          unzip -q "$ZIP" -d "$RECOVERY_DIR"
+          SOURCE_PATCH="$(find "$RECOVERY_DIR" -type f -name harness-engineer-candidate.patch -print -quit)"
+          test -n "$SOURCE_PATCH"
+          test "$(sha256sum "$SOURCE_PATCH" | awk '{print $1}')" = "$RAW_SHA"
+
+          python3 scripts/sanitize_harness_recovery_patch.py \
+            --input "$SOURCE_PATCH" \
+            --output harness-engineer-candidate.patch \
+            --expected-input-sha256 "$RAW_SHA" \
+            --expected-output-sha256 "$SEMANTIC_SHA"
+
+          test "$(grep -c '^diff --git a/' harness-engineer-candidate.patch)" = "$EXPECTED_CHANGED_FILES"
+          ! grep -q '^diff --git a/\.qore-harness-recovery/' harness-engineer-candidate.patch
+          git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
+          git -C workspace/qore-core apply "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
+          git -C workspace/qore-core diff --check
+          test "$(git -C workspace/qore-core diff --name-only | wc -l | tr -d ' ')" = "$EXPECTED_CHANGED_FILES"
+          git -C workspace/qore-core diff --name-only > sanitized-changed-files.txt
+          sha256sum harness-engineer-candidate.patch > sanitized-patch.sha256
+
+      - name: Upload sanitized candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitized-harness-recovery-${{ steps.request.outputs.package_id }}
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            harness-engineer-candidate.patch
+            sanitized-changed-files.txt
+            sanitized-patch.sha256
+
+      - name: Sanitization complete
+        run: |
+          echo "Sanitized exact semantic Harness candidate is ready for Internal Expert recovery."
