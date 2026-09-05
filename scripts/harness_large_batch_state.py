@@ -11,6 +11,7 @@ from pathlib import Path
 LANES = tuple(range(1, 7))
 STATES = {
     "NOT_STARTED",
+    "DISPATCHING",
     "RUNNING",
     "CHECKPOINTED",
     "COMPLETED",
@@ -412,7 +413,7 @@ def _restore_recovery_journal(
     for lane in LANES:
         state = source_state.lanes[lane]
         generation = source_state.generations[lane]
-        if state == "RUNNING":
+        if state in {"RUNNING", "DISPATCHING"}:
             state = "RECOVERY_REQUIRED"
             generation += 1
         imported_lanes[lane] = state
@@ -422,7 +423,7 @@ def _restore_recovery_journal(
         subagent_state = source_state.subagent_states[lane]
         subagent_generation = source_state.subagent_generations[lane]
         subagent_identity = source_state.subagent_ids[lane] or f"UNASSIGNED-{lane}"
-        if subagent_state == "RUNNING":
+        if subagent_state in {"RUNNING", "DISPATCHING"}:
             subagent_state = "RECOVERY_REQUIRED"
             subagent_generation += 1
         imported_subagent_states[lane] = subagent_state
