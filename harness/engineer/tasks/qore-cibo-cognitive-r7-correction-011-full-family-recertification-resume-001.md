@@ -9,6 +9,58 @@ Original five-seed task/evidence remains available at:
 
 Read that task for exact R7 witnesses and binding evidence, but apply the stronger recertification law below.
 
+## MANDATORY DUAL-ROLE HARNESS CONTRACT
+
+This package MUST load and obey the persistent global policy:
+`harness/engineer/QORE-HARNESS-DUAL-ROLE-ONE-SHOT-POLICY-V1.md`.
+
+This is ONE work package with two mandatory logical phases inside the same Harness workflow:
+
+A. `HARNESS_ENGINEER_MODE`
+B. `HARNESS_INTERNAL_EXPERT_MODE`
+
+Exactly the canonical six Harness lanes/subagents support both phases. Do NOT create a second six-lane batch and do NOT treat Internal Expert as a seventh lane. L1–L5 own engineering/family discovery and L6 is the fresh post-implementation challenger, while the parent Harness must explicitly change posture from Engineer to Internal Expert and use the complete six-specialty evidence surface to falsify the final candidate.
+
+Engineer Mode owns complete recertification and implementation of RF-1/RF-2/RF-3. After final implementation, focused/systematic validation and semantic LSP-after, Internal Expert Mode MUST independently attack the exact final candidate rather than defend the implementation rationale.
+
+Internal Expert falsification must cover all six adversarial specialties:
+1. architecture/contracts/runtime-types/trust-root falsification;
+2. fresh witness/red-team/alternate reachable paths;
+3. security/Unicode/normalization/parsing/input-boundary false-positive/false-negative attacks;
+4. property/metamorphic/exhaustive equivalence and cross-product attacks;
+5. historical regression/retained-state/serialization/replay/integration attacks;
+6. fresh final cross-interaction challenge over the exact final patch.
+
+All R7 findings are seed evidence only. The Internal Expert MUST generate new probes beyond those witnesses.
+
+Any Internal Expert material finding MUST:
+- remain inside this SAME Correction-011 successor work package;
+- return to `HARNESS_ENGINEER_MODE`;
+- repair the complete affected family/model class, not only the witness;
+- rerun affected focused/property/metamorphic validation and semantic LSP-after;
+- refresh the exact recovery patch;
+- instantiate a new fresh final challenger against the mutated candidate;
+- repeat until CLEAN or honestly BLOCKED.
+
+No semantic code/test mutation is allowed after final Internal Expert CLEAN. Any semantic mutation invalidates CLEAN and requires a new Internal Expert attack cycle.
+
+No known material issue may be intentionally deferred to External Expert. External Expert remains independent; its later job is to attempt to break an already internally-clean Harness delivery.
+
+Candidate-ready is forbidden unless the durable journal and final report contain the exact markers:
+
+`HARNESS_INTERNAL_EXPERT_STATUS: CLEAN`
+
+`HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN`
+
+Final report MUST include explicit sections:
+- `## HARNESS ENGINEER MODE`
+- `## HARNESS INTERNAL EXPERT MODE`
+- internal challenge/fix/refalsify loops;
+- exact final-candidate binding/patch freshness;
+- zero material deferral to External Expert.
+
+`EXTERNAL EXPERT EXPECTED PASS` is Harness's acceptance target. It is NOT authority to manufacture PASS; if complete family closure or Internal Expert cleanliness cannot be demonstrated, return BLOCKED.
+
 ## IMMUTABLE QORE BINDING
 
 Repository: `mezas3238-hue/qore-core`
@@ -21,7 +73,7 @@ Exact-head QORE CI: run `33928627387`, job `101202461454`, Ruff PASS, mypy 775, 
 
 Expert R7 package `QORE-PR486-CIBO-COGNITIVE-FINAL-DS-EXPERT-R7-001`, run `33929313387`, job `101204491775`, artifact `9958463522`, verdict `VALIDACIÓN NO OK`.
 
-Cancelled initial Correction-011 recovery evidence: run `33931486716`, job `101210820575`, artifact `9958714493`, digest `sha256:998c8fd0db57b6696dd395787ff3a77e8fd13e3cb6997eef0390920b48ea8e05`. That run was intentionally cancelled for cost-window governance; it is not a semantic failure. Reuse any valid same-binding recovery evidence supplied by the host. Do not infer completed lanes without durable evidence.
+Cancelled initial Correction-011 recovery evidence: run `33931486716`, job `101210820575`, artifact `9958714493`, digest `sha256:998c8fd0db57b6696dd395787ff3a77e8fd13e3cb6997eef0390920b48ea8e05`. That run was intentionally cancelled for cost-window governance; it is not a semantic failure. Its durable state contained only host initialization with L1–L6 `NOT_STARTED`; therefore no semantic lane/model work is treated as completed by this successor. Do not repeat nonexistent predecessor work and do not infer completed lanes without durable evidence.
 
 ## SYSTEMIC ESCALATION
 
@@ -142,4 +194,4 @@ Artifact-only. No commit/push/merge/publication. No Production or real-capital a
 
 ## TARGET OUTCOME
 
-This package is intentionally designed so that a later Expert finding another adjacent RF-1/RF-2/RF-3 witness is treated as a RECERTIFICATION ESCAPE, not as normal expected iteration. Harness must therefore either prove the family models closed or explicitly BLOCK rather than defer hidden uncertainty to Expert.
+This package is intentionally designed so that a later Expert finding another adjacent RF-1/RF-2/RF-3 witness is treated as a `HARNESS_QUALITY_FAILURE` / RECERTIFICATION ESCAPE, not as normal expected iteration. Harness must therefore either prove the family models closed and survive Internal Expert CLEAN, or explicitly BLOCK rather than defer hidden uncertainty to External Expert.
