@@ -1,22 +1,15 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-DEMO-RISK-POLICY-AUTHORITY-CONTINUATION-001",
+  "package_id": "HARNESS-ENGINEER-QORE-CTRADER-DEMO-MULTI-TIMEFRAME-CONTINUATION-002",
   "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
   "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
-  "task_path": "harness/engineer/tasks/qore-demo-risk-policy-authority-continuation-001.md",
+  "task_path": "harness/engineer/tasks/qore-ctrader-demo-multi-timeframe-continuation-002.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-demo-risk-policy-authority-continuation-001-20260906-r1-parallel",
-  "allowed_paths": [
-    "docs/architecture",
-    "src/qore/infrastructure",
-    "src/qore/modules",
-    "tests/infrastructure",
-    "tests/modules",
-    ".qore-harness-recovery"
-  ],
+  "dispatch_nonce": "qore-ctrader-demo-multitimeframe-continuation-002-20260906-r1-parallel",
+  "allowed_paths": ["docs/architecture","src/qore/infrastructure","src/qore/modules","tests/infrastructure","tests/modules"],
   "max_changed_files": 64,
   "max_diff_lines": 40000,
   "run_full_qg": true,
-  "recovery_artifact_id": 9990674898,
-  "recovery_patch_sha256": "f9fef91de96362c6341e849abd19560c195459dbbe420f830d0c67a9705bf1b2"
+  "recovery_artifact_id": 9990955787,
+  "recovery_patch_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c"
 }
