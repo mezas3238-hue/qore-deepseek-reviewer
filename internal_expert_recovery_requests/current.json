@@ -1,5 +1,5 @@
 {
-  "package_id": "QORE-DEMO-FIRST-TRADER-COHORT-INTERNAL-EXPERT-RECOVERY-R1",
+  "package_id": "QORE-DEMO-FIRST-TRADER-COHORT-INTERNAL-EXPERT-RECOVERY-R2",
   "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
   "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
   "source_run_id": 34039048438,
@@ -28,5 +28,5 @@
   "max_changed_files": 18,
   "max_diff_lines": 40000,
   "run_full_qg": true,
-  "dispatch_nonce": "qore-demo-first-trader-cohort-internal-expert-recovery-r1-20260906"
+  "dispatch_nonce": "qore-demo-first-trader-cohort-internal-expert-recovery-r2-20260906-after-snapshot-fix"
 }
