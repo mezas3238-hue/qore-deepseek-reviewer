@@ -1,0 +1,5 @@
+{
+  "dispatch": "HARNESS-ENGINEER-QORE-DEMO-FIRST-TRADER-COHORT-CONTINUATION-001",
+  "reason": "explicit continuation dispatch trigger; immutable current.json remains authoritative",
+  "requested_at": "2026-09-06T13:31:00-03:00"
+}
