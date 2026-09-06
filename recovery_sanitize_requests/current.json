@@ -1,11 +1,11 @@
 {
-  "package_id": "QORE-CTRADER-DEMO-EXECUTION-SANITIZE-001",
-  "source_run_id": 34028985646,
-  "source_artifact_id": 9990875330,
+  "package_id": "QORE-DEMO-RISK-POLICY-AUTHORITY-SANITIZE-002",
+  "source_run_id": 34028382013,
+  "source_artifact_id": 9990674898,
   "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
   "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
-  "expected_raw_sha256": "224e8bfb0df373c6c4a2b10abb82da24ec2262f22b0f37f1ed3b939b78125717",
-  "expected_semantic_sha256": "e261388feb650bddf9ace15ac8f41ffcc0af388aa17a78cf49d434553522655e",
+  "expected_raw_sha256": "f9fef91de96362c6341e849abd19560c195459dbbe420f830d0c67a9705bf1b2",
+  "expected_semantic_sha256": "09e4be0ff0daf0697bfb878426e2c9a4313c8668d7c04239e64e0b1db795ac0d",
   "expected_changed_files": 13,
-  "dispatch_nonce": "qore-ctrader-demo-execution-sanitize-001-20260906-r1-parallel"
+  "dispatch_nonce": "qore-demo-risk-policy-authority-sanitize-002-20260906-r1-parallel"
 }
