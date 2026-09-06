@@ -1,17 +1,27 @@
 {
-  "package_id": "QORE-CTRADER-DEMO-MULTI-TIMEFRAME-001-INTERNAL-EXPERT-RECOVERY-R1",
+  "package_id": "QORE-DEMO-RISK-POLICY-AUTHORITY-INTERNAL-EXPERT-RECOVERY-R1",
   "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
   "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
-  "source_run_id": 34038603667,
-  "recovery_artifact_id": 9990955787,
-  "recovery_patch_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c",
+  "source_run_id": 34039275166,
+  "recovery_artifact_id": 9991157435,
+  "recovery_patch_sha256": "09e4be0ff0daf0697bfb878426e2c9a4313c8668d7c04239e64e0b1db795ac0d",
   "allowed_paths": [
-    "docs/architecture/QORE-CTRADER-DEMO-MULTI-TIMEFRAME-001.md",
-    "src/qore/infrastructure/ctrader_demo_market_data.py",
-    "tests/infrastructure/test_ctrader_demo_market_data.py"
+    "docs/architecture/QORE-DEMO-RISK-POLICY-AUTHORITY-001.md",
+    "src/qore/infrastructure/risk_authority.py",
+    "src/qore/infrastructure/risk_budgets.py",
+    "src/qore/infrastructure/risk_capacity.py",
+    "src/qore/infrastructure/risk_cognitive.py",
+    "src/qore/infrastructure/risk_policy_intelligence.py",
+    "src/qore/infrastructure/risk_runtime.py",
+    "tests/infrastructure/test_risk_authority.py",
+    "tests/infrastructure/test_risk_budgets.py",
+    "tests/infrastructure/test_risk_capacity.py",
+    "tests/infrastructure/test_risk_cognitive.py",
+    "tests/infrastructure/test_risk_policy_intelligence.py",
+    "tests/infrastructure/test_risk_runtime.py"
   ],
-  "max_changed_files": 3,
-  "max_diff_lines": 10000,
+  "max_changed_files": 13,
+  "max_diff_lines": 30000,
   "run_full_qg": true,
-  "dispatch_nonce": "qore-ctrader-demo-multi-timeframe-internal-expert-recovery-r1-20260906"
+  "dispatch_nonce": "qore-demo-risk-policy-authority-internal-expert-recovery-r1-20260906"
 }
