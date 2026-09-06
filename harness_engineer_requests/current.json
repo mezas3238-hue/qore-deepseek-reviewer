@@ -5,7 +5,7 @@
   "task_path": "harness/engineer/tasks/qore-ctrader-demo-multi-timeframe-001-m1-m5-m15-m30-h1-d.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-ctrader-demo-multitimeframe-001-20260906-r1",
+  "dispatch_nonce": "qore-ctrader-demo-multitimeframe-001-20260906-r2-parallel",
   "allowed_paths": [
     "docs/architecture",
     "src/qore/infrastructure",
