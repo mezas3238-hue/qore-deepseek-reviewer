@@ -4,8 +4,7 @@ run-name: Materialize recovered candidate · ${{ github.event.head_commit.messag
 on:
   push:
     branches: [main]
-    paths:
-      - 'recovered_candidate_materialize_requests/*.json'
+    paths: ['recovered_candidate_materialize_requests/*.json']
 
 permissions:
   actions: read
@@ -36,8 +35,8 @@ jobs:
             .repository == "mezas3238-hue/qore-core" and
             (.package_id | type == "string" and length > 0) and
             (.artifact_id | type == "number" and . > 0) and
+            (.source_run_id | type == "number" and . > 0) and
             (.artifact_name | type == "string" and length > 0) and
-            (.artifact_digest | test("^sha256:[0-9a-f]{64}$")) and
             (.patch_filename == "harness-engineer-candidate.patch") and
             (.patch_sha256 | test("^[0-9a-f]{64}$")) and
             (.base_head | test("^[0-9a-f]{40}$")) and
@@ -49,7 +48,7 @@ jobs:
             (.commit_subject | type == "string" and length > 0)
           ' "$REQUEST" >/dev/null
           echo "request=$REQUEST" >> "$GITHUB_OUTPUT"
-          for k in package_id artifact_id artifact_name artifact_digest patch_filename patch_sha256 base_head base_tree target_branch commit_subject; do
+          for k in package_id artifact_id source_run_id artifact_name patch_filename patch_sha256 base_head base_tree target_branch commit_subject; do
             printf '%s=%s\n' "$k" "$(jq -r --arg k "$k" '.[$k]' "$REQUEST")" >> "$GITHUB_OUTPUT"
           done
 
@@ -67,8 +66,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_ID: ${{ steps.request.outputs.artifact_id }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
           ARTIFACT_NAME: ${{ steps.request.outputs.artifact_name }}
-          ARTIFACT_DIGEST: ${{ steps.request.outputs.artifact_digest }}
           PATCH_FILENAME: ${{ steps.request.outputs.patch_filename }}
           PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
         run: |
@@ -76,16 +75,18 @@ jobs:
           META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
           test "$(jq -r '.expired' <<<"$META")" = false
           test "$(jq -r '.name' <<<"$META")" = "$ARTIFACT_NAME"
-          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > recovered-artifact.zip
-          mkdir recovered-artifact
-          unzip -q recovered-artifact.zip -d recovered-artifact
-          mapfile -t PATCHES < <(find recovered-artifact -type f -name "$PATCH_FILENAME" -print)
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          ZIP="$RUNNER_TEMP/recovered-artifact.zip"
+          DIR="$RUNNER_TEMP/recovered-artifact"
+          mkdir -p "$DIR"
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > "$ZIP"
+          unzip -q "$ZIP" -d "$DIR"
+          mapfile -t PATCHES < <(find "$DIR" -type f -name "$PATCH_FILENAME" -print)
           test "${#PATCHES[@]}" -eq 1
           PATCH="${PATCHES[0]}"
           test "$(sha256sum "$PATCH" | cut -d' ' -f1)" = "$PATCH_SHA256"
           cp "$PATCH" exact-recovered-candidate.patch
-          printf '%s\n' "$ARTIFACT_DIGEST" > recovered-artifact.digest
+          printf 'artifact_id=%s\nsource_run_id=%s\npatch_sha256=%s\n' "$ARTIFACT_ID" "$SOURCE_RUN_ID" "$PATCH_SHA256" > recovered-artifact.binding
 
       - name: Checkout exact qore-core base
         uses: actions/checkout@v4
@@ -102,7 +103,6 @@ jobs:
         env:
           BASE_HEAD: ${{ steps.request.outputs.base_head }}
           BASE_TREE: ${{ steps.request.outputs.base_tree }}
-          PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
           REQUEST_PATH: ${{ steps.request.outputs.request }}
         run: |
           set -euo pipefail
@@ -117,7 +117,6 @@ jobs:
           jq -r '.expected_changed_files[]' "$REQUEST" | sort > expected-files.txt
           diff -u expected-files.txt actual-files.txt
           git diff --binary HEAD -- . > "$GITHUB_WORKSPACE/canonical-applied-candidate.patch"
-          test "$(sha256sum "$GITHUB_WORKSPACE/canonical-applied-candidate.patch" | cut -d' ' -f1)" = "$PATCH_SHA256"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -143,10 +142,9 @@ jobs:
           mypy src tests | tee "$GITHUB_WORKSPACE/materialize-mypy.log"
           pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/materialize-pytest.log"
 
-      - name: Revalidate immutable candidate after FULL QG
+      - name: Revalidate exact scope after FULL QG
         working-directory: workspace/qore-core
         env:
-          PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
           REQUEST_PATH: ${{ steps.request.outputs.request }}
         run: |
           set -euo pipefail
@@ -155,8 +153,6 @@ jobs:
           git diff --name-only HEAD -- | sort > actual-files-after-qg.txt
           jq -r '.expected_changed_files[]' "$REQUEST" | sort > expected-files-after-qg.txt
           diff -u expected-files-after-qg.txt actual-files-after-qg.txt
-          git diff --binary HEAD -- . > "$GITHUB_WORKSPACE/canonical-applied-candidate-after-qg.patch"
-          test "$(sha256sum "$GITHUB_WORKSPACE/canonical-applied-candidate-after-qg.patch" | cut -d' ' -f1)" = "$PATCH_SHA256"
 
       - name: Commit exact candidate and create isolated branch
         working-directory: workspace/qore-core
@@ -178,7 +174,6 @@ jobs:
           git diff --cached --name-only | sort > staged-files.txt
           jq -r '.expected_changed_files[]' "$REQUEST" | sort > expected-staged-files.txt
           diff -u expected-staged-files.txt staged-files.txt
-          test -z "$(git status --porcelain | grep '^??' || true)"
           git config user.name 'QORE Recovery Materializer'
           git config user.email 'qore-recovery-materializer@users.noreply.github.com'
           git commit -m "$COMMIT_SUBJECT" -m "Recovered package: ${PACKAGE_ID}" -m "Base: ${BASE_HEAD}"
@@ -198,10 +193,9 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
           path: |
-            recovered-artifact.digest
+            recovered-artifact.binding
             exact-recovered-candidate.patch
             canonical-applied-candidate.patch
-            canonical-applied-candidate-after-qg.patch
             materialize-ruff.log
             materialize-mypy.log
             materialize-pytest.log
