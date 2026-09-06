@@ -1,9 +1,10 @@
 {
   "schema": "qore-recovered-candidate-materialize-v1",
   "repository": "mezas3238-hue/qore-core",
-  "package_id": "QORE-TRADER-COHORT-DEMO-001-RECOVERED-MATERIALIZE-R1",
+  "package_id": "QORE-TRADER-COHORT-DEMO-001-RECOVERED-MATERIALIZE-R2",
   "artifact_id": 9991089721,
   "artifact_name": "sanitized-harness-recovery-QORE-DEMO-FIRST-TRADER-COHORT-SANITIZE-002",
+  "artifact_digest": "sha256:8bc867c34f6e13fd43e099d0b5a5565d4464c21e23fe6d18e8641976b07a5616",
   "patch_filename": "harness-engineer-candidate.patch",
   "patch_sha256": "26ce2d8db6751e3c1c30699c2ee3577b9d1ff1f2fec762fdfde73efeee791053",
   "base_head": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
