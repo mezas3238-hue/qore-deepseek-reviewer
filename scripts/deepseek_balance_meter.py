@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from decimal import Decimal, InvalidOperation
@@ -12,9 +13,11 @@ from typing import Any
 
 BALANCE_URL = "https://api.deepseek.com/user/balance"
 DEFAULT_MINIMUM_BALANCE_USD = Decimal("1.00")
+_TRANSIENT_ATTEMPTS = 4
+_TRANSIENT_BACKOFF_SECONDS = (1.0, 2.0, 4.0)
 
 
-def fetch_balance() -> dict[str, Any]:
+def _fetch_balance_once() -> dict[str, Any]:
     api_key = os.environ.get("DEEPSEEK_API_KEY", "")
     if not api_key:
         raise RuntimeError("DEEPSEEK_API_KEY is required")
@@ -28,6 +31,8 @@ def fetch_balance() -> dict[str, Any]:
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
+        # HTTP responses are authoritative. Do not retry authentication,
+        # authorization, or balance-policy failures as if they were transport noise.
         raise RuntimeError(f"DeepSeek balance HTTP {exc.code}: {detail}") from exc
 
     infos = payload.get("balance_infos") or []
@@ -39,6 +44,32 @@ def fetch_balance() -> dict[str, Any]:
         "total_balance": str(preferred.get("total_balance")),
         "is_available": bool(payload.get("is_available")),
     }
+
+
+def fetch_balance() -> dict[str, Any]:
+    """Fetch balance with bounded retries for transport-only failures.
+
+    A transient DNS/TLS/socket reset must not discard a valid Harness recovery
+    candidate before any DeepSeek spend. HTTP policy responses still fail closed.
+    """
+    last_error: BaseException | None = None
+    for attempt in range(_TRANSIENT_ATTEMPTS):
+        try:
+            return _fetch_balance_once()
+        except (urllib.error.URLError, ConnectionError, TimeoutError, OSError) as exc:
+            last_error = exc
+            if attempt + 1 >= _TRANSIENT_ATTEMPTS:
+                break
+            delay = _TRANSIENT_BACKOFF_SECONDS[attempt]
+            print(
+                "DeepSeek balance transport preflight failed transiently; "
+                f"retrying attempt={attempt + 2}/{_TRANSIENT_ATTEMPTS} delay={delay}s",
+                flush=True,
+            )
+            time.sleep(delay)
+    raise RuntimeError(
+        f"DeepSeek balance transport unavailable after {_TRANSIENT_ATTEMPTS} attempts"
+    ) from last_error
 
 
 def _parse_decimal(value: Any, *, field: str) -> Decimal:
