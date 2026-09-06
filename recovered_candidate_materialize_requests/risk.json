@@ -1,8 +1,9 @@
 {
   "schema": "qore-recovered-candidate-materialize-v1",
   "repository": "mezas3238-hue/qore-core",
-  "package_id": "QORE-RISK-POLICY-DEMO-001-RECOVERED-MATERIALIZE-R2",
+  "package_id": "QORE-RISK-POLICY-DEMO-001-RECOVERED-MATERIALIZE-R3",
   "artifact_id": 9991157435,
+  "source_run_id": 34039275166,
   "artifact_name": "sanitized-harness-recovery-QORE-DEMO-RISK-POLICY-AUTHORITY-SANITIZE-002",
   "artifact_digest": "sha256:9218984fa68de5ffee6e187614ab8d4b7710d21d5090d37a064e3333eae743a8",
   "patch_filename": "harness-engineer-candidate.patch",
