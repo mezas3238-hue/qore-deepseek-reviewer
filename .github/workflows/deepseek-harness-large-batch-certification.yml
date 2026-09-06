@@ -105,7 +105,9 @@ jobs:
           ! grep -q 'QORE-HARNESS-INTERNAL-EXPERT-FALSIFICATION-V2' "$WF"
           ! grep -q 'MANDATORY INTERNAL EXPERT V2 PROTOCOL' "$WF"
           grep -q 'deepseek-harness-independent-audit-repair.yml' "$ROUTER"
-          grep -q 'ONE ACTIVE HARNESS WORK AT A TIME' "$ROUTER" || grep -q 'ACTIVE_HARNESS' "$ROUTER"
+          grep -q 'Distinct immutable packages may run concurrently' "$ROUTER"
+          grep -q 'Refusing duplicate Harness dispatch for package' "$ROUTER"
+          grep -q 'package_id concurrency group' "$ROUTER"
 
       - name: Certify External Expert remains independent and resilient
         run: |
