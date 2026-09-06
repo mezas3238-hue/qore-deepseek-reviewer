@@ -37,19 +37,19 @@ jobs:
             (.package_id | type == "string" and length > 0) and
             (.artifact_id | type == "number" and . > 0) and
             (.artifact_name | type == "string" and length > 0) and
+            (.artifact_digest | test("^sha256:[0-9a-f]{64}$")) and
             (.patch_filename == "harness-engineer-candidate.patch") and
             (.patch_sha256 | test("^[0-9a-f]{64}$")) and
             (.base_head | test("^[0-9a-f]{40}$")) and
             (.base_tree | test("^[0-9a-f]{40}$")) and
             (.target_branch | type == "string" and length > 0) and
-            (.target_branch != "main") and
-            (.target_branch != "master") and
+            (.target_branch != "main") and (.target_branch != "master") and
             (.expected_changed_files | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)) and
             (.expected_changed_files | length == (unique | length)) and
             (.commit_subject | type == "string" and length > 0)
           ' "$REQUEST" >/dev/null
           echo "request=$REQUEST" >> "$GITHUB_OUTPUT"
-          for k in package_id artifact_id artifact_name patch_filename patch_sha256 base_head base_tree target_branch commit_subject; do
+          for k in package_id artifact_id artifact_name artifact_digest patch_filename patch_sha256 base_head base_tree target_branch commit_subject; do
             printf '%s=%s\n' "$k" "$(jq -r --arg k "$k" '.[$k]' "$REQUEST")" >> "$GITHUB_OUTPUT"
           done
 
@@ -68,6 +68,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_ID: ${{ steps.request.outputs.artifact_id }}
           ARTIFACT_NAME: ${{ steps.request.outputs.artifact_name }}
+          ARTIFACT_DIGEST: ${{ steps.request.outputs.artifact_digest }}
           PATCH_FILENAME: ${{ steps.request.outputs.patch_filename }}
           PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
         run: |
@@ -75,10 +76,8 @@ jobs:
           META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
           test "$(jq -r '.expired' <<<"$META")" = false
           test "$(jq -r '.name' <<<"$META")" = "$ARTIFACT_NAME"
-          DIGEST="$(jq -r '.digest // empty' <<<"$META")"
-          test -n "$DIGEST"
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > recovered-artifact.zip
-          test "sha256:$(sha256sum recovered-artifact.zip | cut -d' ' -f1)" = "$DIGEST"
           mkdir recovered-artifact
           unzip -q recovered-artifact.zip -d recovered-artifact
           mapfile -t PATCHES < <(find recovered-artifact -type f -name "$PATCH_FILENAME" -print)
@@ -86,7 +85,7 @@ jobs:
           PATCH="${PATCHES[0]}"
           test "$(sha256sum "$PATCH" | cut -d' ' -f1)" = "$PATCH_SHA256"
           cp "$PATCH" exact-recovered-candidate.patch
-          printf '%s\n' "$DIGEST" > recovered-artifact.digest
+          printf '%s\n' "$ARTIFACT_DIGEST" > recovered-artifact.digest
 
       - name: Checkout exact qore-core base
         uses: actions/checkout@v4
@@ -110,8 +109,7 @@ jobs:
           REQUEST="$GITHUB_WORKSPACE/$REQUEST_PATH"
           test "$(git rev-parse HEAD)" = "$BASE_HEAD"
           test "$(git show -s --format=%T HEAD)" = "$BASE_TREE"
-          git diff --quiet HEAD --
-          git diff --cached --quiet HEAD --
+          git diff --quiet HEAD -- && git diff --cached --quiet HEAD --
           git apply --check "$GITHUB_WORKSPACE/exact-recovered-candidate.patch"
           git apply "$GITHUB_WORKSPACE/exact-recovered-candidate.patch"
           git diff --check HEAD --
