@@ -1,20 +1,17 @@
 {
-  "package_id": "QORE-DEMO-PROFITABILITY-EVIDENCE-INTERNAL-EXPERT-RECOVERY-001",
-  "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
-  "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
-  "source_run_id": 34035626266,
-  "recovery_artifact_id": 9990061862,
-  "recovery_patch_sha256": "9c7db52735c64b3566a30809d019d41573822340c876b3d4ef69f713eb8821ac",
+  "package_id": "QORE-CTRADER-DEMO-MULTI-TIMEFRAME-001-INTERNAL-EXPERT-RECOVERY-R1",
+  "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
+  "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
+  "source_run_id": 34038603667,
+  "recovery_artifact_id": 9990955787,
+  "recovery_patch_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c",
   "allowed_paths": [
-    "src/qore/infrastructure/research_profitability_disposition.py",
-    "src/qore/infrastructure/research_economic_evidence.py",
-    "src/qore/infrastructure/research_realized_equity.py",
-    "tests/infrastructure/test_research_profitability_disposition.py",
-    "tests/infrastructure/test_research_economic_evidence.py",
-    "tests/infrastructure/test_research_realized_equity.py"
+    "docs/architecture/QORE-CTRADER-DEMO-MULTI-TIMEFRAME-001.md",
+    "src/qore/infrastructure/ctrader_demo_market_data.py",
+    "tests/infrastructure/test_ctrader_demo_market_data.py"
   ],
-  "max_changed_files": 6,
-  "max_diff_lines": 4000,
+  "max_changed_files": 3,
+  "max_diff_lines": 10000,
   "run_full_qg": true,
-  "dispatch_nonce": "qore-demo-profitability-evidence-internal-expert-recovery-001-20260906"
+  "dispatch_nonce": "qore-ctrader-demo-multi-timeframe-internal-expert-recovery-r1-20260906"
 }
