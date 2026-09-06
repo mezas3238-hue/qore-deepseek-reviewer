@@ -1,15 +1,15 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-CTRADER-DEMO-MULTI-TIMEFRAME-CONTINUATION-002",
+  "package_id": "HARNESS-ENGINEER-QORE-DEMO-FIRST-TRADER-COHORT-CONTINUATION-001",
   "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
   "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
-  "task_path": "harness/engineer/tasks/qore-ctrader-demo-multi-timeframe-continuation-002.md",
+  "task_path": "harness/engineer/tasks/qore-demo-first-trader-cohort-continuation-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-ctrader-demo-multitimeframe-continuation-002-20260906-r1-parallel",
-  "allowed_paths": ["docs/architecture","src/qore/infrastructure","src/qore/modules","tests/infrastructure","tests/modules"],
+  "dispatch_nonce": "qore-demo-first-trader-cohort-continuation-001-20260906-r1-parallel",
+  "allowed_paths": ["docs/architecture","docs/audits/QORE-TRADER-CATALOG-31-CAPABILITY-INVENTORY-001.md","src/qore/modules/trader","src/qore/infrastructure/traders","src/qore/infrastructure/trader_lab","src/qore/infrastructure/market_clock_schedule.py","src/qore/infrastructure/market_observation.py","src/qore/infrastructure/historical_market_data.py","src/qore/infrastructure/cibo","src/qore/infrastructure/cibo_reasoning_policy.py","src/qore/infrastructure/cibo_reasoning_runtime.py","src/qore/infrastructure/openai_cibo_adaptive_reasoning_engine.py","src/qore/infrastructure/cibo_trader_capability_profile.py","src/qore/infrastructure/cibo_trader_manager.py","tests/modules/trader","tests/infrastructure/traders","tests/infrastructure/trader_lab","tests/infrastructure/test_cibo_reasoning_policy.py","tests/infrastructure/test_cibo_reasoning_runtime.py","tests/infrastructure/test_openai_cibo_adaptive_reasoning_engine.py","tests/infrastructure/test_cibo_trader_capability_profile.py","tests/infrastructure/test_cibo_trader_manager.py"],
   "max_changed_files": 64,
   "max_diff_lines": 40000,
   "run_full_qg": true,
-  "recovery_artifact_id": 9990955787,
-  "recovery_patch_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c"
+  "recovery_artifact_id": 9991089721,
+  "recovery_patch_sha256": "26ce2d8db6751e3c1c30699c2ee3577b9d1ff1f2fec762fdfde73efeee791053"
 }
