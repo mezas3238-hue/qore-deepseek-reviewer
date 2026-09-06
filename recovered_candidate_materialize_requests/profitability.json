@@ -1,8 +1,9 @@
 {
   "schema": "qore-recovered-candidate-materialize-v1",
   "repository": "mezas3238-hue/qore-core",
-  "package_id": "QORE-DEMO-FIRST-PROFITABILITY-001-RECOVERED-MATERIALIZE-R2",
+  "package_id": "QORE-DEMO-FIRST-PROFITABILITY-001-RECOVERED-MATERIALIZE-R3",
   "artifact_id": 9997187656,
+  "source_run_id": 34060116332,
   "artifact_name": "sanitized-internal-expert-recovery-QORE-DEMO-PROFITABILITY-INTERNAL-EXPERT-SANITIZE-001",
   "artifact_digest": "sha256:6bbfa9cb2794bf2e7caf0886957303357601f2bea3ac88e955bb310d8def79b1",
   "patch_filename": "harness-engineer-candidate.patch",
