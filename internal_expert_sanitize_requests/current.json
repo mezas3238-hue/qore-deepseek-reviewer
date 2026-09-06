@@ -1,0 +1,11 @@
+{
+  "package_id": "QORE-DEMO-PROFITABILITY-INTERNAL-EXPERT-SANITIZE-001",
+  "source_run_id": 34035841112,
+  "source_artifact_id": 9990543643,
+  "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
+  "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
+  "expected_raw_sha256": "ec9ac0d2bc8e4bc27ac3d733aac20846a4ddffed2e4b4e92c3b277c7c7323d10",
+  "expected_semantic_sha256": "e1734b741a61a4f21fde132191909ed7191a10038be483e378f23f69b7cca039",
+  "expected_changed_files": 6,
+  "dispatch_nonce": "qore-demo-profitability-internal-expert-sanitize-001-20260906"
+}
