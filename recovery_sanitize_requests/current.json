@@ -1,11 +1,11 @@
 {
-  "package_id": "QORE-CIBO-FUNCTIONS-DEMO-ACCELERATION-SANITIZE-003",
-  "source_run_id": 33983491604,
-  "source_artifact_id": 9975271997,
-  "expected_start": "576803fbda76970a4bbfe2287b5f9ca101d0f6c3",
-  "expected_tree": "11f35844670551ac4ab5be322272a3221e6b1c4b",
-  "expected_raw_sha256": "e676c992f6db48508f3270197f65eecd04d70e7861e72e9499b8a10bc7afb16a",
-  "expected_semantic_sha256": "4470cd7f08fa712d7d84f01b996fcfb8f83cf69c47e974e6ca9f2ef4fed0c493",
-  "expected_changed_files": 57,
-  "dispatch_nonce": "cibo-functions-demo-acceleration-sanitize-003-20260905"
+  "package_id": "QORE-DEMO-PROFITABILITY-EVIDENCE-SANITIZE-001",
+  "source_run_id": 34029022093,
+  "source_artifact_id": 9988761171,
+  "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
+  "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
+  "expected_raw_sha256": "8c4d6108fb8d28ace85d04cdf4f2413e06c79457f51c0f4c07b2a318a5d28a1f",
+  "expected_semantic_sha256": "9c7db52735c64b3566a30809d019d41573822340c876b3d4ef69f713eb8821ac",
+  "expected_changed_files": 6,
+  "dispatch_nonce": "qore-demo-profitability-evidence-sanitize-001-20260906"
 }
