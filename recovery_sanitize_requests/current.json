@@ -1,11 +1,11 @@
 {
-  "package_id": "QORE-DEMO-PROFITABILITY-EVIDENCE-SANITIZE-001",
-  "source_run_id": 34029022093,
-  "source_artifact_id": 9988761171,
+  "package_id": "QORE-DEMO-FIRST-TRADER-COHORT-SANITIZE-001",
+  "source_run_id": 34026860895,
+  "source_artifact_id": 9988327938,
   "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
   "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
-  "expected_raw_sha256": "8c4d6108fb8d28ace85d04cdf4f2413e06c79457f51c0f4c07b2a318a5d28a1f",
-  "expected_semantic_sha256": "9c7db52735c64b3566a30809d019d41573822340c876b3d4ef69f713eb8821ac",
-  "expected_changed_files": 6,
-  "dispatch_nonce": "qore-demo-profitability-evidence-sanitize-001-20260906"
+  "expected_raw_sha256": "bd33463ec72400dc920d937aa9e2440ac98681ae241a46a7a11967974f3dc7a0",
+  "expected_semantic_sha256": "26ce2d8db6751e3c1c30699c2ee3577b9d1ff1f2fec762fdfde73efeee791053",
+  "expected_changed_files": 18,
+  "dispatch_nonce": "qore-demo-first-trader-cohort-sanitize-001-20260906-r1"
 }
