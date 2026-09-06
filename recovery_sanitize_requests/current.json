@@ -1,11 +1,11 @@
 {
-  "package_id": "QORE-CTRADER-DEMO-MULTI-TIMEFRAME-SANITIZE-001",
-  "source_run_id": 34027493877,
-  "source_artifact_id": 9988010076,
+  "package_id": "QORE-DEMO-FIRST-TRADER-COHORT-SANITIZE-002",
+  "source_run_id": 34026860895,
+  "source_artifact_id": 9988327938,
   "expected_start": "1e08a355f4109f016ca47bc4b8957b92a1ae7948",
   "expected_tree": "5b37d0750ca163665135f9c075b4d7c44a43be8e",
-  "expected_raw_sha256": "2c8be65f2ce769c031ffcfc4b3f048bb4e8aadf2e36f2675a0b33d5f3db6330a",
-  "expected_semantic_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c",
-  "expected_changed_files": 3,
-  "dispatch_nonce": "qore-ctrader-demo-multitimeframe-sanitize-001-20260906-r1"
+  "expected_raw_sha256": "bd33463ec72400dc920d937aa9e2440ac98681ae241a46a7a11967974f3dc7a0",
+  "expected_semantic_sha256": "26ce2d8db6751e3c1c30699c2ee3577b9d1ff1f2fec762fdfde73efeee791053",
+  "expected_changed_files": 18,
+  "dispatch_nonce": "qore-demo-first-trader-cohort-sanitize-002-20260906-r1-parallel"
 }
