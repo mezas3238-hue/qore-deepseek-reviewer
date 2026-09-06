@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+AGENT_RECOVERY_DIR = ".qore-harness-recovery"
+
 
 def _git(workspace: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(
@@ -17,12 +19,24 @@ def _git(workspace: Path, *args: str, check: bool = True) -> subprocess.Complete
     )
 
 
+def _is_internal_recovery_path(rel: str) -> bool:
+    return rel == AGENT_RECOVERY_DIR or rel.startswith(f"{AGENT_RECOVERY_DIR}/")
+
+
 def snapshot(workspace: Path, output: Path) -> None:
     workspace = workspace.resolve()
     if not (workspace / ".git").exists():
         raise RuntimeError(f"workspace is not a git checkout: {workspace}")
 
-    tracked = _git(workspace, "diff", "--binary", "HEAD", "--").stdout
+    tracked = _git(
+        workspace,
+        "diff",
+        "--binary",
+        "HEAD",
+        "--",
+        ".",
+        f":(exclude){AGENT_RECOVERY_DIR}/",
+    ).stdout
     untracked_raw = _git(
         workspace,
         "ls-files",
@@ -30,7 +44,11 @@ def snapshot(workspace: Path, output: Path) -> None:
         "--exclude-standard",
         "-z",
     ).stdout
-    untracked = [p for p in untracked_raw.split(b"\0") if p]
+    untracked = [
+        p
+        for p in untracked_raw.split(b"\0")
+        if p and not _is_internal_recovery_path(os.fsdecode(p))
+    ]
 
     chunks: list[bytes] = [tracked]
     for raw_path in sorted(untracked):
