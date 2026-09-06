@@ -1,0 +1,21 @@
+{
+  "schema": "qore-recovered-candidate-materialize-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "package_id": "QORE-DEMO-FIRST-PROFITABILITY-001-RECOVERED-MATERIALIZE-R1",
+  "artifact_id": 9997187656,
+  "artifact_name": "sanitized-internal-expert-recovery-QORE-DEMO-PROFITABILITY-INTERNAL-EXPERT-SANITIZE-001",
+  "patch_filename": "harness-engineer-candidate.patch",
+  "patch_sha256": "e1734b741a611511612618a3a0ee7e15643203676aca69047d81a996668d419",
+  "base_head": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
+  "base_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
+  "target_branch": "codex/qore-demo-profitability-001",
+  "commit_subject": "feat: add DEMO profitability economic evidence",
+  "expected_changed_files": [
+    "src/qore/infrastructure/research_economic_evidence.py",
+    "src/qore/infrastructure/research_realized_equity.py",
+    "src/qore/infrastructure/research_profitability_disposition.py",
+    "tests/infrastructure/test_research_economic_evidence.py",
+    "tests/infrastructure/test_research_realized_equity.py",
+    "tests/infrastructure/test_research_profitability_disposition.py"
+  ]
+}
