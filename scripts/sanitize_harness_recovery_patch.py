@@ -6,24 +6,23 @@ import hashlib
 import re
 from pathlib import Path
 
-_HELPER_PATHS = frozenset(
-    {
-        b".qore-harness-recovery/candidate.patch",
-        b".qore-harness-recovery/checkpoints.md",
-    }
-)
 _HEADER = re.compile(br"(?m)^diff --git ")
 
 
-def sanitize(data: bytes) -> tuple[bytes, tuple[str, ...]]:
-    """Remove recovery-helper diffs and canonicalize semantic chunk ordering.
+def _is_generated_recovery_path(path: bytes) -> bool:
+    """Return True only for host-generated Harness recovery/coverage files."""
+    return path.startswith(b".coverage") or path.startswith(b".qore-harness-recovery/")
 
-    Git's deterministic ``git diff --binary HEAD --`` output is path-sorted.  A
+
+def sanitize(data: bytes) -> tuple[bytes, tuple[str, ...]]:
+    """Remove generated recovery diffs and canonicalize semantic chunk ordering.
+
+    Git's deterministic ``git diff --binary HEAD --`` output is path-sorted. A
     recovered Harness artifact may contain the same semantic diff chunks in
-    generation order instead.  Sorting the untouched chunks by repository path
-    makes the sanitized artifact byte-identical to the canonical patch that the
-    deterministic gate and Internal Expert runner regenerate from the workspace.
-    Chunk contents are never rewritten.
+    generation order plus host-generated coverage/checkpoint files. Sorting the
+    untouched semantic chunks by repository path makes the sanitized artifact
+    byte-identical to the canonical semantic patch. Semantic chunk contents are
+    never rewritten.
     """
     starts = [match.start() for match in _HEADER.finditer(data)]
     if not starts:
@@ -41,26 +40,26 @@ def sanitize(data: bytes) -> tuple[bytes, tuple[str, ...]]:
             raise RuntimeError(f"malformed diff header: {first_line!r}")
         a_path = fields[2]
         path = a_path[2:] if a_path.startswith(b"a/") else a_path
-        if path in _HELPER_PATHS:
+        if _is_generated_recovery_path(path):
             removed.append(path.decode("utf-8"))
             continue
         semantic_chunks.append((path, chunk))
 
-    if len(removed) != len(_HELPER_PATHS) or frozenset(path.encode() for path in removed) != _HELPER_PATHS:
-        raise RuntimeError(
-            "expected exactly the two Harness recovery helper diffs; "
-            f"removed={removed!r}"
-        )
+    if not removed:
+        raise RuntimeError("expected at least one generated Harness recovery/coverage diff")
+    if not semantic_chunks:
+        raise RuntimeError("sanitization would leave no semantic candidate")
 
     paths = [path for path, _chunk in semantic_chunks]
     if len(paths) != len(set(paths)):
         raise RuntimeError("semantic patch contains duplicate repository paths")
 
     sanitized = preamble + b"".join(chunk for _path, chunk in sorted(semantic_chunks))
-    for helper in _HELPER_PATHS:
-        marker = b"diff --git a/" + helper + b" b/" + helper
-        if marker in sanitized:
-            raise RuntimeError(f"helper diff survived sanitation: {helper!r}")
+    for path, _chunk in semantic_chunks:
+        if _is_generated_recovery_path(path):
+            raise RuntimeError(f"generated path survived sanitation: {path!r}")
+    if b"diff --git a/.coverage" in sanitized or b"diff --git a/.qore-harness-recovery/" in sanitized:
+        raise RuntimeError("generated recovery/coverage diff survived sanitation")
     return sanitized, tuple(removed)
 
 
