@@ -100,6 +100,7 @@ jobs:
 
           test "$(grep -c '^diff --git a/' harness-engineer-candidate.patch)" = "$EXPECTED_CHANGED_FILES"
           ! grep -q '^diff --git a/\.qore-harness-recovery/' harness-engineer-candidate.patch
+          ! grep -q '^diff --git a/\.coverage' harness-engineer-candidate.patch
           git -C workspace/qore-core apply --check "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
           git -C workspace/qore-core apply "$GITHUB_WORKSPACE/harness-engineer-candidate.patch"
           git -C workspace/qore-core diff --check
@@ -123,4 +124,4 @@ jobs:
 
       - name: Sanitization complete
         run: |
-          echo "Sanitized exact semantic Harness candidate is ready for Internal Expert recovery."
+          echo "Sanitized exact semantic Harness candidate is ready for continuation recovery."
