@@ -1,22 +1,22 @@
 {
-  "dispatch_nonce": "PR481-BA8C1E3-FINAL-DS-EXPERT-R2-001",
-  "expected_base": "9672c4d999bd5d3e6db544f349243bc6abea0363",
-  "expected_head": "ba8c1e3c05e06c69b2bc39b3c3fdf6e3c4f50449",
-  "expected_synthetic": "13ef5df04d645d3e13bf1d7543ab2cfefd7228c6",
-  "package_id": "QORE-PR481-TRADER-LAB-FINAL-DS-EXPERT-R2-001",
-  "pr_number": 481,
-  "prompt_path": "prompts/qore-pr481-trader-lab-final-expert-r2-001.md",
+  "dispatch_nonce": "PR497-9C02EA4-CTRADER-DEMO-DS-EXPERT-R1-001",
+  "expected_base": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
+  "expected_head": "9c02ea4d92081372ef463fe516b785414fee3781",
+  "expected_synthetic": "20e9b4f7fca4e68c235bf332b368d4f260d4dcef",
+  "package_id": "QORE-PR497-CTRADER-DEMO-RUNTIME-DS-EXPERT-R1-001",
+  "pr_number": 497,
+  "prompt_path": "prompts/qore-pr497-ctrader-demo-runtime-expert-r1.md",
   "qg_summary": {
-    "coverage_missed_statements": 6511,
-    "coverage_percent": 87,
-    "coverage_total_statements": 48953,
-    "job_id": 100681660072,
-    "mypy_source_files": 754,
-    "pytest_collected": 4940,
-    "pytest_passed": 4940,
-    "pytest_warnings": 7,
+    "coverage_missed_statements": 8988,
+    "coverage_percent": 85,
+    "coverage_total_statements": 60878,
+    "job_id": 101531581581,
+    "mypy_source_files": 870,
+    "pytest_collected": 6583,
+    "pytest_passed": 6583,
+    "pytest_warnings": 8,
     "ruff_passed": true,
-    "run_id": 33765344683
+    "run_id": 34049932133
   },
   "review_mode": "expert"
 }
