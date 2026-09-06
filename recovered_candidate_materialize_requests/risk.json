@@ -1,0 +1,28 @@
+{
+  "schema": "qore-recovered-candidate-materialize-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "package_id": "QORE-RISK-POLICY-DEMO-001-RECOVERED-MATERIALIZE-R1",
+  "artifact_id": 9991157435,
+  "artifact_name": "sanitized-harness-recovery-QORE-DEMO-RISK-POLICY-AUTHORITY-SANITIZE-002",
+  "patch_filename": "harness-engineer-candidate.patch",
+  "patch_sha256": "c0c9238c288b169c40421435e639eae5d5ddf29d23bc4d764e12c2b8b5917de9",
+  "base_head": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
+  "base_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
+  "target_branch": "codex/qore-demo-risk-policy-001",
+  "commit_subject": "feat: enforce DEMO risk policy authority",
+  "expected_changed_files": [
+    "docs/architecture/QORE-RISK-POLICY-DEMO-001.md",
+    "src/qore/control/risk_policy.py",
+    "src/qore/core/order_command_orchestration.py",
+    "src/qore/core/simulation.py",
+    "src/qore/runtime/app_runtime.py",
+    "src/qore/runtime/execution.py",
+    "src/qore/runtime/plan.py",
+    "src/qore/simulation/trading.py",
+    "tests/control/test_risk_policy.py",
+    "tests/core/test_order_command_orchestration.py",
+    "tests/runtime/test_app_runtime.py",
+    "tests/runtime/test_runtime_plan.py",
+    "tests/simulation/test_trading_simulation.py"
+  ]
+}
