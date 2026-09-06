@@ -74,33 +74,9 @@ jobs:
             test -z "$RECOVERY_PATCH_SHA256"
           fi
 
-          ACTIVE_HARNESS=""
-          for WORKFLOW in \
-            deepseek-harness-engineer.yml \
-            deepseek-harness-engineer-resilient.yml \
-            deepseek-harness-independent-audit-repair.yml; do
-            ACTIVE="$(
-              gh api --paginate \
-                "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
-                --jq '.workflow_runs[] | select(.status == "queued" or .status == "in_progress" or .status == "waiting" or .status == "requested" or .status == "pending") | [.id, .display_title, .status] | @tsv' \
-                2>/dev/null || true
-            )"
-            if test -n "$ACTIVE"; then
-              if test -n "$ACTIVE_HARNESS"; then
-                ACTIVE_HARNESS="${ACTIVE_HARNESS}"$'\n'"${ACTIVE}"
-              else
-                ACTIVE_HARNESS="$ACTIVE"
-              fi
-            fi
-          done
-
-          if test -n "$ACTIVE_HARNESS"; then
-            echo "Harness dispatch DEFERRED: ONE ACTIVE HARNESS WORK AT A TIME is enforced." >&2
-            echo "$ACTIVE_HARNESS" >&2
-            echo "Request ${PACKAGE_ID} remains requested but no second Harness job was launched." >&2
-            exit 0
-          fi
-
+          # Distinct immutable packages may run concurrently. Duplicate dispatch of the
+          # same package remains forbidden below, and each work workflow has its own
+          # package_id concurrency group.
           for WORKFLOW in \
             deepseek-harness-engineer.yml \
             deepseek-harness-engineer-resilient.yml \
