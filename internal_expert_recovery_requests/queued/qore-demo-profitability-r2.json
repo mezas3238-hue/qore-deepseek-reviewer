@@ -1,0 +1,20 @@
+{
+  "package_id": "QORE-DEMO-PROFITABILITY-EVIDENCE-INTERNAL-EXPERT-RECOVERY-R2",
+  "expected_start": "514ca00f89fca8194eb57c954e78ba9b2e82b9b7",
+  "expected_tree": "80688a11e42d2ed7f67860b2d0002499b37d1dd9",
+  "source_run_id": 34060116332,
+  "recovery_artifact_id": 9997187656,
+  "recovery_patch_sha256": "e1734b741a61a4f21fde132191909ed7191a10038be483e378f23f69b7cca039",
+  "allowed_paths": [
+    "src/qore/infrastructure/research_profitability_disposition.py",
+    "src/qore/infrastructure/research_economic_evidence.py",
+    "src/qore/infrastructure/research_realized_equity.py",
+    "tests/infrastructure/test_research_profitability_disposition.py",
+    "tests/infrastructure/test_research_economic_evidence.py",
+    "tests/infrastructure/test_research_realized_equity.py"
+  ],
+  "max_changed_files": 6,
+  "max_diff_lines": 4000,
+  "run_full_qg": true,
+  "dispatch_nonce": "qore-demo-profitability-evidence-internal-expert-recovery-r2-post-repair-sanitized-20260906"
+}
