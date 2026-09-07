@@ -1,0 +1,277 @@
+name: QORE DEMO bridge typing closure
+run-name: Bridge typing closure · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo_first_execution_requests/bridge-typing-*.json'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bridge-typing-closure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        id: request
+        run: |
+          set -euo pipefail
+          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/bridge-typing-[^/]*\.json$' || true)
+          test "${#R[@]}" -eq 1
+          REQUEST="${R[0]}"
+          jq -e '
+            .schema == "qore-demo-bridge-typing-closure-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            .target_branch != "main" and .target_branch != "master"
+          ' "$REQUEST" >/dev/null
+          echo "expected_head=$(jq -r '.expected_head' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(jq -r '.target_branch' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify exact candidate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api "repos/mezas3238-hue/qore-core/branches/${TARGET_BRANCH//\//%2F}" --jq '.commit.sha')"
+          test "$LIVE" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Close bridge test typing family
+        working-directory: core
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tests/infrastructure/test_demo_first_execution_vertical.py')
+          s = p.read_text()
+
+          def once(old: str, new: str, label: str) -> None:
+              global s
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} anchor mismatch: {count}')
+              s = s.replace(old, new, 1)
+
+          once('from collections.abc import Callable, Mapping\n', '', 'unused imports')
+          once(
+              'from qore.infrastructure.ctrader_demo_execution_configuration import (\n',
+              'from qore.infrastructure.ctrader_demo_execution_configuration import (\n',
+              'configuration import',
+          )
+          once(
+              'from qore.infrastructure.ctrader_demo_operational_runtime import (\n'
+              '    CTraderDemoSubmissionResult,\n'
+              ')\n',
+              'from qore.infrastructure.ctrader_demo_execution_contracts import (\n'
+              '    CTraderDemoFillReconciliation,\n'
+              ')\n'
+              'from qore.infrastructure.ctrader_demo_operational_runtime import (\n'
+              '    CTraderDemoSubmissionResult,\n'
+              ')\n',
+              'reconciliation import',
+          )
+          once(
+              'from qore.infrastructure.ctrader_demo_risk_operational_runtime import (\n'
+              '    CTraderDemoRiskOperationalRuntime,\n'
+              '    RiskCTraderDemoAccountBinding,\n'
+              ')\n',
+              'from qore.infrastructure.ctrader_demo_risk_operational_runtime import (\n'
+              '    CTraderDemoRiskOperationalRuntime,\n'
+              '    CTraderDemoRiskOperationalRuntimeError,\n'
+              '    RiskCTraderDemoAccountBinding,\n'
+              '    RiskCTraderDemoSubmissionResult,\n'
+              ')\n',
+              'risk runtime imports',
+          )
+          once(
+              'from qore.infrastructure.execution_boundary import (\n'
+              '    ExecutionReceipt,\n',
+              'from qore.infrastructure.execution_boundary import (\n'
+              '    ExecutionBoundaryError,\n'
+              '    ExecutionReceipt,\n',
+              'execution error import',
+          )
+          once(
+              'from qore.infrastructure.ports import ExternalRequestMetadata\n',
+              'from qore.infrastructure.ports import (\n'
+              '    ExternalHealth,\n'
+              '    ExternalPortError,\n'
+              '    ExternalRequestMetadata,\n'
+              ')\n',
+              'ports imports',
+          )
+          once(
+              '    RiskEnvironment,\n'
+              '    RiskFingerprint,\n',
+              '    RiskEnvironment,\n'
+              '    RiskError,\n'
+              '    RiskFingerprint,\n',
+              'risk error import',
+          )
+
+          once(
+              '    setup = None\n'
+              '    side = None\n'
+              '    abstain_reason = DemoTradingAbstainReason.NO_STRUCTURE\n',
+              '    setup: DemoTradingSetupSpec | None = None\n'
+              '    side: DemoTradingSetupSide | None = None\n'
+              '    abstain_reason: DemoTradingAbstainReason | None = (\n'
+              '        DemoTradingAbstainReason.NO_STRUCTURE\n'
+              '    )\n',
+              'output annotations',
+          )
+
+          old = '''    common = dict(\n        configuration=_configuration(),\n        instrument=ExecutionInstrument("EURUSD"),\n        intent_id=OrderIntentId(UUID("61000000-0000-0000-0000-000000000012")),\n        idempotency_key=ExecutionIdempotencyKey(\n            UUID("61000000-0000-0000-0000-000000000013")\n        ),\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n\n    abstain = build_first_demo_execution_intent(\n        selection,\n        _output(decision=DemoTradingDecision.ABSTAIN),\n        **common,\n    )\n    other = build_first_demo_execution_intent(\n        selection,\n        _output(trader_code=DemoTradingTraderCode("vt-01")),\n        **common,\n    )\n'''
+          new = '''    configuration = _configuration()\n    instrument = ExecutionInstrument("EURUSD")\n    intent_id = OrderIntentId(UUID("61000000-0000-0000-0000-000000000012"))\n    idempotency_key = ExecutionIdempotencyKey(\n        UUID("61000000-0000-0000-0000-000000000013")\n    )\n\n    abstain = build_first_demo_execution_intent(\n        selection,\n        _output(decision=DemoTradingDecision.ABSTAIN),\n        configuration=configuration,\n        instrument=instrument,\n        intent_id=intent_id,\n        idempotency_key=idempotency_key,\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n    other = build_first_demo_execution_intent(\n        selection,\n        _output(trader_code=DemoTradingTraderCode("vt-01")),\n        configuration=configuration,\n        instrument=instrument,\n        intent_id=intent_id,\n        idempotency_key=idempotency_key,\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n'''
+          once(old, new, 'intent common kwargs')
+
+          old = '''    common = dict(\n        selection=selection,\n        intent_id=OrderIntentId(UUID("61000000-0000-0000-0000-000000000014")),\n        idempotency_key=ExecutionIdempotencyKey(\n            UUID("61000000-0000-0000-0000-000000000015")\n        ),\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n\n    unmapped = build_first_demo_execution_intent(\n        output=_output(),\n        configuration=_configuration(instrument="GBPUSD"),\n        instrument=ExecutionInstrument("EURUSD"),\n        **common,\n    )\n    inexact = build_first_demo_execution_intent(\n        output=_output(entry=Decimal("1.100001")),\n        configuration=_configuration(),\n        instrument=ExecutionInstrument("EURUSD"),\n        **common,\n    )\n'''
+          new = '''    intent_id = OrderIntentId(UUID("61000000-0000-0000-0000-000000000014"))\n    idempotency_key = ExecutionIdempotencyKey(\n        UUID("61000000-0000-0000-0000-000000000015")\n    )\n    instrument = ExecutionInstrument("EURUSD")\n\n    unmapped = build_first_demo_execution_intent(\n        selection=selection,\n        output=_output(),\n        configuration=_configuration(instrument="GBPUSD"),\n        instrument=instrument,\n        intent_id=intent_id,\n        idempotency_key=idempotency_key,\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n    inexact = build_first_demo_execution_intent(\n        selection=selection,\n        output=_output(entry=Decimal("1.100001")),\n        configuration=_configuration(),\n        instrument=instrument,\n        intent_id=intent_id,\n        idempotency_key=idempotency_key,\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n'''
+          once(old, new, 'symbol common kwargs')
+
+          once(
+              '    ) -> Result[object, object]:\n'
+              '        del checked_at, metadata\n'
+              '        return Success(SimpleNamespace())\n',
+              '    ) -> Result[ExternalHealth, ExternalPortError]:\n'
+              '        del checked_at, metadata\n'
+              '        return Success(cast(ExternalHealth, SimpleNamespace()))\n',
+              'connect result type',
+          )
+          once(
+              '    ) -> Result[CTraderDemoSubmissionResult, object]:\n'
+              '        self.submissions.append(submission)\n'
+              '        if self.fail_submit:\n'
+              '            return Failure(RuntimeError("broker outcome unavailable"))\n',
+              '    ) -> Result[CTraderDemoSubmissionResult, ExecutionBoundaryError]:\n'
+              '        self.submissions.append(submission)\n'
+              '        if self.fail_submit:\n'
+              '            return Failure(\n'
+              '                CTraderDemoRiskOperationalRuntimeError(\n'
+              '                    "broker outcome unavailable"\n'
+              '                )\n'
+              '            )\n',
+              'submit result type',
+          )
+          once(
+              '    ) -> Result[object, object]:\n'
+              '        del submission, provider_order_ref, metadata\n'
+              '        return Failure(RuntimeError("not used in this focused test"))\n',
+              '    ) -> Result[CTraderDemoFillReconciliation, ExecutionBoundaryError]:\n'
+              '        del submission, provider_order_ref, metadata\n'
+              '        return Failure(\n'
+              '            CTraderDemoRiskOperationalRuntimeError(\n'
+              '                "not used in this focused test"\n'
+              '            )\n'
+              '        )\n',
+              'reconcile result type',
+          )
+          once(
+              '    ) -> Result[RiskAuthorizedSubmission, object]:\n',
+              '    ) -> Result[RiskAuthorizedSubmission, RiskError]:\n',
+              'prepare result type',
+          )
+          once(
+              '        ctrader=cast(object, ctrader),\n',
+              '        ctrader=ctrader,\n',
+              'ctrader protocol cast',
+          )
+
+          old = '''def _submit_kwargs() -> dict[str, object]:\n    return {\n        "scope": cast(RiskScopeSnapshot, object()),\n        "account_policy_version": cast(AccountPolicyVersion, object()),\n        "expected_authorization_fingerprint": RiskFingerprint("c" * 64),\n        "request_id": ExecutionRequestId(\n            UUID("61000000-0000-0000-0000-000000000023")\n        ),\n        "receipt_id": ExecutionReceiptId(\n            UUID("61000000-0000-0000-0000-000000000021")\n        ),\n        "authorized_at": _NOW,\n        "submitted_at": _NOW,\n    }\n'''
+          new = '''def _submit(\n    runtime: CTraderDemoRiskOperationalRuntime,\n    decision: RiskDecision,\n    intent: OrderIntent,\n) -> Result[\n    RiskCTraderDemoSubmissionResult,\n    CTraderDemoRiskOperationalRuntimeError,\n]:\n    return runtime.submit_risk_authorized(\n        decision,\n        intent,\n        scope=cast(RiskScopeSnapshot, object()),\n        account_policy_version=cast(AccountPolicyVersion, object()),\n        expected_authorization_fingerprint=RiskFingerprint("c" * 64),\n        request_id=ExecutionRequestId(\n            UUID("61000000-0000-0000-0000-000000000023")\n        ),\n        receipt_id=ExecutionReceiptId(\n            UUID("61000000-0000-0000-0000-000000000021")\n        ),\n        authorized_at=_NOW,\n        submitted_at=_NOW,\n    )\n'''
+          once(old, new, 'submit kwargs helper')
+
+          replacements = {
+              '''    result = runtime.submit_risk_authorized(\n        _risk_decision(account=other_account),\n        cast(OrderIntent, object()),\n        **_submit_kwargs(),\n    )\n''': '''    result = _submit(\n        runtime,\n        _risk_decision(account=other_account),\n        cast(OrderIntent, object()),\n    )\n''',
+              '''    result = runtime.submit_risk_authorized(\n        _risk_decision(),\n        intent,\n        **_submit_kwargs(),\n    )\n''': '''    result = _submit(runtime, _risk_decision(), intent)\n''',
+              '''    non_demo = runtime.submit_risk_authorized(\n        _risk_decision(environment=RiskEnvironment.PRODUCTION),\n        intent,\n        **_submit_kwargs(),\n    )\n    broker_failure = runtime.submit_risk_authorized(\n        _risk_decision(),\n        intent,\n        **_submit_kwargs(),\n    )\n''': '''    non_demo = _submit(\n        runtime,\n        _risk_decision(environment=RiskEnvironment.PRODUCTION),\n        intent,\n    )\n    broker_failure = _submit(runtime, _risk_decision(), intent)\n''',
+          }
+          for old_text, new_text in replacements.items():
+              count = s.count(old_text)
+              if count != 1:
+                  raise SystemExit(f'submit call anchor mismatch: {count}')
+              s = s.replace(old_text, new_text, 1)
+
+          p.write_text(s)
+          PY
+          git diff --check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        working-directory: core
+        run: python -m pip install -e '.[dev,ctrader]'
+
+      - name: Focused bridge typing gate
+        working-directory: core
+        run: |
+          set -euo pipefail
+          ruff check tests/infrastructure/test_demo_first_execution_vertical.py
+          mypy tests/infrastructure/test_demo_first_execution_vertical.py
+          pytest -q tests/infrastructure/test_demo_first_execution_vertical.py
+
+      - name: Canonical FULL QORE quality gate
+        working-directory: core
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-bridge-typing.coverage
+        run: |
+          set -euo pipefail
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Commit and atomically advance candidate
+        working-directory: core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add tests/infrastructure/test_demo_first_execution_vertical.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'test(demo): type first execution bridge adversarial suite'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          printf 'head=%s\nparent=%s\ntree=%s\n' "$NEW_HEAD" "$EXPECTED_HEAD" "$(git show -s --format=%T HEAD)" > bridge-typing-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qore-demo-bridge-typing-closure
+          path: core/bridge-typing-evidence.txt
