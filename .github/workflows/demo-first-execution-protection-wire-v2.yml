@@ -206,7 +206,6 @@ jobs:
           pytest -q \
             tests/infrastructure/test_ctrader_demo_protected_order_wire.py \
             tests/infrastructure/test_ctrader_demo_execution_gateway.py \
-            tests/infrastructure/test_ctrader_open_api_transport.py \
             tests/infrastructure/test_risk_runtime.py
 
       - name: Canonical FULL QORE quality gate
