@@ -29,7 +29,7 @@ jobs:
           mapfile -t FILES < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^risk_sol_r4_requests/[^/]*\.json$' || true)
           test "${#FILES[@]}" -eq 1
           jq -e '.schema == "qore-risk-sol-r4-v1" and .base_head == "f1ab0ee64fe2e16f4448654e470d8b488749ee13" and .target_branch == "agent/qore-demo-risk-policy-authority-001-sol-r4" and .patch_sha256 == "4da2fbd740987f60ad6d9cd7dd8570de2520986272df3d2f7d221f624249fabf"' "${FILES[0]}" >/dev/null
-          base64 -d risk_sol_r4_payload/risk-sol-r4.patch.gz.b64 | gzip -d > "$RUNNER_TEMP/risk-sol-r4.patch"
+          cat risk_sol_r4_payload/r4part.00 risk_sol_r4_payload/r4part.01 risk_sol_r4_payload/r4part.02 risk_sol_r4_payload/r4part.03 | base64 -d | gzip -d > "$RUNNER_TEMP/risk-sol-r4.patch"
           test "$(sha256sum "$RUNNER_TEMP/risk-sol-r4.patch" | cut -d' ' -f1)" = "4da2fbd740987f60ad6d9cd7dd8570de2520986272df3d2f7d221f624249fabf"
 
       - name: Create exact qore-core write token
