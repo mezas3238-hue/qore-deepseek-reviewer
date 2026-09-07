@@ -1,0 +1,147 @@
+name: QORE Risk Sol R4 closure
+run-name: Risk Sol R4 · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths: ['risk_sol_r4_requests/*.json']
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  close-risk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact reviewer request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Validate request and exact patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^risk_sol_r4_requests/[^/]*\.json$' || true)
+          test "${#FILES[@]}" -eq 1
+          jq -e '.schema == "qore-risk-sol-r4-v1" and .base_head == "f1ab0ee64fe2e16f4448654e470d8b488749ee13" and .target_branch == "agent/qore-demo-risk-policy-authority-001-sol-r4" and .patch_sha256 == "4da2fbd740987f60ad6d9cd7dd8570de2520986272df3d2f7d221f624249fabf"' "${FILES[0]}" >/dev/null
+          base64 -d risk_sol_r4_payload/risk-sol-r4.patch.gz.b64 | gzip -d > "$RUNNER_TEMP/risk-sol-r4.patch"
+          test "$(sha256sum "$RUNNER_TEMP/risk-sol-r4.patch" | cut -d' ' -f1)" = "4da2fbd740987f60ad6d9cd7dd8570de2520986272df3d2f7d221f624249fabf"
+
+      - name: Create exact qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Checkout frozen Risk R3 candidate branch
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-demo-risk-policy-authority-001-sol-r4
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact Sol R4 closure
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f1ab0ee64fe2e16f4448654e470d8b488749ee13"
+          git diff --quiet HEAD -- && git diff --cached --quiet HEAD --
+          git apply --check "$RUNNER_TEMP/risk-sol-r4.patch"
+          git apply "$RUNNER_TEMP/risk-sol-r4.patch"
+          git diff --check HEAD --
+          git diff --name-only HEAD -- | sort > "$RUNNER_TEMP/actual.txt"
+          cat > "$RUNNER_TEMP/expected.txt" <<'EOF'
+          docs/architecture/QORE-DEMO-RISK-POLICY-AUTHORITY-001.md
+          src/qore/infrastructure/risk_authority.py
+          src/qore/infrastructure/risk_runtime.py
+          tests/infrastructure/test_risk_authority.py
+          tests/infrastructure/test_risk_runtime.py
+          EOF
+          sort -o "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/expected.txt"
+          diff -u "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual.txt"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run Risk focused regression gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile src/qore/infrastructure/risk_authority.py src/qore/infrastructure/risk_runtime.py tests/infrastructure/test_risk_authority.py tests/infrastructure/test_risk_runtime.py
+          pytest -q tests/infrastructure/test_risk_authority.py tests/infrastructure/test_risk_runtime.py | tee "$GITHUB_WORKSPACE/risk-focused.log"
+
+      - name: Run canonical FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          COVERAGE_FILE: ${{ runner.temp }}/qore-risk-sol-r4.coverage
+        run: |
+          set -euo pipefail
+          git diff --check HEAD --
+          ruff check . | tee "$GITHUB_WORKSPACE/risk-r4-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/risk-r4-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/risk-r4-pytest.log"
+
+      - name: Revalidate scope and commit exact candidate
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check HEAD --
+          git diff --name-only HEAD -- | sort > "$RUNNER_TEMP/actual-after.txt"
+          cat > "$RUNNER_TEMP/expected-after.txt" <<'EOF'
+          docs/architecture/QORE-DEMO-RISK-POLICY-AUTHORITY-001.md
+          src/qore/infrastructure/risk_authority.py
+          src/qore/infrastructure/risk_runtime.py
+          tests/infrastructure/test_risk_authority.py
+          tests/infrastructure/test_risk_runtime.py
+          EOF
+          sort -o "$RUNNER_TEMP/expected-after.txt" "$RUNNER_TEMP/expected-after.txt"
+          diff -u "$RUNNER_TEMP/expected-after.txt" "$RUNNER_TEMP/actual-after.txt"
+          git add -- docs/architecture/QORE-DEMO-RISK-POLICY-AUTHORITY-001.md src/qore/infrastructure/risk_authority.py src/qore/infrastructure/risk_runtime.py tests/infrastructure/test_risk_authority.py tests/infrastructure/test_risk_runtime.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'fix(risk): close non-bypassable DEMO execution authority'
+          test "$(git rev-parse HEAD^)" = "f1ab0ee64fe2e16f4448654e470d8b488749ee13"
+          git push origin HEAD:refs/heads/agent/qore-demo-risk-policy-authority-001-sol-r4
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/risk-r4-head.txt"
+          git show -s --format=%T HEAD > "$GITHUB_WORKSPACE/risk-r4-tree.txt"
+
+      - name: Upload Sol R4 evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: risk-sol-r4-closure
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            risk-focused.log
+            risk-r4-ruff.log
+            risk-r4-mypy.log
+            risk-r4-pytest.log
+            risk-r4-head.txt
+            risk-r4-tree.txt
