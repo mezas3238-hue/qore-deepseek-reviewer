@@ -1,0 +1,208 @@
+name: QORE DEMO canonical trader instrument binding
+run-name: Canonical Trader instrument binding · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo_first_execution_requests/instrument-canonical-*.json'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  instrument-binding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        id: request
+        run: |
+          set -euo pipefail
+          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/instrument-canonical-[^/]*\.json$' || true)
+          test "${#R[@]}" -eq 1
+          REQUEST="${R[0]}"
+          jq -e '
+            .schema == "qore-demo-trader-instrument-binding-v2" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            .target_branch != "main" and .target_branch != "master"
+          ' "$REQUEST" >/dev/null
+          echo "expected_head=$(jq -r '.expected_head' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(jq -r '.target_branch' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Reuse audited core instrument transformer
+        run: |
+          set -euo pipefail
+          awk '
+            /python - <<'"'"'PY'"'"'/ {capture=1; next}
+            capture && /^          PY$/ {exit}
+            capture {sub(/^          /, ""); print}
+          ' .github/workflows/demo-first-execution-instrument-binding.yml > "$RUNNER_TEMP/instrument_patch.py"
+          test -s "$RUNNER_TEMP/instrument_patch.py"
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify exact candidate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api "repos/mezas3238-hue/qore-core/branches/${TARGET_BRANCH//\//%2F}" --jq '.commit.sha')"
+          test "$LIVE" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind exact instrument through Trader identity and execution bridge
+        working-directory: core
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/instrument_patch.py"
+          python - <<'PY'
+          from pathlib import Path
+
+          def once(path: Path, old: str, new: str, label: str) -> None:
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label} anchor mismatch in {path}: {count}')
+              path.write_text(text.replace(old, new, 1))
+
+          # The execution bridge must derive the symbol from the fingerprinted Trader output;
+          # a caller may not supply a second, substitutable instrument axis.
+          p = Path('src/qore/infrastructure/demo_first_execution_intent.py')
+          s = p.read_text()
+          old = '''    configuration: CTraderDemoRuntimeConfiguration,\n    instrument: ExecutionInstrument,\n    intent_id: OrderIntentId,\n'''
+          new = '''    configuration: CTraderDemoRuntimeConfiguration,\n    intent_id: OrderIntentId,\n'''
+          if s.count(old) != 1:
+              raise SystemExit('execution bridge signature anchor mismatch')
+          s = s.replace(old, new, 1)
+          old = '''    if not isinstance(instrument, ExecutionInstrument):\n        return Failure(\n            DemoFirstExecutionIntentError("instrument must be ExecutionInstrument")\n        )\n    mapping = configuration.symbol_mapping(instrument)\n'''
+          new = '''    instrument = output.instrument\n    if type(instrument) is not ExecutionInstrument:\n        return Failure(\n            DemoFirstExecutionIntentError(\n                "selected Trader output must bind an exact ExecutionInstrument"\n            )\n        )\n    mapping = configuration.symbol_mapping(instrument)\n'''
+          if s.count(old) != 1:
+              raise SystemExit('execution bridge instrument trust anchor mismatch')
+          s = s.replace(old, new, 1)
+          s = s.replace(
+              'the retained Trader output belongs to the exact selected candidate and the\n    requested instrument exists in the explicit cTrader DEMO configuration.',
+              'the retained Trader output belongs to the exact selected candidate and its\n    fingerprinted instrument exists in the explicit cTrader DEMO configuration.',
+              1,
+          )
+          p.write_text(s)
+
+          # Bridge tests are outside tests/infrastructure/traders and therefore need the new
+          # output field explicitly. The helper parameter allows an adversarial symbol witness.
+          p = Path('tests/infrastructure/test_demo_first_execution_vertical.py')
+          s = p.read_text()
+          old = '''def _output(\n    *,\n    decision: DemoTradingDecision = DemoTradingDecision.SETUP,\n    trader_code: DemoTradingTraderCode = _CODE,\n    entry: Decimal = Decimal("1.10000"),\n) -> DemoTradingOutput:\n'''
+          new = '''def _output(\n    *,\n    decision: DemoTradingDecision = DemoTradingDecision.SETUP,\n    trader_code: DemoTradingTraderCode = _CODE,\n    entry: Decimal = Decimal("1.10000"),\n    instrument: ExecutionInstrument = ExecutionInstrument("EURUSD"),\n) -> DemoTradingOutput:\n'''
+          if s.count(old) != 1:
+              raise SystemExit('bridge output helper anchor mismatch')
+          s = s.replace(old, new, 1)
+          old = '        methodology_fingerprint=_METHOD_FP,\n        evidence_refs=evidence_refs,\n'
+          if s.count(old) != 2:
+              raise SystemExit(f'bridge output propagation anchor mismatch: {s.count(old)}')
+          s = s.replace(
+              old,
+              '        methodology_fingerprint=_METHOD_FP,\n        instrument=instrument,\n        evidence_refs=evidence_refs,\n',
+          )
+
+          # Remove the obsolete caller-controlled instrument argument from intent construction.
+          direct = '        instrument=ExecutionInstrument("EURUSD"),\n'
+          if s.count(direct) < 1:
+              raise SystemExit('missing direct caller instrument argument')
+          s = s.replace(direct, '')
+          variable = '        instrument=instrument,\n'
+          s = s.replace(variable, '')
+          # Remove now-unused local instrument variables created by the typed bridge test fix.
+          s = s.replace('    instrument = ExecutionInstrument("EURUSD")\n', '')
+
+          # Explicit end-to-end witness: caller cannot substitute a different configured symbol.
+          marker = '\n\ndef test_unmapped_symbol_and_non_exact_price_fail_closed(\n'
+          test = '''\n\ndef test_trader_output_instrument_cannot_be_substituted(\n    monkeypatch: pytest.MonkeyPatch,\n) -> None:\n    result = build_first_demo_execution_intent(\n        selection=_selection(monkeypatch),\n        output=_output(instrument=ExecutionInstrument("EURUSD")),\n        configuration=_configuration(instrument="GBPUSD"),\n        intent_id=OrderIntentId(UUID("61000000-0000-0000-0000-000000000016")),\n        idempotency_key=ExecutionIdempotencyKey(\n            UUID("61000000-0000-0000-0000-000000000017")\n        ),\n        created_at=_NOW,\n        metadata=_METADATA,\n    )\n    assert isinstance(result, Failure)\n\n'''
+          if marker not in s:
+              raise SystemExit('symbol substitution regression anchor missing')
+          s = s.replace(marker, test + marker, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        working-directory: core
+        run: python -m pip install -e '.[dev,ctrader]'
+
+      - name: Focused instrument and bridge gate
+        working-directory: core
+        run: |
+          set -euo pipefail
+          ruff check \
+            src/qore/infrastructure/traders/contracts.py \
+            src/qore/infrastructure/traders/evaluators.py \
+            src/qore/infrastructure/demo_first_execution_intent.py \
+            tests/infrastructure/traders \
+            tests/infrastructure/test_demo_first_execution_vertical.py
+          pytest -q tests/infrastructure/traders tests/infrastructure/test_demo_first_execution_vertical.py
+
+      - name: Canonical FULL QORE quality gate
+        working-directory: core
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-instrument-binding.coverage
+        run: |
+          set -euo pipefail
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Commit and atomically advance candidate
+        working-directory: core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add \
+            src/qore/infrastructure/traders/contracts.py \
+            src/qore/infrastructure/traders/evaluators.py \
+            src/qore/infrastructure/demo_first_execution_intent.py \
+            tests/infrastructure/traders \
+            tests/infrastructure/test_demo_first_execution_vertical.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'fix(demo): bind Trader output to exact execution instrument'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          printf 'head=%s\nparent=%s\ntree=%s\n' "$NEW_HEAD" "$EXPECTED_HEAD" "$(git show -s --format=%T HEAD)" > instrument-binding-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qore-demo-canonical-instrument-binding
+          path: core/instrument-binding-evidence.txt
