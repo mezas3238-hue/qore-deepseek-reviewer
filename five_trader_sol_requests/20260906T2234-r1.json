@@ -1,0 +1,9 @@
+{
+  "schema": "qore-five-trader-sol-v1",
+  "base_head": "74d474ddbedda6c387e798829dea14fe3ea1c1f0",
+  "target_branch": "agent/qore-demo-first-trader-cohort-001-sol-r3",
+  "source_artifact_id": 9997829139,
+  "final_patch_sha256": "cb13224ad322e877a2bf21094790394e0fdbb35627b1ec6dcfe19322a3653946",
+  "issue": 493,
+  "purpose": "materialize exact Internal Expert CLEAN five-Trader candidate on cTrader-enabled main and run FULL QG"
+}
