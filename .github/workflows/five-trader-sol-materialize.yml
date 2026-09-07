@@ -1,0 +1,168 @@
+name: QORE Five-Trader Sol materialize
+run-name: Five Traders · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths: ['five_trader_sol_requests/*.json']
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  materialize-five-traders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout exact reviewer request
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Validate request binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t FILES < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^five_trader_sol_requests/[^/]*\.json$' || true)
+          test "${#FILES[@]}" -eq 1
+          REQUEST="${FILES[0]}"
+          jq -e '.schema == "qore-five-trader-sol-v1" and .base_head == "74d474ddbedda6c387e798829dea14fe3ea1c1f0" and .target_branch == "agent/qore-demo-first-trader-cohort-001-sol-r3" and .source_artifact_id == 9997829139 and .final_patch_sha256 == "cb13224ad322e877a2bf21094790394e0fdbb35627b1ec6dcfe19322a3653946"' "$REQUEST" >/dev/null
+
+      - name: Recover exact Internal Expert final candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ZIP="$RUNNER_TEMP/five-trader-internal-expert.zip"
+          DIR="$RUNNER_TEMP/five-trader-internal-expert"
+          mkdir -p "$DIR"
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/artifacts/9997829139/zip" > "$ZIP"
+          unzip -q "$ZIP" -d "$DIR"
+          PATCH="$(find "$DIR" -type f -name internal-expert-final-candidate.patch -print -quit)"
+          test -n "$PATCH"
+          test "$(sha256sum "$PATCH" | awk '{print $1}')" = "cb13224ad322e877a2bf21094790394e0fdbb35627b1ec6dcfe19322a3653946"
+          cp "$PATCH" "$RUNNER_TEMP/five-trader-final.patch"
+
+      - name: Create exact qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Checkout frozen target branch
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-demo-first-trader-cohort-001-sol-r3
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact final candidate and enforce scope
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "74d474ddbedda6c387e798829dea14fe3ea1c1f0"
+          git diff --quiet HEAD -- && git diff --cached --quiet HEAD --
+          git apply --check "$RUNNER_TEMP/five-trader-final.patch"
+          git apply "$RUNNER_TEMP/five-trader-final.patch"
+          git diff --check HEAD --
+          git diff --name-only HEAD -- | sort > "$RUNNER_TEMP/actual.txt"
+          cat > "$RUNNER_TEMP/expected.txt" <<'EOF'
+          docs/architecture/QORE-TRADER-FAMILY-MODEL-001.md
+          src/qore/infrastructure/traders/__init__.py
+          src/qore/infrastructure/traders/cognitive.py
+          src/qore/infrastructure/traders/contracts.py
+          src/qore/infrastructure/traders/evaluators.py
+          src/qore/infrastructure/traders/primitives.py
+          src/qore/infrastructure/traders/windows.py
+          tests/infrastructure/traders/test_cognitive.py
+          tests/infrastructure/traders/test_contracts.py
+          tests/infrastructure/traders/test_evaluators.py
+          tests/infrastructure/traders/test_lane1_architecture_contracts.py
+          tests/infrastructure/traders/test_lane2_vt01_vt08_adversarial.py
+          tests/infrastructure/traders/test_lane3_vt09_vt17_adversarial.py
+          tests/infrastructure/traders/test_lane4_vt31_time_metamorphic.py
+          tests/infrastructure/traders/test_lane5_cognitive_adversarial.py
+          tests/infrastructure/traders/test_lane6_integration_regression.py
+          tests/infrastructure/traders/test_primitives.py
+          tests/infrastructure/traders/test_windows.py
+          EOF
+          sort -o "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/expected.txt"
+          diff -u "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual.txt"
+          test "$(wc -l < "$RUNNER_TEMP/actual.txt")" -eq 18
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run five-Trader focused gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          set -euo pipefail
+          python -m py_compile src/qore/infrastructure/traders/*.py tests/infrastructure/traders/*.py
+          pytest -q tests/infrastructure/traders | tee "$GITHUB_WORKSPACE/five-trader-focused.log"
+
+      - name: Run canonical FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          COVERAGE_FILE: ${{ runner.temp }}/qore-five-trader.coverage
+        run: |
+          set -euo pipefail
+          git diff --check HEAD --
+          ruff check . | tee "$GITHUB_WORKSPACE/five-trader-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/five-trader-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/five-trader-pytest.log"
+
+      - name: Commit exact certified candidate
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check HEAD --
+          git diff --name-only HEAD -- | sort > "$RUNNER_TEMP/actual-after.txt"
+          diff -u "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual-after.txt"
+          git add -- docs/architecture/QORE-TRADER-FAMILY-MODEL-001.md src/qore/infrastructure/traders tests/infrastructure/traders
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'feat(traders): implement first five DEMO traders'
+          test "$(git rev-parse HEAD^)" = "74d474ddbedda6c387e798829dea14fe3ea1c1f0"
+          git push origin HEAD:refs/heads/agent/qore-demo-first-trader-cohort-001-sol-r3
+          git rev-parse HEAD > "$GITHUB_WORKSPACE/five-trader-head.txt"
+          git show -s --format=%T HEAD > "$GITHUB_WORKSPACE/five-trader-tree.txt"
+
+      - name: Upload five-Trader evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: five-trader-sol-materialize
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            five-trader-focused.log
+            five-trader-ruff.log
+            five-trader-mypy.log
+            five-trader-pytest.log
+            five-trader-head.txt
+            five-trader-tree.txt
