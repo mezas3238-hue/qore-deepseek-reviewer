@@ -1,0 +1,7 @@
+{
+  "schema": "qore-demo-trader-instrument-binding-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "expected_head": "21df98153cd293f24fb9d610c4b5526773ae34a4",
+  "target_branch": "agent/qore-demo-first-execution-vertical-cert-001",
+  "purpose": "Bind exact execution instrument into Trader input, output identity and fingerprint; add symbol-substitution regressions; run focused Trader tests and canonical FULL QORE quality gate; atomically advance the exact DEMO vertical candidate."
+}
