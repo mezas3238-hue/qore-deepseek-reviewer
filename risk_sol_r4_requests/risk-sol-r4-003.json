@@ -1,0 +1,6 @@
+{
+  "schema": "qore-risk-sol-r4-v1",
+  "base_head": "f1ab0ee64fe2e16f4448654e470d8b488749ee13",
+  "target_branch": "agent/qore-demo-risk-policy-authority-001-sol-r4",
+  "patch_sha256": "087084f9d8e40761b5afdc3e10546007473902df5de50db01405a792bc3284e7"
+}
