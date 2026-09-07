@@ -1,0 +1,358 @@
+name: QORE DEMO trader instrument binding
+run-name: Trader instrument binding · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo_first_execution_requests/instrument-binding-*.json'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  instrument-binding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        id: request
+        run: |
+          set -euo pipefail
+          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/instrument-binding-[^/]*\.json$' || true)
+          test "${#R[@]}" -eq 1
+          REQUEST="${R[0]}"
+          jq -e '
+            .schema == "qore-demo-trader-instrument-binding-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            .target_branch != "main" and .target_branch != "master"
+          ' "$REQUEST" >/dev/null
+          echo "expected_head=$(jq -r '.expected_head' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(jq -r '.target_branch' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify exact candidate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api "repos/mezas3238-hue/qore-core/branches/${TARGET_BRANCH//\//%2F}" --jq '.commit.sha')"
+          test "$LIVE" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Bind Trader input and output to exact instrument
+        working-directory: core
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path: Path, old: str, new: str) -> None:
+              text = path.read_text()
+              if text.count(old) != 1:
+                  raise SystemExit(f"anchor mismatch {path}: {old[:100]!r} count={text.count(old)}")
+              path.write_text(text.replace(old, new, 1))
+
+          contracts = Path('src/qore/infrastructure/traders/contracts.py')
+          s = contracts.read_text()
+          anchor = 'from uuid import UUID\n\nfrom qore.kernel.errors import InfrastructureError\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('contracts import anchor mismatch')
+          s = s.replace(
+              anchor,
+              'from uuid import UUID\n\nfrom qore.infrastructure.order_intent import ExecutionInstrument\nfrom qore.kernel.errors import InfrastructureError\n',
+              1,
+          )
+          anchor = '    methodology_fingerprint: DemoTradingMethodologyFingerprint\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...]\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('output field anchor mismatch')
+          s = s.replace(
+              anchor,
+              '    methodology_fingerprint: DemoTradingMethodologyFingerprint\n    instrument: ExecutionInstrument\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...]\n',
+              1,
+          )
+          anchor = (
+              '        if type(self.methodology_fingerprint) is not DemoTradingMethodologyFingerprint:\n'
+              '            raise DemoTradingValidationError(\n'
+              '                "output requires DemoTradingMethodologyFingerprint"\n'
+              '            )\n'
+              '        object.__setattr__(\n'
+          )
+          replacement = (
+              '        if type(self.methodology_fingerprint) is not DemoTradingMethodologyFingerprint:\n'
+              '            raise DemoTradingValidationError(\n'
+              '                "output requires DemoTradingMethodologyFingerprint"\n'
+              '            )\n'
+              '        if type(self.instrument) is not ExecutionInstrument:\n'
+              '            raise DemoTradingValidationError(\n'
+              '                "output requires exact ExecutionInstrument"\n'
+              '            )\n'
+              '        object.__setattr__(\n'
+          )
+          if s.count(anchor) != 1:
+              raise SystemExit('output validation anchor mismatch')
+          s = s.replace(anchor, replacement, 1)
+          anchor = '            methodology_fingerprint=self.methodology_fingerprint,\n            evidence_refs=self.evidence_refs,\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('output fingerprint revalidation anchor mismatch')
+          s = s.replace(
+              anchor,
+              '            methodology_fingerprint=self.methodology_fingerprint,\n            instrument=self.instrument,\n            evidence_refs=self.evidence_refs,\n',
+              1,
+          )
+          anchor = '            self.methodology_fingerprint.logical_values(),\n            tuple(item.logical_values() for item in self.evidence_refs),\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('output logical-values anchor mismatch')
+          s = s.replace(
+              anchor,
+              '            self.methodology_fingerprint.logical_values(),\n            self.instrument.logical_values(),\n            tuple(item.logical_values() for item in self.evidence_refs),\n',
+              1,
+          )
+          anchor = '    methodology_fingerprint: DemoTradingMethodologyFingerprint,\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...],\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('fingerprint signature anchor mismatch')
+          s = s.replace(
+              anchor,
+              '    methodology_fingerprint: DemoTradingMethodologyFingerprint,\n    instrument: ExecutionInstrument,\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...],\n',
+              1,
+          )
+          anchor = (
+              '    if type(methodology_fingerprint) is not DemoTradingMethodologyFingerprint:\n'
+              '        raise DemoTradingValidationError(\n'
+              '            "output fingerprint requires DemoTradingMethodologyFingerprint"\n'
+              '        )\n'
+              '    ordered_refs = _sorted_evidence_refs(evidence_refs, field_name="output evidence refs")\n'
+          )
+          replacement = (
+              '    if type(methodology_fingerprint) is not DemoTradingMethodologyFingerprint:\n'
+              '        raise DemoTradingValidationError(\n'
+              '            "output fingerprint requires DemoTradingMethodologyFingerprint"\n'
+              '        )\n'
+              '    if type(instrument) is not ExecutionInstrument:\n'
+              '        raise DemoTradingValidationError(\n'
+              '            "output fingerprint requires exact ExecutionInstrument"\n'
+              '        )\n'
+              '    ordered_refs = _sorted_evidence_refs(evidence_refs, field_name="output evidence refs")\n'
+          )
+          if s.count(anchor) != 1:
+              raise SystemExit('fingerprint validation anchor mismatch')
+          s = s.replace(anchor, replacement, 1)
+          anchor = '        "methodology_fingerprint": methodology_fingerprint.value,\n        "evidence_refs": [item.value for item in ordered_refs],\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('fingerprint canonical anchor mismatch')
+          s = s.replace(
+              anchor,
+              '        "methodology_fingerprint": methodology_fingerprint.value,\n        "instrument": instrument.value,\n        "evidence_refs": [item.value for item in ordered_refs],\n',
+              1,
+          )
+          contracts.write_text(s)
+
+          evaluators = Path('src/qore/infrastructure/traders/evaluators.py')
+          s = evaluators.read_text()
+          anchor = 'from qore.infrastructure.market_observation import MarketTimeframeCode\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('evaluator import anchor mismatch')
+          s = s.replace(
+              anchor,
+              'from qore.infrastructure.market_observation import MarketTimeframeCode\nfrom qore.infrastructure.order_intent import ExecutionInstrument\n',
+              1,
+          )
+          anchor = '    as_of: datetime\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...]\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('DemoTradingInput field anchor mismatch')
+          s = s.replace(
+              anchor,
+              '    instrument: ExecutionInstrument\n    as_of: datetime\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...]\n',
+              1,
+          )
+          anchor = '    def __post_init__(self) -> None:\n        _utc(self.as_of)\n        if type(self.evidence_refs) is not tuple or any(\n'
+          replacement = (
+              '    def __post_init__(self) -> None:\n'
+              '        if type(self.instrument) is not ExecutionInstrument:\n'
+              '            raise DemoTradingValidationError(\n'
+              '                "input instrument must be exact ExecutionInstrument"\n'
+              '            )\n'
+              '        _utc(self.as_of)\n'
+              '        if type(self.evidence_refs) is not tuple or any(\n'
+          )
+          if s.count(anchor) != 1:
+              raise SystemExit('DemoTradingInput validation anchor mismatch')
+          s = s.replace(anchor, replacement, 1)
+          anchor = '    methodology_fingerprint: DemoTradingMethodologyFingerprint,\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...],\n'
+          if s.count(anchor) != 1:
+              raise SystemExit('_build_output signature anchor mismatch')
+          s = s.replace(
+              anchor,
+              '    methodology_fingerprint: DemoTradingMethodologyFingerprint,\n    instrument: ExecutionInstrument,\n    evidence_refs: tuple[DemoTradingEvidenceRef, ...],\n',
+              1,
+          )
+          anchor = '        methodology_fingerprint=methodology_fingerprint,\n        evidence_refs=evidence_refs,\n'
+          if s.count(anchor) != 2:
+              raise SystemExit(f'_build_output propagation anchors mismatch: {s.count(anchor)}')
+          s = s.replace(
+              anchor,
+              '        methodology_fingerprint=methodology_fingerprint,\n        instrument=instrument,\n        evidence_refs=evidence_refs,\n',
+          )
+          s, n = re.subn(
+              r'(?m)^(\s*)evidence_refs=input\.evidence_refs,\n',
+              r'\1instrument=input.instrument,\n\1evidence_refs=input.evidence_refs,\n',
+              s,
+          )
+          if n < 10:
+              raise SystemExit(f'expected many evaluator output paths, found {n}')
+          evaluators.write_text(s)
+
+          # Every direct DemoTradingInput caller must bind an instrument explicitly.
+          input_files = [
+              Path('tests/infrastructure/traders/test_evaluators.py'),
+              Path('tests/infrastructure/traders/test_lane2_vt01_vt08_adversarial.py'),
+              Path('tests/infrastructure/traders/test_lane3_vt09_vt17_adversarial.py'),
+              Path('tests/infrastructure/traders/test_lane4_vt31_time_metamorphic.py'),
+          ]
+          for p in input_files:
+              text = p.read_text()
+              if 'from qore.infrastructure.order_intent import ExecutionInstrument\n' not in text:
+                  marker = 'from qore.infrastructure.market_observation import MarketTimeframeCode\n'
+                  if marker not in text:
+                      raise SystemExit(f'missing test import anchor: {p}')
+                  text = text.replace(
+                      marker,
+                      marker + 'from qore.infrastructure.order_intent import ExecutionInstrument\n',
+                      1,
+                  )
+              text, count = re.subn(
+                  r'DemoTradingInput\(\n(\s*)as_of=',
+                  r'DemoTradingInput(\n\1instrument=ExecutionInstrument("EURUSD"),\n\1as_of=',
+                  text,
+              )
+              if count == 0:
+                  raise SystemExit(f'no DemoTradingInput construction patched: {p}')
+              p.write_text(text)
+
+          # Direct output/fingerprint constructor tests bind EURUSD explicitly.
+          output_files = [
+              Path('tests/infrastructure/traders/test_contracts.py'),
+              Path('tests/infrastructure/traders/test_lane1_architecture_contracts.py'),
+          ]
+          for p in output_files:
+              text = p.read_text()
+              if 'from qore.infrastructure.order_intent import ExecutionInstrument\n' not in text:
+                  marker = 'import pytest\n\n'
+                  if marker not in text:
+                      raise SystemExit(f'missing output-test import anchor: {p}')
+                  text = text.replace(
+                      marker,
+                      marker + 'from qore.infrastructure.order_intent import ExecutionInstrument\n',
+                      1,
+                  )
+              text, count = re.subn(
+                  r'(?m)^(\s*)methodology_fingerprint=methodology_fingerprint,\n(\s*)evidence_refs=',
+                  r'\1methodology_fingerprint=methodology_fingerprint,\n\1instrument=ExecutionInstrument("EURUSD"),\n\2evidence_refs=',
+                  text,
+              )
+              if count < 2:
+                  raise SystemExit(f'expected direct output/fingerprint patches in {p}, got {count}')
+              p.write_text(text)
+
+          # Explicit regression: symbol substitution changes output identity.
+          p = Path('tests/infrastructure/traders/test_contracts.py')
+          text = p.read_text()
+          marker = '\n\ndef test_output_naive_timestamp_rejected() -> None:\n'
+          test = '''\n\ndef test_output_fingerprint_is_instrument_bound() -> None:\n    output = _output(\n        decision=DemoTradingDecision.SETUP,\n        evidence_refs=(DemoTradingEvidenceRef("qore:demo:ev:1"),),\n    )\n    rebound = compute_trader_output_fingerprint(\n        trader_code=output.trader_code,\n        version=output.version,\n        config_fingerprint=output.config_fingerprint,\n        methodology_id=output.methodology_id,\n        methodology_version=output.methodology_version,\n        methodology_fingerprint=output.methodology_fingerprint,\n        instrument=ExecutionInstrument("GBPUSD"),\n        evidence_refs=output.evidence_refs,\n        timeframe=output.timeframe,\n        session=output.session,\n        decision=output.decision,\n        side=output.side,\n        setup=output.setup,\n        abstain_reason=output.abstain_reason,\n        evaluated_at=output.evaluated_at,\n    )\n    assert rebound != output.output_fingerprint\n'''
+          if marker not in text:
+              raise SystemExit('instrument regression test anchor missing')
+          p.write_text(text.replace(marker, test + marker, 1))
+          PY
+          git diff --check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        working-directory: core
+        run: python -m pip install -e '.[dev,ctrader]'
+
+      - name: Focused Trader instrument gate
+        working-directory: core
+        run: |
+          set -euo pipefail
+          ruff check \
+            src/qore/infrastructure/traders/contracts.py \
+            src/qore/infrastructure/traders/evaluators.py \
+            tests/infrastructure/traders
+          mypy \
+            src/qore/infrastructure/traders/contracts.py \
+            src/qore/infrastructure/traders/evaluators.py \
+            tests/infrastructure/traders
+          pytest -q tests/infrastructure/traders
+
+      - name: Canonical FULL QORE quality gate
+        working-directory: core
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-instrument-binding.coverage
+        run: |
+          set -euo pipefail
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Commit and atomically advance candidate
+        working-directory: core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add \
+            src/qore/infrastructure/traders/contracts.py \
+            src/qore/infrastructure/traders/evaluators.py \
+            tests/infrastructure/traders/test_contracts.py \
+            tests/infrastructure/traders/test_evaluators.py \
+            tests/infrastructure/traders/test_lane1_architecture_contracts.py \
+            tests/infrastructure/traders/test_lane2_vt01_vt08_adversarial.py \
+            tests/infrastructure/traders/test_lane3_vt09_vt17_adversarial.py \
+            tests/infrastructure/traders/test_lane4_vt31_time_metamorphic.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'fix(traders): bind DEMO outputs to exact instrument'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          printf 'head=%s\n' "$NEW_HEAD" > instrument-binding-evidence.txt
+          printf 'parent=%s\n' "$EXPECTED_HEAD" >> instrument-binding-evidence.txt
+          printf 'tree=%s\n' "$(git show -s --format=%T HEAD)" >> instrument-binding-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qore-demo-trader-instrument-binding
+          path: core/instrument-binding-evidence.txt
