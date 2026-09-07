@@ -1,0 +1,133 @@
+name: QORE DEMO bridge canonical typing closure
+run-name: Bridge canonical typing closure · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'demo_first_execution_requests/bridge-canonical-*.json'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  bridge-canonical-typing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        id: request
+        run: |
+          set -euo pipefail
+          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/bridge-canonical-[^/]*\.json$' || true)
+          test "${#R[@]}" -eq 1
+          REQUEST="${R[0]}"
+          jq -e '
+            .schema == "qore-demo-bridge-canonical-typing-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            .target_branch != "main" and .target_branch != "master"
+          ' "$REQUEST" >/dev/null
+          echo "expected_head=$(jq -r '.expected_head' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(jq -r '.target_branch' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Reuse audited bridge typing transformer
+        run: |
+          set -euo pipefail
+          awk '
+            /python - <<'"'"'PY'"'"'/ {capture=1; next}
+            capture && /^          PY$/ {exit}
+            capture {sub(/^          /, ""); print}
+          ' .github/workflows/demo-first-execution-bridge-typing-closure.yml > "$RUNNER_TEMP/bridge_typing_patch.py"
+          test -s "$RUNNER_TEMP/bridge_typing_patch.py"
+          grep -q 'Close bridge test typing family' .github/workflows/demo-first-execution-bridge-typing-closure.yml
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify exact candidate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api "repos/mezas3238-hue/qore-core/branches/${TARGET_BRANCH//\//%2F}" --jq '.commit.sha')"
+          test "$LIVE" = "$EXPECTED_HEAD"
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact audited typing correction
+        working-directory: core
+        run: |
+          set -euo pipefail
+          python "$RUNNER_TEMP/bridge_typing_patch.py"
+          git diff --check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        working-directory: core
+        run: python -m pip install -e '.[dev,ctrader]'
+
+      - name: Focused bridge functional gate
+        working-directory: core
+        run: |
+          set -euo pipefail
+          ruff check tests/infrastructure/test_demo_first_execution_vertical.py
+          pytest -q tests/infrastructure/test_demo_first_execution_vertical.py
+
+      - name: Canonical FULL QORE quality gate
+        working-directory: core
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-bridge-canonical.coverage
+        run: |
+          set -euo pipefail
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Commit and atomically advance candidate
+        working-directory: core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add tests/infrastructure/test_demo_first_execution_vertical.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'test(demo): close bridge typing under canonical QG'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          printf 'head=%s\nparent=%s\ntree=%s\n' "$NEW_HEAD" "$EXPECTED_HEAD" "$(git show -s --format=%T HEAD)" > bridge-canonical-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qore-demo-bridge-canonical-typing
+          path: core/bridge-canonical-evidence.txt
