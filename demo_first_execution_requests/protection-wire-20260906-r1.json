@@ -1,0 +1,6 @@
+{
+  "schema": "qore-demo-first-execution-protection-wire-v1",
+  "expected_head": "6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582",
+  "branch": "agent/qore-demo-first-execution-vertical-001",
+  "purpose": "Bind exact Trader invalidation/take-profit through OrderIntent and cTrader ProtoOANewOrderReq, then run focused and FULL QORE gates"
+}
