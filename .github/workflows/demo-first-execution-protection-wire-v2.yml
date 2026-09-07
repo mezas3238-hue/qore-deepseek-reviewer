@@ -1,24 +1,45 @@
-name: QORE DEMO protection wire v2
+name: QORE DEMO protected order wire
+run-name: Protected DEMO wire · ${{ github.event.head_commit.message }}
+
 on:
   push:
     branches: [main]
-    paths: ['demo_first_execution_requests/protection-wire-v2-*.json']
+    paths:
+      - 'demo_first_execution_requests/protection-wire-v3-*.json'
+
 permissions:
+  actions: read
   contents: read
+
 jobs:
   protection-wire:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-        with: {ref: '${{ github.sha }}', fetch-depth: 2, persist-credentials: false}
-      - name: Bind request
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        id: request
         run: |
           set -euo pipefail
-          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/protection-wire-v2-[^/]*\.json$' || true)
+          mapfile -t R < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/protection-wire-v3-[^/]*\.json$' || true)
           test "${#R[@]}" -eq 1
-          jq -e '.schema=="qore-demo-first-execution-protection-wire-v2" and .expected_head=="6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582"' "${R[0]}" >/dev/null
-      - name: Core token
+          REQUEST="${R[0]}"
+          jq -e '
+            .schema == "qore-demo-first-execution-protection-wire-v3" and
+            .repository == "mezas3238-hue/qore-core" and
+            (.expected_head | test("^[0-9a-f]{40}$")) and
+            (.target_branch | type == "string" and length > 0) and
+            .target_branch != "main" and .target_branch != "master"
+          ' "$REQUEST" >/dev/null
+          echo "expected_head=$(jq -r '.expected_head' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          echo "target_branch=$(jq -r '.target_branch' "$REQUEST")" >> "$GITHUB_OUTPUT"
+
+      - name: Create qore-core write token
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
@@ -27,67 +48,196 @@ jobs:
           owner: mezas3238-hue
           repositories: qore-core
           permission-contents: write
+
+      - name: Verify and checkout exact candidate
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          LIVE="$(gh api "repos/mezas3238-hue/qore-core/branches/${TARGET_BRANCH//\//%2F}" --jq '.commit.sha')"
+          test "$LIVE" = "$EXPECTED_HEAD"
+
       - uses: actions/checkout@v4
         with:
           repository: mezas3238-hue/qore-core
-          ref: agent/qore-demo-first-execution-vertical-001
+          ref: ${{ steps.request.outputs.expected_head }}
           token: ${{ steps.app-token.outputs.token }}
           path: core
           fetch-depth: 0
           persist-credentials: true
-      - name: Wire SL TP into cTrader request
+
+      - name: Wire protected LIMIT semantics into cTrader
         working-directory: core
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = 6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582
           python - <<'PY'
           from pathlib import Path
-          p=Path('src/qore/infrastructure/ctrader_demo_execution_codec.py'); s=p.read_text()
-          def first(a,b):
+
+          p = Path('src/qore/infrastructure/ctrader_demo_execution_codec.py')
+          s = p.read_text()
+
+          def first(a: str, b: str) -> None:
               global s
-              if a not in s: raise SystemExit('missing anchor: '+repr(a[:100]))
-              s=s.replace(a,b,1)
-          first('    volume_units: int\n    limit_price: str | None\n    timeout: ExternalTransportTimeout\n','    volume_units: int\n    limit_price: str | None\n    stop_loss: str | None\n    take_profit: str | None\n    timeout: ExternalTransportTimeout\n')
-          first('        if not isinstance(self.timeout, ExternalTransportTimeout):\n','        for field_name, protection in (("stop_loss", self.stop_loss), ("take_profit", self.take_profit)):\n            if protection is not None:\n                price = _decimal_string(protection, field_name=f"planned {field_name}")\n                if isinstance(price, Failure) or price.value <= 0:\n                    raise CTraderDemoExecutionValidationError(f"order-create plan {field_name} must be a positive decimal price")\n        if self.stop_loss is not None and self.take_profit is not None and self.stop_loss == self.take_profit:\n            raise CTraderDemoExecutionValidationError("order-create plan stop_loss and take_profit must be distinct")\n        if not isinstance(self.timeout, ExternalTransportTimeout):\n')
-          first('        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n','        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n        if self.stop_loss is not None:\n            expected_body["stopLoss"] = self.stop_loss\n        if self.take_profit is not None:\n            expected_body["takeProfit"] = self.take_profit\n')
-          tuple_anchor='            self.volume_units,\n            self.limit_price,\n            self.timeout.logical_values(),\n'
-          tuple_new='            self.volume_units,\n            self.limit_price,\n            self.stop_loss,\n            self.take_profit,\n            self.timeout.logical_values(),\n'
-          first(tuple_anchor,tuple_new); first(tuple_anchor,tuple_new)
-          first('    body: dict[str, object] = {\n','    stop_loss: str | None = None\n    if intent.stop_loss is not None:\n        r = _exact_price(intent.stop_loss.value, mapping.digits)\n        if isinstance(r, Failure):\n            return r\n        stop_loss = r.value\n    take_profit: str | None = None\n    if intent.take_profit is not None:\n        r = _exact_price(intent.take_profit.value, mapping.digits)\n        if isinstance(r, Failure):\n            return r\n        take_profit = r.value\n    body: dict[str, object] = {\n')
-          first('    if limit_price is not None:\n        body["limitPrice"] = limit_price\n','    if limit_price is not None:\n        body["limitPrice"] = limit_price\n    if stop_loss is not None:\n        body["stopLoss"] = stop_loss\n    if take_profit is not None:\n        body["takeProfit"] = take_profit\n')
-          first('            volume_units=units,\n            limit_price=limit_price,\n            timeout=configuration.rest_timeout,\n','            volume_units=units,\n            limit_price=limit_price,\n            stop_loss=stop_loss,\n            take_profit=take_profit,\n            timeout=configuration.rest_timeout,\n')
+              if a not in s:
+                  raise SystemExit('missing codec anchor: ' + repr(a[:120]))
+              s = s.replace(a, b, 1)
+
+          first(
+              '    timeout: ExternalTransportTimeout\n    body_json: str\n',
+              '    timeout: ExternalTransportTimeout\n    body_json: str\n    stop_loss: str | None = None\n    take_profit: str | None = None\n',
+          )
+          first(
+              '        if not isinstance(self.timeout, ExternalTransportTimeout):\n',
+              '        if self.order_type is OrderType.MARKET and (\n'
+              '            self.stop_loss is not None or self.take_profit is not None\n'
+              '        ):\n'
+              '            raise CTraderDemoExecutionValidationError(\n'
+              '                "protected MARKET orders are unsupported by the absolute-price DEMO wire"\n'
+              '            )\n'
+              '        for field_name, protection in (\n'
+              '            ("stop_loss", self.stop_loss),\n'
+              '            ("take_profit", self.take_profit),\n'
+              '        ):\n'
+              '            if protection is not None:\n'
+              '                price = _decimal_string(protection, field_name=f"planned {field_name}")\n'
+              '                if isinstance(price, Failure) or price.value <= 0:\n'
+              '                    raise CTraderDemoExecutionValidationError(\n'
+              '                        f"order-create plan {field_name} must be a positive decimal price"\n'
+              '                    )\n'
+              '        if (\n'
+              '            self.stop_loss is not None\n'
+              '            and self.take_profit is not None\n'
+              '            and self.stop_loss == self.take_profit\n'
+              '        ):\n'
+              '            raise CTraderDemoExecutionValidationError(\n'
+              '                "order-create plan stop_loss and take_profit must be distinct"\n'
+              '            )\n'
+              '        if not isinstance(self.timeout, ExternalTransportTimeout):\n',
+          )
+          first(
+              '        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n',
+              '        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n'
+              '        if self.stop_loss is not None:\n            expected_body["stopLoss"] = self.stop_loss\n'
+              '        if self.take_profit is not None:\n            expected_body["takeProfit"] = self.take_profit\n',
+          )
+          tuple_anchor = (
+              '            self.volume_units,\n'
+              '            self.limit_price,\n'
+              '            self.timeout.logical_values(),\n'
+              '            self.body_json,\n'
+          )
+          tuple_new = (
+              '            self.volume_units,\n'
+              '            self.limit_price,\n'
+              '            self.stop_loss,\n'
+              '            self.take_profit,\n'
+              '            self.timeout.logical_values(),\n'
+              '            self.body_json,\n'
+          )
+          first(tuple_anchor, tuple_new)
+          first(tuple_anchor, tuple_new)
+          first(
+              '    body: dict[str, object] = {\n',
+              '    if intent.order_type is OrderType.MARKET and (\n'
+              '        intent.stop_loss is not None or intent.take_profit is not None\n'
+              '    ):\n'
+              '        return Failure(\n'
+              '            CTraderDemoExecutionValidationError(\n'
+              '                "protected MARKET orders are unsupported; use a protected LIMIT or an explicit relative-protection contract"\n'
+              '            )\n'
+              '        )\n'
+              '    stop_loss: str | None = None\n'
+              '    if intent.stop_loss is not None:\n'
+              '        stop_result = _exact_price(intent.stop_loss.value, mapping.digits)\n'
+              '        if isinstance(stop_result, Failure):\n'
+              '            return stop_result\n'
+              '        stop_loss = stop_result.value\n'
+              '    take_profit: str | None = None\n'
+              '    if intent.take_profit is not None:\n'
+              '        take_result = _exact_price(intent.take_profit.value, mapping.digits)\n'
+              '        if isinstance(take_result, Failure):\n'
+              '            return take_result\n'
+              '        take_profit = take_result.value\n'
+              '    body: dict[str, object] = {\n',
+          )
+          first(
+              '    if limit_price is not None:\n        body["limitPrice"] = limit_price\n',
+              '    if limit_price is not None:\n        body["limitPrice"] = limit_price\n'
+              '    if stop_loss is not None:\n        body["stopLoss"] = stop_loss\n'
+              '    if take_profit is not None:\n        body["takeProfit"] = take_profit\n',
+          )
+          first(
+              '            timeout=configuration.rest_timeout,\n            body_json=body_json,\n',
+              '            timeout=configuration.rest_timeout,\n'
+              '            body_json=body_json,\n'
+              '            stop_loss=stop_loss,\n'
+              '            take_profit=take_profit,\n',
+          )
           p.write_text(s)
-          p=Path('src/qore/infrastructure/ctrader_open_api_transport.py'); s=p.read_text()
-          a='        if plan.limit_price is not None:\n            fields["limitPrice"] = float(plan.limit_price)\n'
-          b=a+'        if plan.stop_loss is not None:\n            fields["stopLoss"] = float(plan.stop_loss)\n        if plan.take_profit is not None:\n            fields["takeProfit"] = float(plan.take_profit)\n'
-          if s.count(a)!=1: raise SystemExit('transport anchor mismatch')
-          p.write_text(s.replace(a,b,1))
+
+          p = Path('src/qore/infrastructure/ctrader_open_api_transport.py')
+          s = p.read_text()
+          a = '        if plan.limit_price is not None:\n            fields["limitPrice"] = float(plan.limit_price)\n'
+          b = (
+              a
+              + '        if plan.stop_loss is not None:\n            fields["stopLoss"] = float(plan.stop_loss)\n'
+              + '        if plan.take_profit is not None:\n            fields["takeProfit"] = float(plan.take_profit)\n'
+          )
+          if s.count(a) != 1:
+              raise SystemExit('transport anchor mismatch')
+          p.write_text(s.replace(a, b, 1))
           PY
           git diff --check
+
       - uses: actions/setup-python@v5
-        with: {python-version: '3.12'}
+        with:
+          python-version: '3.12'
+
       - name: Install
         working-directory: core
         run: python -m pip install -e '.[dev,ctrader]'
-      - name: Focused gate
+
+      - name: Focused protected-order gate
         working-directory: core
         run: |
           set -euo pipefail
-          pytest -q tests/infrastructure/test_ctrader_demo_execution_gateway.py tests/infrastructure/test_ctrader_open_api_transport.py tests/infrastructure/test_risk_runtime.py
-      - name: Full QG
+          pytest -q \
+            tests/infrastructure/test_ctrader_demo_protected_order_wire.py \
+            tests/infrastructure/test_ctrader_demo_execution_gateway.py \
+            tests/infrastructure/test_ctrader_open_api_transport.py \
+            tests/infrastructure/test_risk_runtime.py
+
+      - name: Canonical FULL QORE quality gate
         working-directory: core
-        env: {COVERAGE_FILE: '${{ runner.temp }}/qore-protection-wire.coverage'}
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-protection-wire.coverage
         run: |
+          set -euo pipefail
           ruff check .
           mypy src tests
           pytest --cov=src/qore --cov-report=term-missing
-      - name: Commit
+
+      - name: Commit and atomically advance candidate
         working-directory: core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
         run: |
           set -euo pipefail
           git diff --check
           git add src/qore/infrastructure/ctrader_demo_execution_codec.py src/qore/infrastructure/ctrader_open_api_transport.py
           git config user.name 'QORE Sol Integration'
           git config user.email 'qore-sol-integration@users.noreply.github.com'
-          git commit -m 'feat(execution): wire Trader protections to cTrader DEMO'
-          git push origin HEAD:refs/heads/agent/qore-demo-first-execution-vertical-001
+          git commit -m 'feat(execution): wire protected LIMIT orders to cTrader DEMO'
+          NEW_HEAD="$(git rev-parse HEAD)"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          printf 'head=%s\n' "$NEW_HEAD" > protection-wire-evidence.txt
+          printf 'parent=%s\n' "$EXPECTED_HEAD" >> protection-wire-evidence.txt
+          printf 'tree=%s\n' "$(git show -s --format=%T HEAD)" >> protection-wire-evidence.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qore-demo-protected-order-wire
+          path: core/protection-wire-evidence.txt
