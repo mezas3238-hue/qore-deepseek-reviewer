@@ -1,0 +1,7 @@
+{
+  "schema": "qore-demo-bridge-mechanical-closure-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "expected_head": "00f8faea14a53ff5f40a1dcc7d89ae0a9517d0a4",
+  "target_branch": "agent/qore-demo-first-execution-vertical-cert-001",
+  "purpose": "Remove only the two unused imports blocking Ruff in the first execution bridge suite, run the focused bridge tests and canonical FULL QORE quality gate, then atomically advance the exact DEMO candidate."
+}
