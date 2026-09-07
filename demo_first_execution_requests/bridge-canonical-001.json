@@ -1,0 +1,7 @@
+{
+  "schema": "qore-demo-bridge-canonical-typing-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "expected_head": "00f8faea14a53ff5f40a1dcc7d89ae0a9517d0a4",
+  "target_branch": "agent/qore-demo-first-execution-vertical-cert-001",
+  "purpose": "Reuse the audited bridge typing transform, run focused Ruff/pytest only, then validate all typing via canonical mypy src tests plus full pytest coverage; atomically advance only on complete QORE success."
+}
