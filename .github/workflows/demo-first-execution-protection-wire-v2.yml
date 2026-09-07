@@ -145,7 +145,8 @@ jobs:
               '    ):\n'
               '        return Failure(\n'
               '            CTraderDemoExecutionValidationError(\n'
-              '                "protected MARKET orders are unsupported; use a protected LIMIT or an explicit relative-protection contract"\n'
+              '                "protected MARKET orders are unsupported; use a protected LIMIT "\n'
+              '                "or an explicit relative-protection contract"\n'
               '            )\n'
               '        )\n'
               '    stop_loss: str | None = None\n'
@@ -188,7 +189,13 @@ jobs:
           if s.count(a) != 1:
               raise SystemExit('transport anchor mismatch')
           p.write_text(s.replace(a, b, 1))
+
+          p = Path('src/qore/infrastructure/order_intent.py')
+          p.write_text(p.read_text().rstrip() + '\n')
           PY
+          python -m ruff check --fix \
+            src/qore/infrastructure/order_intent.py \
+            tests/infrastructure/trader_lab/test_first_cohort_selection.py
           git diff --check
 
       - uses: actions/setup-python@v5
@@ -206,7 +213,8 @@ jobs:
           pytest -q \
             tests/infrastructure/test_ctrader_demo_protected_order_wire.py \
             tests/infrastructure/test_ctrader_demo_execution_gateway.py \
-            tests/infrastructure/test_risk_runtime.py
+            tests/infrastructure/test_risk_runtime.py \
+            tests/infrastructure/trader_lab/test_first_cohort_selection.py
 
       - name: Canonical FULL QORE quality gate
         working-directory: core
@@ -226,7 +234,11 @@ jobs:
         run: |
           set -euo pipefail
           git diff --check
-          git add src/qore/infrastructure/ctrader_demo_execution_codec.py src/qore/infrastructure/ctrader_open_api_transport.py
+          git add \
+            src/qore/infrastructure/ctrader_demo_execution_codec.py \
+            src/qore/infrastructure/ctrader_open_api_transport.py \
+            src/qore/infrastructure/order_intent.py \
+            tests/infrastructure/trader_lab/test_first_cohort_selection.py
           git config user.name 'QORE Sol Integration'
           git config user.email 'qore-sol-integration@users.noreply.github.com'
           git commit -m 'feat(execution): wire protected LIMIT orders to cTrader DEMO'
