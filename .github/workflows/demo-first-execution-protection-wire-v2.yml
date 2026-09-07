@@ -207,6 +207,50 @@ jobs:
         working-directory: core
         run: |
           set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tests/infrastructure/trader_lab/test_first_cohort_selection.py')
+          s = p.read_text()
+          s = s.replace(
+              'from collections.abc import Callable\n',
+              'from collections.abc import Callable\nfrom typing import Protocol\n',
+              1,
+          )
+          marker = (
+              '_EconomicReferenceFactory = Callable[[TraderLabCandidateBinding], TraderLabEvidenceReference]\n\n\n'
+          )
+          protocol = (
+              '_EconomicReferenceFactory = Callable[[TraderLabCandidateBinding], TraderLabEvidenceReference]\n\n\n'
+              'class _CohortEvaluator(Protocol):\n'
+              '    trader_code: str\n'
+              '    version: str\n\n'
+              '    def config_fingerprint(self) -> DemoTradingConfigFingerprint: ...\n\n'
+              '    def methodology(\n'
+              '        self,\n'
+              '    ) -> tuple[\n'
+              '        DemoTradingMethodologyId,\n'
+              '        DemoTradingMethodologyVersion,\n'
+              '        DemoTradingMethodologyFingerprint,\n'
+              '    ]: ...\n\n\n'
+          )
+          if marker not in s:
+              raise SystemExit('missing cohort protocol anchor')
+          s = s.replace(marker, protocol, 1)
+          if s.count('evaluator: object') != 2:
+              raise SystemExit('unexpected evaluator annotation count')
+          s = s.replace('evaluator: object', 'evaluator: _CohortEvaluator')
+          s = s.replace('    version = str(getattr(evaluator, "version"))\n', '', 1)
+          replacements = {
+              'getattr(evaluator, "trader_code")': 'evaluator.trader_code',
+              'getattr(evaluator, "version")': 'evaluator.version',
+              'getattr(evaluator, "config_fingerprint")': 'evaluator.config_fingerprint',
+              'getattr(evaluator, "methodology")': 'evaluator.methodology',
+          }
+          for old, new in replacements.items():
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
           ruff check --fix \
             src/qore/infrastructure/order_intent.py \
             tests/infrastructure/trader_lab/test_first_cohort_selection.py
