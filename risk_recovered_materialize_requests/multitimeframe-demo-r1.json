@@ -1,0 +1,18 @@
+{
+  "schema": "qore-risk-recovered-materialize-v2",
+  "repository": "mezas3238-hue/qore-core",
+  "package_id": "QORE-CTRADER-DEMO-MULTI-TIMEFRAME-MATERIALIZE-R1",
+  "artifact_id": 9990955787,
+  "source_run_id": 34038603667,
+  "artifact_name": "sanitized-harness-recovery-QORE-CTRADER-DEMO-MULTI-TIMEFRAME-SANITIZE-001",
+  "patch_filename": "harness-engineer-candidate.patch",
+  "patch_sha256": "6d622207f8d80884013fed40674e5d2d80224385159cf3caba49da0652aeba1c",
+  "base_head": "6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582",
+  "base_tree": "49c99dcfef3a21c5653dc2436516ea569c4dbc45",
+  "target_branch": "agent/qore-demo-first-execution-vertical-mtf-001",
+  "expected_changed_files": [
+    "docs/architecture/QORE-CTRADER-DEMO-MULTI-TIMEFRAME-001.md",
+    "src/qore/infrastructure/ctrader_demo_market_data.py",
+    "tests/infrastructure/test_ctrader_demo_market_data.py"
+  ]
+}
