@@ -1,0 +1,181 @@
+name: QORE DEMO first execution protection wire
+run-name: DEMO protection wire · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths: ['demo_first_execution_requests/protection-wire-*.json']
+
+permissions:
+  contents: read
+
+jobs:
+  protection-wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Bind exact request
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t REQS < <(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^demo_first_execution_requests/protection-wire-[^/]*\.json$' || true)
+          test "${#REQS[@]}" -eq 1
+          jq -e '.schema == "qore-demo-first-execution-protection-wire-v1" and .expected_head == "6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582" and .branch == "agent/qore-demo-first-execution-vertical-001"' "${REQS[0]}" >/dev/null
+
+      - name: Create qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: agent/qore-demo-first-execution-vertical-001
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Patch exact cTrader protection binding
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6ac7fdae4c1634095ce9e1ab8ff5a66b44dec582"
+          python - <<'PY'
+          from pathlib import Path
+
+          codec = Path('src/qore/infrastructure/ctrader_demo_execution_codec.py')
+          text = codec.read_text()
+
+          def once(old: str, new: str) -> None:
+              global text
+              if text.count(old) != 1:
+                  raise SystemExit(f'codec replacement count != 1 for: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          once(
+              '    volume_units: int\n    limit_price: str | None\n    timeout: ExternalTransportTimeout\n',
+              '    volume_units: int\n    limit_price: str | None\n    stop_loss: str | None\n    take_profit: str | None\n    timeout: ExternalTransportTimeout\n',
+          )
+          once(
+              '        if not isinstance(self.timeout, ExternalTransportTimeout):\n',
+              '        for field_name, protection in (("stop_loss", self.stop_loss), ("take_profit", self.take_profit)):\n'
+              '            if protection is not None:\n'
+              '                price = _decimal_string(protection, field_name=f"planned {field_name}")\n'
+              '                if isinstance(price, Failure) or price.value <= 0:\n'
+              '                    raise CTraderDemoExecutionValidationError(\n'
+              '                        f"order-create plan {field_name} must be a positive decimal price"\n'
+              '                    )\n'
+              '        if self.stop_loss is not None and self.take_profit is not None and self.stop_loss == self.take_profit:\n'
+              '            raise CTraderDemoExecutionValidationError(\n'
+              '                "order-create plan stop_loss and take_profit must be distinct"\n'
+              '            )\n'
+              '        if not isinstance(self.timeout, ExternalTransportTimeout):\n',
+          )
+          once(
+              '        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n',
+              '        if self.order_type is OrderType.LIMIT:\n            expected_body["limitPrice"] = self.limit_price\n'
+              '        if self.stop_loss is not None:\n            expected_body["stopLoss"] = self.stop_loss\n'
+              '        if self.take_profit is not None:\n            expected_body["takeProfit"] = self.take_profit\n',
+          )
+          once(
+              '            self.volume_units,\n            self.limit_price,\n            self.timeout.logical_values(),\n',
+              '            self.volume_units,\n            self.limit_price,\n            self.stop_loss,\n            self.take_profit,\n            self.timeout.logical_values(),\n',
+          )
+          # sanitized_values contains the same tuple fragment once more.
+          once(
+              '            self.volume_units,\n            self.limit_price,\n            self.timeout.logical_values(),\n',
+              '            self.volume_units,\n            self.limit_price,\n            self.stop_loss,\n            self.take_profit,\n            self.timeout.logical_values(),\n',
+          )
+          once(
+              '    body: dict[str, object] = {\n',
+              '    stop_loss: str | None = None\n'
+              '    if intent.stop_loss is not None:\n'
+              '        stop_result = _exact_price(intent.stop_loss.value, mapping.digits)\n'
+              '        if isinstance(stop_result, Failure):\n'
+              '            return stop_result\n'
+              '        stop_loss = stop_result.value\n'
+              '    take_profit: str | None = None\n'
+              '    if intent.take_profit is not None:\n'
+              '        take_profit_result = _exact_price(intent.take_profit.value, mapping.digits)\n'
+              '        if isinstance(take_profit_result, Failure):\n'
+              '            return take_profit_result\n'
+              '        take_profit = take_profit_result.value\n'
+              '    body: dict[str, object] = {\n',
+          )
+          once(
+              '    if limit_price is not None:\n        body["limitPrice"] = limit_price\n',
+              '    if limit_price is not None:\n        body["limitPrice"] = limit_price\n'
+              '    if stop_loss is not None:\n        body["stopLoss"] = stop_loss\n'
+              '    if take_profit is not None:\n        body["takeProfit"] = take_profit\n',
+          )
+          once(
+              '            volume_units=units,\n            limit_price=limit_price,\n            timeout=configuration.rest_timeout,\n',
+              '            volume_units=units,\n            limit_price=limit_price,\n            stop_loss=stop_loss,\n            take_profit=take_profit,\n            timeout=configuration.rest_timeout,\n',
+          )
+          codec.write_text(text)
+
+          transport = Path('src/qore/infrastructure/ctrader_open_api_transport.py')
+          t = transport.read_text()
+          old = '        if plan.limit_price is not None:\n            fields["limitPrice"] = float(plan.limit_price)\n'
+          new = (
+              '        if plan.limit_price is not None:\n            fields["limitPrice"] = float(plan.limit_price)\n'
+              '        if plan.stop_loss is not None:\n            fields["stopLoss"] = float(plan.stop_loss)\n'
+              '        if plan.take_profit is not None:\n            fields["takeProfit"] = float(plan.take_profit)\n'
+          )
+          if t.count(old) != 1:
+              raise SystemExit('transport replacement count != 1')
+          transport.write_text(t.replace(old, new, 1))
+          PY
+          git diff --check
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dev and cTrader dependencies
+        working-directory: workspace/qore-core
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev,ctrader]'
+
+      - name: Focused execution gate
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          pytest -q tests/infrastructure/test_order_intent.py tests/infrastructure/test_ctrader_demo_execution_gateway.py tests/infrastructure/test_ctrader_open_api_transport.py tests/infrastructure/test_risk_runtime.py
+
+      - name: FULL QORE gate
+        working-directory: workspace/qore-core
+        env:
+          COVERAGE_FILE: ${{ runner.temp }}/qore-demo-protection-wire.coverage
+        run: |
+          set -euo pipefail
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Commit certified protection wire
+        working-directory: workspace/qore-core
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git add src/qore/infrastructure/order_intent.py src/qore/infrastructure/ctrader_demo_execution_codec.py src/qore/infrastructure/ctrader_open_api_transport.py
+          git config user.name 'QORE Sol Integration'
+          git config user.email 'qore-sol-integration@users.noreply.github.com'
+          git commit -m 'feat(execution): bind Trader protections through cTrader DEMO'
+          git push origin HEAD:refs/heads/agent/qore-demo-first-execution-vertical-001
+          git rev-parse HEAD
