@@ -1,0 +1,7 @@
+{
+  "schema": "qore-demo-first-execution-protection-wire-v3",
+  "repository": "mezas3238-hue/qore-core",
+  "expected_head": "9504d1713d84cdd2dde4fe13311b9f8c69acb6c8",
+  "target_branch": "agent/qore-demo-first-execution-vertical-cert-001",
+  "purpose": "Close the exact mechanical Ruff findings from run 34080796690, rerun focused protected-order/Lab gates and canonical FULL QORE QG, then atomically materialize the protected LIMIT SL/TP wire. DEMO only."
+}
