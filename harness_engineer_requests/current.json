@@ -5,9 +5,8 @@
   "task_path": "harness/engineer/tasks/qore-trader-lab-first-cohort-work-closure-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-lab-first-cohort-work-closure-001-20260908-r1-6lane-lsp",
+  "dispatch_nonce": "qore-trader-lab-first-cohort-work-closure-001-20260908-r2-6lane-lsp",
   "allowed_paths": [
-    ".github/workflows/trader-lab-first-cohort-backtest.yml",
     "scripts/ctrader_demo_lab_long_horizon_probe.py",
     "scripts/first_cohort_backtest.py",
     "scripts/first_cohort_walk_forward.py",
@@ -33,9 +32,7 @@
     "tests/modules/risk",
     "tests/infrastructure/risk"
   ],
-  "max_changed_files": 96,
+  "max_changed_files": 64,
   "max_diff_lines": 60000,
-  "run_full_qg": true,
-  "recovery_artifact_id": 0,
-  "recovery_patch_sha256": ""
+  "run_full_qg": true
 }
