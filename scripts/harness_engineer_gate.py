@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -13,6 +14,7 @@ FORBIDDEN_PREFIXES = (
     ".env",
     "secrets/",
 )
+INTERNAL_RECOVERY_DIR = ".qore-harness-recovery"
 MAX_PATCH_BYTES = 2_000_000
 
 
@@ -45,6 +47,23 @@ def _is_allowed(path: str, scopes: list[str]) -> bool:
     return any(path == scope or path.startswith(scope.rstrip("/") + "/") for scope in scopes)
 
 
+def _discard_internal_recovery_scratch(root: Path) -> None:
+    """Remove runner-owned scratch before evaluating the deliverable patch.
+
+    Harness deliberately keeps durable checkpoints and candidate snapshots under
+    ``.qore-harness-recovery`` while the Engineer is running. Those files are
+    operational recovery state, not qore-core changes and must never enter the
+    candidate patch or scope accounting. The deliverable copies are harvested by
+    the host before this deterministic gate executes.
+    """
+
+    scratch = root / INTERNAL_RECOVERY_DIR
+    if scratch.is_symlink():
+        scratch.unlink()
+    elif scratch.exists():
+        shutil.rmtree(scratch)
+
+
 def _changed_paths(root: Path) -> list[str]:
     tracked = [p for p in _git(root, "diff", "--name-only", "HEAD", "--").splitlines() if p]
     untracked = [
@@ -73,6 +92,12 @@ def validate(root: Path, package: dict[str, Any], patch_path: Path, metadata_pat
         raise RuntimeError("Starting commit tree does not match the package")
     if _git(root, "remote").strip():
         raise RuntimeError("qore-core remote exists after Engineer run")
+
+    # The resilient runner intentionally creates this directory for checkpoints,
+    # lane ledgers and a recovery patch. Host-side evidence has already been
+    # collected before the final gate, so remove the scratch directory here to
+    # ensure only actual qore-core changes are scoped and exported.
+    _discard_internal_recovery_scratch(root)
 
     _git(root, "reset", "--mixed", "HEAD")
     changed = _changed_paths(root)
@@ -139,6 +164,7 @@ def validate(root: Path, package: dict[str, Any], patch_path: Path, metadata_pat
         "remote_count": 0,
         "head_unchanged": True,
         "artifact_only": True,
+        "internal_recovery_scratch_discarded": True,
     }
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
