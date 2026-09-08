@@ -1,0 +1,194 @@
+name: QORE Trader Lab Harness closure materialize once
+run-name: Materialize Trader Lab Harness closure · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - trader_lab_harness_materialize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: qore-trader-lab-harness-closure-materializer
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact reviewer request commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate immutable request
+        id: request
+        run: |
+          set -euo pipefail
+          REQUEST=trader_lab_harness_materialize_requests/current.json
+          jq -e '
+            .schema == "qore-trader-lab-harness-closure-materialize-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            .pr_number == 500 and
+            .run_id == 34222935074 and
+            .artifact_id == 10056355849 and
+            .package_id == "HARNESS-ENGINEER-QORE-TRADER-LAB-FIRST-COHORT-WORK-CLOSURE-002" and
+            .expected_head == "9b6139221895d473642092fe9c4c6ca64bd6235a" and
+            .expected_tree == "d2ce1a3fcc6448c8cbbb77e2beee2e74cf9a3592" and
+            .artifact_digest == "sha256:13c7a38ed2d43778f0037cee465e4c9ad919c9a4fcbe669424574c1bf846f2ae" and
+            .patch_sha256 == "da90a0cb6de850570d6078439a77fe870e98798822bdd36aa5623b271b600c94" and
+            .target_branch == "agent/qore-demo-first-execution-vertical-cert-001" and
+            .expected_changed_files == [
+              "src/qore/infrastructure/trader_lab/first_cohort_research_dossiers.py",
+              "tests/infrastructure/trader_lab/test_first_cohort_research_dossiers.py"
+            ]
+          ' "$REQUEST" >/dev/null
+          for k in expected_head expected_tree artifact_digest patch_sha256 target_branch; do
+            printf '%s=%s\n' "$k" "$(jq -r --arg k "$k" '.[$k]' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Create exact qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify live PR binding before artifact handling
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/500)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+
+      - name: Authenticate exact Harness artifact and adjudication evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIGEST: ${{ steps.request.outputs.artifact_digest }}
+          PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10056355849)"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = 34222935074
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10056355849/zip > harness-artifact.zip
+          test "sha256:$(sha256sum harness-artifact.zip | cut -d' ' -f1)" = "$ARTIFACT_DIGEST"
+          unzip -q harness-artifact.zip -d harness-artifact
+          ROOT="$(dirname "$(find harness-artifact -type f -name harness-engineer-candidate.patch -print -quit)")"
+          test -n "$ROOT"
+          PATCH="$ROOT/harness-engineer-candidate.patch"
+          STATE="$ROOT/harness-engineer-lane-state.json"
+          RESILIENCE="$ROOT/harness-engineer-resilience.json"
+          CHECKPOINTS="$ROOT/harness-engineer-checkpoints.md"
+          LSP="$ROOT/harness-engineer-lsp-smoke.json"
+          test "$(sha256sum "$PATCH" | cut -d' ' -f1)" = "$PATCH_SHA256"
+          jq -e '.all_complete == true and .all_subagents_complete == true and (.completed_lanes | length) == 6 and (.completed_subagent_lanes | length) == 6 and (.pending_lanes | length) == 0 and (.blocked_lanes | length) == 0 and .internal_expert_clean == true and .dual_role_complete == true and .dual_role_gate_passed == true' "$STATE" >/dev/null
+          jq -e '.terminal_reason == "CANDIDATE_COMPLETE" and .exit_code == 0 and .engineer_reentered_after_audit_handoff == false and .internal_expert_can_repair == true and .internal_expert_reaudits_after_repairs == true and .internal_expert_knows_engineer_identity == false and .implementation_package_context_shared_with_internal_expert == false' "$RESILIENCE" >/dev/null
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' "$LSP" >/dev/null
+          grep -Fq 'HARNESS_INTERNAL_EXPERT_STATUS: CLEAN' "$CHECKPOINTS"
+          grep -Fq 'HARNESS_DUAL_ROLE_STATUS: ENGINEER_COMPLETE + INTERNAL_EXPERT_CLEAN' "$CHECKPOINTS"
+          grep -Fq 'LSP' "$CHECKPOINTS"
+          git apply --numstat "$PATCH" | cut -f3 | sort > artifact-files.txt
+          printf '%s\n' \
+            src/qore/infrastructure/trader_lab/first_cohort_research_dossiers.py \
+            tests/infrastructure/trader_lab/test_first_cohort_research_dossiers.py | sort > expected-files.txt
+          diff -u expected-files.txt artifact-files.txt
+          printf '%s\n' "$PATCH" > "$RUNNER_TEMP/harness-patch-path"
+
+      - name: Checkout exact qore-core candidate start
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact accepted artifact patch
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          PATCH="$(cat "$RUNNER_TEMP/harness-patch-path")"
+          git apply --check "$GITHUB_WORKSPACE/$PATCH"
+          git apply --index "$GITHUB_WORKSPACE/$PATCH"
+          git diff --cached --check
+          git diff --cached --name-only | sort > actual-files.txt
+          printf '%s\n' \
+            src/qore/infrastructure/trader_lab/first_cohort_research_dossiers.py \
+            tests/infrastructure/trader_lab/test_first_cohort_research_dossiers.py | sort > expected-files.txt
+          diff -u expected-files.txt actual-files.txt
+
+      - name: Run canonical FULL QORE quality gate on exact candidate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          COVERAGE_FILE: ${{ runner.temp }}/qore-trader-lab-materialize.coverage
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+          ruff check .
+          mypy src tests
+          pytest --cov=src/qore --cov-report=term-missing
+
+      - name: Create one exact materialization commit
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+        run: |
+          set -euo pipefail
+          git diff --cached --check
+          git config user.name 'QORE Harness Materializer'
+          git config user.email 'qore-harness-materializer@users.noreply.github.com'
+          git commit -m 'Materialize Trader Lab Harness closure' -m 'Artifact: HARNESS-ENGINEER-QORE-TRADER-LAB-FIRST-COHORT-WORK-CLOSURE-002'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git rev-parse HEAD > "$RUNNER_TEMP/materialized-head"
+          git show -s --format=%T HEAD > "$RUNNER_TEMP/materialized-tree"
+
+      - name: Revalidate live PR and atomically advance branch
+        working-directory: workspace/qore-core
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/500)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+          NEW_HEAD="$(cat "$RUNNER_TEMP/materialized-head")"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            LIVE="$(gh api repos/mezas3238-hue/qore-core/pulls/500 --jq '.head.sha')"
+            test "$LIVE" = "$NEW_HEAD" && break
+            sleep 2
+          done
+          test "$LIVE" = "$NEW_HEAD"
+          echo "MATERIALIZED_HEAD=$NEW_HEAD"
+          echo "MATERIALIZED_TREE=$(cat "$RUNNER_TEMP/materialized-tree")"
