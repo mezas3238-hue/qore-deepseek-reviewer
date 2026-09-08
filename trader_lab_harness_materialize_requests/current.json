@@ -1,0 +1,17 @@
+{
+  "schema": "qore-trader-lab-harness-closure-materialize-v1",
+  "repository": "mezas3238-hue/qore-core",
+  "pr_number": 500,
+  "run_id": 34222935074,
+  "artifact_id": 10056355849,
+  "package_id": "HARNESS-ENGINEER-QORE-TRADER-LAB-FIRST-COHORT-WORK-CLOSURE-002",
+  "expected_head": "9b6139221895d473642092fe9c4c6ca64bd6235a",
+  "expected_tree": "d2ce1a3fcc6448c8cbbb77e2beee2e74cf9a3592",
+  "artifact_digest": "sha256:13c7a38ed2d43778f0037cee465e4c9ad919c9a4fcbe669424574c1bf846f2ae",
+  "patch_sha256": "da90a0cb6de850570d6078439a77fe870e98798822bdd36aa5623b271b600c94",
+  "target_branch": "agent/qore-demo-first-execution-vertical-cert-001",
+  "expected_changed_files": [
+    "src/qore/infrastructure/trader_lab/first_cohort_research_dossiers.py",
+    "tests/infrastructure/trader_lab/test_first_cohort_research_dossiers.py"
+  ]
+}
