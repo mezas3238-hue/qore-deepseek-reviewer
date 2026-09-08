@@ -1,27 +1,17 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-HISTORICAL-INTELLIGENCE-REGISTRY-RECOVERY-CLOSURE-002",
-  "expected_start": "c283c9d793ca04b7477d32f5cd0969de9a304195",
-  "expected_tree": "6d9a3728ddfbc2161171af1315c59ff1f0adf3d6",
-  "task_path": "harness/engineer/tasks/qore-trader-historical-intelligence-registry-recovery-closure-002.md",
+  "package_id": "HARNESS-ENGINEER-QORE-TRADER-HISTORY-CIBO-EVIDENCE-INTEGRITY-CLOSURE-003",
+  "expected_start": "26c91740dfae5790f80517fb7e8023ba59c1c970",
+  "expected_tree": "c8669162bfc6f8ea653c9ecc5c87a67b68cf3c83",
+  "task_path": "harness/engineer/tasks/qore-trader-history-cibo-evidence-integrity-closure-003.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-historical-intelligence-registry-recovery-closure-002-20260908-r1-recovery-6lane-lsp-root-family",
+  "dispatch_nonce": "qore-trader-history-cibo-evidence-integrity-closure-003-20260908-r1-6lane-lsp-root-family",
   "allowed_paths": [
     "docs/architecture/QORE-TRADER-HISTORICAL-INTELLIGENCE-001.md",
     "src/qore/infrastructure/trader_history",
-    "src/qore/infrastructure/trader_lab",
-    "src/qore/infrastructure/cibo_trader_capability_profile.py",
-    "src/qore/infrastructure/cibo_trader_development_review.py",
-    "src/qore/infrastructure/cibo_trader_manager.py",
-    "tests/infrastructure/trader_history",
-    "tests/infrastructure/trader_lab",
-    "tests/infrastructure/test_cibo_trader_capability_profile.py",
-    "tests/infrastructure/test_cibo_trader_development_review.py",
-    "tests/infrastructure/test_cibo_trader_manager.py"
+    "tests/infrastructure/trader_history"
   ],
-  "max_changed_files": 32,
-  "max_diff_lines": 24000,
-  "run_full_qg": true,
-  "recovery_artifact_id": 10071755323,
-  "recovery_patch_sha256": "c5f449a589ab602e2ee58acff9992407e9ed73cc1cedb9ea7e962fcd9f9b11e9"
+  "max_changed_files": 10,
+  "max_diff_lines": 8000,
+  "run_full_qg": true
 }
