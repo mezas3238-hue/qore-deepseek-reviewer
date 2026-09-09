@@ -1,0 +1,67 @@
+name: Harness V3 Infrastructure Self-Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/harness_execution_budget.py
+      - scripts/harness_resilient_runner_v3.py
+      - .github/workflows/deepseek-harness-independent-audit-repair-v3.yml
+      - .github/workflows/deepseek-harness-engineer-auto-dispatch.yml
+      - .github/workflows/harness-infra-v3-selftest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and validate budget contract
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/harness_resilient_runner.py \
+            scripts/harness_resilient_runner_v3.py \
+            scripts/harness_execution_budget.py
+          PYTHONPATH=scripts python3 - <<'PY'
+          from harness_execution_budget import BudgetError, validate_budget
+
+          good = validate_budget(
+              job_timeout_minutes=240,
+              runner_wall_seconds=9300,
+              engineer_sessions=4,
+              audit_sessions=2,
+              session_timeout_seconds=1500,
+              post_runner_reserve_seconds=4800,
+              runner_grace_seconds=180,
+          )
+          assert good["theoretical_role_seconds"] == 9000
+          assert good["total_reserved_seconds"] == 14100
+
+          try:
+              validate_budget(
+                  job_timeout_minutes=190,
+                  runner_wall_seconds=25000,
+                  engineer_sessions=12,
+                  audit_sessions=1,
+                  session_timeout_seconds=2100,
+                  post_runner_reserve_seconds=1200,
+                  runner_grace_seconds=180,
+              )
+          except BudgetError:
+              pass
+          else:
+              raise AssertionError("unsafe historical budget must be rejected")
+          PY
+          python3 scripts/harness_execution_budget.py \
+            --job-timeout-minutes 240 \
+            --runner-wall-seconds 9300 \
+            --engineer-sessions 4 \
+            --audit-sessions 2 \
+            --session-timeout-seconds 1500 \
+            --post-runner-reserve-seconds 4800 \
+            --runner-grace-seconds 180
