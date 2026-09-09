@@ -28,6 +28,16 @@ Build or inherit a `FAMILY_MODEL`, preserve exact START/TREE, use semantic LSP, 
 
 Previously completed engineering lanes are durable evidence. Do not repeat a completed lane merely because a process session was interrupted; reopen only when concrete technical evidence requires it.
 
+## Host-owned canonical Quality Gate
+
+The deterministic host owns the repository-wide canonical FULL QORE Quality Gate after engineering and internal audit handoff.
+
+During the model engineering role, use focused tests, focused Ruff/Mypy checks, targeted property/metamorphic runs, and LSP evidence sufficient to develop and falsify the causal family. Do NOT spend a model generation running the repository-wide canonical `pytest --cov=src/qore --cov-report=term-missing`, and do NOT create repository-local `.coverage*` files. If coverage is technically necessary for a focused diagnostic, honor the host-provided `COVERAGE_FILE` outside the qore-core workspace.
+
+Do not duplicate the host's final full-QG work. Reach `ENGINEERING_READY_FOR_HOST_HANDOFF` once all six lanes are complete, the final fresh L6 challenge is clean, focused validations pass, the patch is scope-clean, and no material engineering defect remains. The host will then run canonical Ruff, Mypy and full Pytest+coverage.
+
+Generated test/cache/coverage artifacts are never candidate source. Remove them before refreshing the recovery patch.
+
 ## Durable state
 
 Use the host-provided checkpoint and recovery patch paths. Preserve immutable package/START/TREE binding. Record engineering progress only. Do not write `HARNESS_INTERNAL_EXPERT_STATUS` or `HARNESS_DUAL_ROLE_STATUS`; those are outside your role.
