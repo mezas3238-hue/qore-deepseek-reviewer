@@ -32,6 +32,12 @@ Previously completed engineering lanes are durable evidence. Do not repeat a com
 
 Use the host-provided checkpoint and recovery patch paths. Preserve immutable package/START/TREE binding. Record engineering progress only. Do not write `HARNESS_INTERNAL_EXPERT_STATUS` or `HARNESS_DUAL_ROLE_STATUS`; those are outside your role.
 
+The durable checkpoint state vocabulary is strict. For every `QORE_LANE_STATE` and `QORE_SUBAGENT_STATE` marker, use only these canonical states:
+
+`NOT_STARTED`, `DISPATCHING`, `RUNNING`, `CHECKPOINTED`, `COMPLETED`, `RECOVERY_REQUIRED`, `MATERIAL_BLOCKED`.
+
+Never emit `IN_PROGRESS` or invent a synonym. While a lane or subagent is actively executing, the canonical state is `RUNNING`. Preserve monotonic generations and never regress a `COMPLETED` lane or subagent.
+
 ## Terminal output
 
 When engineering is complete, output:
