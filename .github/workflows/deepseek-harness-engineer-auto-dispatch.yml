@@ -44,7 +44,7 @@ jobs:
             echo "Harness DeepSeek dispatch permitted before 19:45 America/Asuncion safe-start cutoff."
           fi
 
-      - name: Validate immutable request and dispatch independent audit-repair workflow
+      - name: Validate immutable request and dispatch deadline-safe audit-repair workflow
         if: ${{ steps.cost_window.outputs.allowed == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
@@ -74,13 +74,11 @@ jobs:
             test -z "$RECOVERY_PATCH_SHA256"
           fi
 
-          # Distinct immutable packages may run concurrently. Duplicate dispatch of the
-          # same package remains forbidden below, and each work workflow has its own
-          # package_id concurrency group.
           for WORKFLOW in \
             deepseek-harness-engineer.yml \
             deepseek-harness-engineer-resilient.yml \
-            deepseek-harness-independent-audit-repair.yml; do
+            deepseek-harness-independent-audit-repair.yml \
+            deepseek-harness-independent-audit-repair-v3.yml; do
             EXISTING="$(
               gh api --paginate \
                 "repos/${GITHUB_REPOSITORY}/actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=100" \
@@ -92,7 +90,7 @@ jobs:
             fi
           done
 
-          gh workflow run deepseek-harness-independent-audit-repair.yml \
+          gh workflow run deepseek-harness-independent-audit-repair-v3.yml \
             --ref main \
             -f "request_commit=${REQUEST_COMMIT}" \
             -f "package_id=${PACKAGE_ID}" \
@@ -107,4 +105,4 @@ jobs:
             -f "recovery_artifact_id=${RECOVERY_ARTIFACT_ID}" \
             -f "recovery_patch_sha256=${RECOVERY_PATCH_SHA256}"
 
-          echo "Independent audit-repair Harness dispatch accepted for ${PACKAGE_ID}."
+          echo "Deadline-safe independent audit-repair Harness dispatch accepted for ${PACKAGE_ID}."
