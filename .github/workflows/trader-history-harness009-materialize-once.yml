@@ -1,0 +1,230 @@
+name: QORE Trader History Harness 009 materialize once
+run-name: Materialize Trader History Harness 009 · ${{ github.event.head_commit.message }}
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - trader_history_harness009_materialize_requests/current.json
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: qore-trader-history-harness009-materialize-once
+  cancel-in-progress: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact reviewer request commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate immutable request
+        id: request
+        run: |
+          set -euo pipefail
+          REQUEST=trader_history_harness009_materialize_requests/current.json
+          jq -e '
+            .schema == "qore-trader-history-harness009-materialize-v1" and
+            .repository == "mezas3238-hue/qore-core" and
+            .pr_number == 500 and
+            .target_branch == "agent/qore-demo-first-execution-vertical-cert-001" and
+            .package_id == "HARNESS-ENGINEER-QORE-TRADER-HISTORY-POST-FALSIFICATION-INTEGRITY-CLOSURE-009" and
+            .run_id == 34377996242 and
+            .artifact_id == 10116022573 and
+            .artifact_digest == "sha256:8bd9ae7d45fcaf2abfbc2d79de8294a9d03d7e73fdd0e3962b0d3ce52c8954ca" and
+            .patch_sha256 == "f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e" and
+            .expected_head == "e632a6bf999b22544125b1208c2fcf6475d5f5ed" and
+            .expected_tree == "a638f7a1af8709441a1b240002ca61f51eac7320" and
+            .expected_pytest_passed == 7168 and
+            .expected_changed_files == [
+              "docs/architecture/QORE-TRADER-HISTORICAL-INTELLIGENCE-001.md",
+              "src/qore/infrastructure/cibo_trader_lab_authority.py",
+              "src/qore/infrastructure/trader_history/__init__.py",
+              "src/qore/infrastructure/trader_history/cibo_adapter.py",
+              "src/qore/infrastructure/trader_history/contracts.py",
+              "src/qore/infrastructure/trader_history/registry.py",
+              "tests/infrastructure/trader_history/test_trader_history_cibo_adapter.py",
+              "tests/infrastructure/trader_history/test_trader_history_contracts.py",
+              "tests/infrastructure/trader_history/test_trader_history_integrity_closure.py",
+              "tests/infrastructure/trader_history/test_trader_history_registry.py"
+            ]
+          ' "$REQUEST" >/dev/null
+          for k in target_branch package_id artifact_digest patch_sha256 expected_head expected_tree; do
+            printf '%s=%s\n' "$k" "$(jq -r --arg k "$k" '.[$k]' "$REQUEST")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Create exact qore-core write token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.QORE_REVIEWER_APP_ID }}
+          private-key: ${{ secrets.QORE_REVIEWER_PRIVATE_KEY }}
+          owner: mezas3238-hue
+          repositories: qore-core
+          permission-contents: write
+
+      - name: Verify live PR binding before artifact handling
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/500)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+
+      - name: Authenticate exact Harness 009 artifact and semantic gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_DIGEST: ${{ steps.request.outputs.artifact_digest }}
+          PATCH_SHA256: ${{ steps.request.outputs.patch_sha256 }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          REQUEST="$GITHUB_WORKSPACE/trader_history_harness009_materialize_requests/current.json"
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10116022573)"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = 34377996242
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10116022573/zip > harness-artifact.zip
+          test "sha256:$(sha256sum harness-artifact.zip | cut -d' ' -f1)" = "$ARTIFACT_DIGEST"
+          unzip -q harness-artifact.zip -d harness-artifact
+          GATE="$(find harness-artifact -type f -name harness-engineer-gate.json -print -quit)"
+          test -n "$GATE"
+          ROOT="$(dirname "$GATE")"
+          PATCH="$ROOT/harness-engineer-candidate.patch"
+          STATE="$ROOT/harness-engineer-lane-state.json"
+          RESILIENCE="$ROOT/harness-engineer-resilience.json"
+          INTERNAL_GATE="$ROOT/harness-internal-expert-gate.json"
+          LSP="$ROOT/harness-engineer-lsp-smoke.json"
+          test -s "$PATCH"
+          test -s "$STATE"
+          test -s "$RESILIENCE"
+          test -s "$INTERNAL_GATE"
+          test -s "$LSP"
+          test "$(jq -r '.expected_start' "$GATE")" = "$EXPECTED_HEAD"
+          test "$(jq -r '.expected_tree' "$GATE")" = "$EXPECTED_TREE"
+          test "$(jq -r '.head_unchanged' "$GATE")" = true
+          test "$(jq -r '.artifact_only' "$GATE")" = true
+          test "$(jq -r '.changed_file_count' "$GATE")" = 10
+          test "$(jq -r '.diff_changed_lines' "$GATE")" = 2023
+          jq -r '.changed_files[]' "$GATE" | sort > artifact-files.txt
+          jq -r '.expected_changed_files[]' "$REQUEST" | sort > request-files.txt
+          diff -u request-files.txt artifact-files.txt
+          jq -e '
+            .all_complete == true and
+            .all_subagents_complete == true and
+            (.completed_lanes | sort) == [1,2,3,4,5,6] and
+            (.completed_subagent_lanes | sort) == [1,2,3,4,5,6] and
+            (.pending_lanes | length) == 0 and
+            (.blocked_lanes | length) == 0 and
+            .internal_expert_clean == true and
+            .dual_role_complete == true and
+            .dual_role_gate_passed == true
+          ' "$STATE" >/dev/null
+          jq -e '
+            .terminal_reason == "CANDIDATE_COMPLETE" and
+            .exit_code == 0 and
+            .final_candidate_patch_sha256 == "f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e" and
+            .final_internal_expert_audit_pass_count == 1 and
+            .final_internal_expert_repair_count == 0 and
+            .engineer_reentered_after_audit_handoff == false and
+            .internal_expert_knows_engineer_identity == false
+          ' "$RESILIENCE" >/dev/null
+          jq -e '
+            .host_verified == true and
+            .initial_candidate_patch_sha256 == "f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e" and
+            .actual_candidate_patch_sha256 == "f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e" and
+            .final_candidate_patch_sha256 == "f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e" and
+            .internal_expert_audit_pass_count == 1 and
+            .internal_expert_repair_count == 0 and
+            .internal_expert_repaired_candidate == false and
+            .engineer_reentered_after_audit_handoff == false and
+            .internal_expert_knows_engineer_identity == false
+          ' "$INTERNAL_GATE" >/dev/null
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' "$LSP" >/dev/null
+          grep -Fq 'All checks passed!' "$ROOT/harness-engineer-ruff.log"
+          grep -Fq 'Success: no issues found in 952 source files' "$ROOT/harness-engineer-mypy.log"
+          grep -Eq '7168 passed' "$ROOT/harness-engineer-pytest.log"
+          grep -Eq '^TOTAL[[:space:]]+70253[[:space:]]+11571[[:space:]]+84%' "$ROOT/harness-engineer-pytest.log"
+          test "$(sha256sum "$PATCH" | cut -d' ' -f1)" = "$PATCH_SHA256"
+          printf '%s\n' "$PATCH" > "$RUNNER_TEMP/trader-history-harness009-patch-path"
+
+      - name: Checkout exact qore-core candidate start
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ steps.request.outputs.expected_head }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply exact accepted Harness 009 patch
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          EXPECTED_TREE: ${{ steps.request.outputs.expected_tree }}
+        run: |
+          set -euo pipefail
+          REQUEST="$GITHUB_WORKSPACE/trader_history_harness009_materialize_requests/current.json"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test "$(git show -s --format=%T HEAD)" = "$EXPECTED_TREE"
+          PATCH="$(cat "$RUNNER_TEMP/trader-history-harness009-patch-path")"
+          git apply --check "$GITHUB_WORKSPACE/$PATCH"
+          git apply --index "$GITHUB_WORKSPACE/$PATCH"
+          git diff --cached --check
+          git diff --cached --name-only | sort > actual-files.txt
+          jq -r '.expected_changed_files[]' "$REQUEST" | sort > expected-files.txt
+          diff -u expected-files.txt actual-files.txt
+
+      - name: Create exact materialization commit
+        working-directory: workspace/qore-core
+        env:
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+        run: |
+          set -euo pipefail
+          git config user.name 'QORE Integration Authority'
+          git config user.email 'qore-integration-authority@users.noreply.github.com'
+          git commit -m 'fix(cibo): close Trader Historical Intelligence integrity findings' -m 'Artifact: HARNESS-ENGINEER-QORE-TRADER-HISTORY-POST-FALSIFICATION-INTEGRITY-CLOSURE-009' -m 'Candidate patch SHA-256: f23283b57ed5429e17d49f5621d03e64bf00e52220a4f64ffc3d545ead94639e'
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git rev-parse HEAD > "$RUNNER_TEMP/materialized-head"
+          git show -s --format=%T HEAD > "$RUNNER_TEMP/materialized-tree"
+
+      - name: Revalidate live PR and atomically advance branch
+        working-directory: workspace/qore-core
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          EXPECTED_HEAD: ${{ steps.request.outputs.expected_head }}
+          TARGET_BRANCH: ${{ steps.request.outputs.target_branch }}
+        run: |
+          set -euo pipefail
+          PR="$(gh api repos/mezas3238-hue/qore-core/pulls/500)"
+          test "$(jq -r '.state' <<<"$PR")" = open
+          test "$(jq -r '.merged' <<<"$PR")" = false
+          test "$(jq -r '.draft' <<<"$PR")" = true
+          test "$(jq -r '.head.ref' <<<"$PR")" = "$TARGET_BRANCH"
+          test "$(jq -r '.head.sha' <<<"$PR")" = "$EXPECTED_HEAD"
+          NEW_HEAD="$(cat "$RUNNER_TEMP/materialized-head")"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${EXPECTED_HEAD}" origin "${NEW_HEAD}:refs/heads/${TARGET_BRANCH}"
+          LIVE=""
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            LIVE="$(gh api repos/mezas3238-hue/qore-core/pulls/500 --jq '.head.sha')"
+            test "$LIVE" = "$NEW_HEAD" && break
+            sleep 2
+          done
+          test "$LIVE" = "$NEW_HEAD"
+          echo "MATERIALIZED_HEAD=$NEW_HEAD"
+          echo "MATERIALIZED_TREE=$(cat "$RUNNER_TEMP/materialized-tree")"
