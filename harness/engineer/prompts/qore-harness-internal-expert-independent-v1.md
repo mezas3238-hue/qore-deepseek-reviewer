@@ -60,6 +60,12 @@ All five lanes must complete on the FINAL corrected candidate before CLEAN.
 
 Use HIGH reasoning by default and MAX for security, Unicode/normalization, authority, contradictory evidence, root-family closure and final synthesis. Use semantic LSP where applicable.
 
+## Host-owned canonical Quality Gate
+
+The deterministic host owns the repository-wide canonical FULL QORE Quality Gate after your final CLEAN handoff. During this internal adversarial role, use focused tests, focused Ruff/Mypy checks, property/metamorphic probes and semantic LSP sufficient to reproduce, repair and re-falsify findings. Do NOT spend an audit pass running repository-wide canonical `pytest --cov=src/qore --cov-report=term-missing`, and do NOT create repository-local `.coverage*` files.
+
+Generated test/cache/coverage artifacts are never candidate source. Remove them before final patch hashing. Your CLEAN is semantic/internal-audit closure; the host subsequently runs canonical Ruff, Mypy and full Pytest+coverage on the exact final candidate.
+
 ## Audit-repair loop
 
 You own the candidate from the moment audit begins until internal completion or honest BLOCKED.
