@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 import subprocess
@@ -11,7 +10,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-from harness_large_batch_state import StateError, parse_checkpoint_file
+from harness_large_batch_state import (
+    Snapshot,
+    StateError,
+    parse_checkpoint_file,
+    parse_checkpoint_text,
+)
 from harness_resilient_runner import (
     ENGINEERING_BLOCKED,
     FINAL_READY,
@@ -26,7 +30,6 @@ from harness_resilient_runner import (
     _engineering_complete,
     _engineer_role_prompt,
     _fresh_role_home,
-    _harvest_engineer_checkpoint,
     _internal_expert_prompt,
     _metadata_write,
     _parse_internal_result,
@@ -39,6 +42,8 @@ from harness_resilient_runner import (
 
 RUNNER_SCHEMA = "qore-harness-independent-audit-repair-runner-v3"
 POLICY = "QORE-HARNESS-INDEPENDENT-AUDIT-REPAIR-POLICY-V2"
+CHECKPOINT_BEGIN = "QORE_CHECKPOINT_BEGIN"
+CHECKPOINT_END = "QORE_CHECKPOINT_END"
 
 
 def _purge_untracked_transients(workspace: Path) -> list[str]:
@@ -97,9 +102,79 @@ def _remaining_session_timeout(
             return None
         candidates.append(cost_remaining)
     timeout = min(candidates)
-    if timeout < MIN_SESSION_SECONDS:
-        return None
-    return timeout
+    return timeout if timeout >= MIN_SESSION_SECONDS else None
+
+
+def _binding_matches(candidate: Snapshot, expected: Snapshot) -> bool:
+    return (
+        candidate.package_id,
+        candidate.start,
+        candidate.tree,
+    ) == (
+        expected.package_id,
+        expected.start,
+        expected.tree,
+    )
+
+
+def _complete_checkpoint_prefixes(text: str) -> list[str]:
+    """Return every prefix ending at a complete checkpoint block, oldest to newest."""
+    prefixes: list[str] = []
+    lines = text.splitlines(keepends=True)
+    depth = 0
+    saw_begin = False
+    for index, raw in enumerate(lines):
+        stripped = raw.strip()
+        if stripped == CHECKPOINT_BEGIN:
+            depth += 1
+            saw_begin = True
+        elif stripped == CHECKPOINT_END:
+            if depth > 0:
+                depth -= 1
+            if saw_begin and depth == 0:
+                prefixes.append("".join(lines[: index + 1]))
+    return prefixes
+
+
+def _harvest_engineer_checkpoint_v3(
+    host: Path,
+    local: Path,
+    expected: Snapshot,
+) -> tuple[Snapshot, str | None, bool]:
+    """Preserve the latest valid monotonic prefix if a later checkpoint update is corrupt."""
+    text = local.read_text(encoding="utf-8")
+    try:
+        candidate = parse_checkpoint_text(text, require_binding=True)
+        if not _binding_matches(candidate, expected):
+            raise StateError("Engineer checkpoint immutable binding mismatch")
+        if candidate.checkpoint_count < expected.checkpoint_count:
+            raise StateError("Engineer checkpoint count regressed")
+        host.write_text(text, encoding="utf-8")
+        return candidate, None, False
+    except StateError as original_exc:
+        best_text: str | None = None
+        best_state: Snapshot | None = None
+        for prefix in _complete_checkpoint_prefixes(text):
+            try:
+                candidate = parse_checkpoint_text(prefix, require_binding=True)
+            except StateError:
+                continue
+            if not _binding_matches(candidate, expected):
+                continue
+            if candidate.checkpoint_count < expected.checkpoint_count:
+                continue
+            if best_state is None or candidate.checkpoint_count > best_state.checkpoint_count:
+                best_text = prefix
+                best_state = candidate
+
+        if best_state is None or best_text is None:
+            raise original_exc
+
+        if best_text and not best_text.endswith("\n"):
+            best_text += "\n"
+        host.write_text(best_text, encoding="utf-8")
+        local.write_text(best_text, encoding="utf-8")
+        return best_state, str(original_exc), True
 
 
 def _write_metadata(
@@ -121,6 +196,7 @@ def _write_metadata(
     wall_seconds: int,
     grace_seconds: int,
     removed_transients: list[str],
+    rejected_checkpoint_updates: list[dict[str, Any]],
 ) -> None:
     _metadata_write(
         path,
@@ -149,7 +225,9 @@ def _write_metadata(
             "final_internal_expert_audit_pass_count": final_audit_pass_count,
             "runner_wall_budget_seconds": wall_seconds,
             "runner_deadline_grace_seconds": grace_seconds,
-            "removed_untracked_transients": removed_transients,
+            "removed_untracked_transients": sorted(set(removed_transients)),
+            "rejected_checkpoint_updates": rejected_checkpoint_updates,
+            "checkpoint_salvage_enabled": True,
         },
     )
 
@@ -177,6 +255,7 @@ def main() -> int:
         parser.error("session timeout is too small")
     if args.deadline_grace_seconds < MIN_SESSION_SECONDS:
         parser.error("deadline grace is too small")
+
     theoretical = (
         args.engineer_session_budget + args.audit_session_budget
     ) * args.session_timeout_seconds
@@ -203,6 +282,7 @@ def main() -> int:
     )
 
     attempts: list[dict[str, Any]] = []
+    rejected_checkpoint_updates: list[dict[str, Any]] = []
     terminal_reason = "RUNNER_NOT_TERMINATED"
     final_rc = 70
     started = time.monotonic()
@@ -216,7 +296,6 @@ def main() -> int:
     removed_transients: list[str] = []
 
     try:
-        # Phase A: engineering gets its own bounded budget. It cannot consume the audit reserve.
         while engineer_sessions < args.engineer_session_budget:
             state = parse_checkpoint_file(args.checkpoints)
             if state.blocked:
@@ -239,7 +318,10 @@ def main() -> int:
 
             engineer_sessions += 1
             before = state
-            local_checkpoint.write_text(args.checkpoints.read_text(encoding="utf-8"), encoding="utf-8")
+            local_checkpoint.write_text(
+                args.checkpoints.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
             engineer_home = _fresh_role_home(
                 template_home, role_root / f"engineer-{engineer_sessions}"
             )
@@ -263,14 +345,27 @@ def main() -> int:
                 timed_out=timed_out,
                 text=text,
             )
+
             try:
-                state = _harvest_engineer_checkpoint(
-                    args.checkpoints, local_checkpoint, before
+                state, rejected_error, salvaged = _harvest_engineer_checkpoint_v3(
+                    args.checkpoints,
+                    local_checkpoint,
+                    before,
                 )
             except StateError as exc:
-                terminal_reason = f"CORRUPT_ENGINEER_CHECKPOINT:{exc}"
+                terminal_reason = f"UNSALVAGEABLE_ENGINEER_CHECKPOINT:{exc}"
                 final_rc = 65
                 break
+
+            if rejected_error is not None:
+                rejected_checkpoint_updates.append(
+                    {
+                        "session": engineer_sessions,
+                        "error": rejected_error,
+                        "salvaged_prefix": salvaged,
+                        "preserved_checkpoint_count": state.checkpoint_count,
+                    }
+                )
 
             removed_transients.extend(_purge_untracked_transients(workspace))
             patch_hash: str | None = None
@@ -291,6 +386,8 @@ def main() -> int:
                     "pending_lanes": state.pending,
                     "candidate_patch_sha256": patch_hash,
                     "changed_files": changed_files,
+                    "checkpoint_update_rejected": rejected_error,
+                    "checkpoint_prefix_salvaged": salvaged,
                 }
             )
             if ENGINEERING_BLOCKED in text:
@@ -305,7 +402,6 @@ def main() -> int:
             terminal_reason = "ENGINEERING_SESSION_BUDGET_EXHAUSTED_RECOVERABLY"
             final_rc = 70
         else:
-            # Phase B: Internal Expert gets a distinct budget that Engineer cannot consume.
             removed_transients.extend(_purge_untracked_transients(workspace))
             initial_patch_hash, _ = _candidate_patch(workspace, local_patch)
             final_patch_hash = initial_patch_hash
@@ -324,7 +420,9 @@ def main() -> int:
                     configured_session_seconds=args.session_timeout_seconds,
                 )
                 if timeout is None:
-                    terminal_reason = "INTERNAL_EXPERT_DEADLINE_REACHED_WITH_RECOVERY_PRESERVED"
+                    terminal_reason = (
+                        "INTERNAL_EXPERT_DEADLINE_REACHED_WITH_RECOVERY_PRESERVED"
+                    )
                     final_rc = 73
                     break
 
@@ -434,14 +532,15 @@ def main() -> int:
                 final_rc = 0
                 break
             else:
-                terminal_reason = "INTERNAL_EXPERT_SESSION_BUDGET_EXHAUSTED_RECOVERABLY"
+                terminal_reason = (
+                    "INTERNAL_EXPERT_SESSION_BUDGET_EXHAUSTED_RECOVERABLY"
+                )
                 final_rc = 71
 
     except (RunnerError, OSError, subprocess.SubprocessError, StateError) as exc:
         terminal_reason = f"RUNNER_ERROR:{type(exc).__name__}:{exc}"
         final_rc = 69
     finally:
-        # Always leave a machine-readable terminal record before the outer job timeout.
         _write_metadata(
             args.metadata,
             terminal_reason=terminal_reason,
@@ -459,7 +558,8 @@ def main() -> int:
             audit_started=audit_started,
             wall_seconds=args.wall_clock_budget_seconds,
             grace_seconds=args.deadline_grace_seconds,
-            removed_transients=sorted(set(removed_transients)),
+            removed_transients=removed_transients,
+            rejected_checkpoint_updates=rejected_checkpoint_updates,
         )
         shutil.rmtree(role_root, ignore_errors=True)
 
