@@ -89,6 +89,15 @@ START/TREE and clean-state evidence.
 ## FIVE SUBAGENT STATUS
 Exactly five rows: VT-01, VT-08, VT-09, VT-17, VT-31. Each must be COMPLETED or MATERIAL_BLOCKED with explicit reason.
 
+If and only if each Trader lane truly covered all eleven markets (or has an explicit material evidence block), emit exactly one terminal marker for each lane:
+- `EXTERNAL_EXPERT_VT01_STATUS: COMPLETED` or `EXTERNAL_EXPERT_VT01_STATUS: MATERIAL_BLOCKED`
+- `EXTERNAL_EXPERT_VT08_STATUS: COMPLETED` or `EXTERNAL_EXPERT_VT08_STATUS: MATERIAL_BLOCKED`
+- `EXTERNAL_EXPERT_VT09_STATUS: COMPLETED` or `EXTERNAL_EXPERT_VT09_STATUS: MATERIAL_BLOCKED`
+- `EXTERNAL_EXPERT_VT17_STATUS: COMPLETED` or `EXTERNAL_EXPERT_VT17_STATUS: MATERIAL_BLOCKED`
+- `EXTERNAL_EXPERT_VT31_STATUS: COMPLETED` or `EXTERNAL_EXPERT_VT31_STATUS: MATERIAL_BLOCKED`
+
+A candidate cannot be ready for FULL QG unless all five markers are `COMPLETED`.
+
 ## FIVE ELEVEN-MARKET THESES
 One grounded thesis per Trader, including common behavior, exceptions, direction/session/regime, OOS/Stress, story families, strengths, weaknesses, causal explanation, counterexamples and falsifier.
 
