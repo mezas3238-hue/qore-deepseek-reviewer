@@ -5,11 +5,10 @@
   "task_path": "harness/engineer/tasks/qore-trader-story-forensics-eleven-market-research-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-story-forensics-eleven-market-001-20260910-deep-six-lane-lsp-v1",
+  "dispatch_nonce": "qore-trader-story-forensics-eleven-market-001-20260910-deep-six-lane-lsp-v2-safe-surface",
   "allowed_paths": [
     "src/qore/infrastructure/trader_lab",
-    "tests/infrastructure/trader_lab",
-    ".github/workflows/trader-lab-first-cohort-backtest.yml"
+    "tests/infrastructure/trader_lab"
   ],
   "max_changed_files": 40,
   "max_diff_lines": 24000,
