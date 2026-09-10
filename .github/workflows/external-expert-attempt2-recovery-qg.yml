@@ -1,0 +1,165 @@
+name: External Expert Attempt 2 Recovery QG
+run-name: External Expert recovery QG · artifact 10162828705
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/external-expert-attempt2-recovery-qg.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  recover-and-qg:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout reviewer
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Recover immutable External Expert attempt 2 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          META="$(gh api repos/${GITHUB_REPOSITORY}/actions/artifacts/10162828705)"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = '34497983172'
+          test "$(jq -r '.name' <<<"$META")" = 'external-expert-engineer-HARNESS-ENGINEER-EXTERNAL-EXPERT-PR506-ELEVEN-MARKET-001'
+          test "$(jq -r '.digest' <<<"$META")" = 'sha256:8175d3b822220d974d9da62cd33ff5934754cf0792f299c61538c890c6b08a91'
+          mkdir -p recovered
+          gh api -H 'Accept: application/vnd.github+json' repos/${GITHUB_REPOSITORY}/actions/artifacts/10162828705/zip > "$RUNNER_TEMP/expert2.zip"
+          unzip -q "$RUNNER_TEMP/expert2.zip" -d recovered
+          OUT=recovered/external-expert-output.md
+          for code in VT01 VT08 VT09 VT17 VT31; do grep -qx "EXTERNAL_EXPERT_${code}_STATUS: COMPLETED" "$OUT"; done
+          grep -Eq '^(CANDIDATE_READY_FOR_FULL_QG|\*\*CANDIDATE_READY_FOR_FULL_QG\*\*)$' "$OUT"
+          test -s recovered/external-expert-candidate.patch
+          test -s recovered/external-expert-status.txt
+
+      - name: Checkout exact frozen qore-core baseline
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 18dc5736a28369ffb7bc1cfd0fccabb2334b208b
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Apply Expert patch and reconstruct omitted regression witness
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '18dc5736a28369ffb7bc1cfd0fccabb2334b208b'
+          test "$(git show -s --format=%T HEAD)" = '4a897527d3d3250ddaaddf89009f04d18decae88'
+          git apply --check "$GITHUB_WORKSPACE/recovered/external-expert-candidate.patch"
+          git apply "$GITHUB_WORKSPACE/recovered/external-expert-candidate.patch"
+          MISSING='tests/infrastructure/trader_lab/test_first_cohort_backtest_precision.py'
+          grep -qx "?? $MISSING" "$GITHUB_WORKSPACE/recovered/external-expert-status.txt"
+          test ! -e "$MISSING"
+          cat > "$MISSING" <<'PY'
+          """Precision regressions for exact Decimal price-touch semantics."""
+
+          from __future__ import annotations
+
+          from decimal import Decimal
+          from types import SimpleNamespace
+          from typing import cast
+
+          from qore.infrastructure.market_data import OhlcSnapshot
+          from qore.infrastructure.trader_lab.first_cohort_backtest import _touches
+
+
+          def _bar(*, low: float = 1.0, high: float = 1.0) -> OhlcSnapshot:
+              return cast(OhlcSnapshot, SimpleNamespace(low=low, high=high))
+
+
+          def test_touches_accepts_exact_decimal_boundary() -> None:
+              assert _touches(_bar(), Decimal("1.0")) is True
+
+
+          def test_touches_does_not_round_decimal_above_high_into_touch() -> None:
+              price = Decimal("1.0000000000000000000000000001")
+              assert float(price) == 1.0
+              assert _touches(_bar(), price) is False
+
+
+          def test_touches_does_not_round_decimal_below_low_into_touch() -> None:
+              price = Decimal("0.9999999999999999999999999999")
+              assert float(price) == 1.0
+              assert _touches(_bar(), price) is False
+          PY
+          git diff --check HEAD --
+          git status --short | tee "$GITHUB_WORKSPACE/recovered-candidate-status.txt"
+          git remote remove origin || true
+          test -z "$(git remote)"
+
+      - name: Deterministic scope gate
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package recovered/external-expert-package.json \
+            --patch recovered-plus-witness.patch \
+            --metadata recovered-plus-witness-gate.json
+          sha256sum recovered/external-expert-candidate.patch > original-expert-patch.sha256
+          sha256sum recovered-plus-witness.patch > recovered-plus-witness.patch.sha256
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run focused reconstructed precision witness
+        working-directory: workspace/qore-core
+        run: pytest -q --no-cov tests/infrastructure/trader_lab/test_first_cohort_backtest_precision.py
+
+      - name: Run canonical FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          COVERAGE_FILE: ${{ runner.temp }}/external-expert-recovery.coverage
+        run: |
+          set -euo pipefail
+          ruff check . | tee "$GITHUB_WORKSPACE/recovery-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/recovery-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/recovery-pytest.log"
+
+      - name: Revalidate frozen recovered candidate after FULL QG
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          git diff --binary HEAD -- > "$GITHUB_WORKSPACE/recovery-post-qg.patch"
+          test "$(sha256sum "$GITHUB_WORKSPACE/recovered-plus-witness.patch" | awk '{print $1}')" = "$(sha256sum "$GITHUB_WORKSPACE/recovery-post-qg.patch" | awk '{print $1}')"
+          test -z "$(git remote)"
+
+      - name: Upload recovery certification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-expert-attempt2-recovery-qg
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            recovered/external-expert-output.md
+            recovered/external-expert-journal.md
+            recovered/external-expert-status.txt
+            recovered-candidate-status.txt
+            recovered-plus-witness-gate.json
+            original-expert-patch.sha256
+            recovered-plus-witness.patch.sha256
+            recovered-plus-witness.patch
+            recovery-post-qg.patch
+            recovery-ruff.log
+            recovery-mypy.log
+            recovery-pytest.log
