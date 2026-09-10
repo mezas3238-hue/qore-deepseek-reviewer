@@ -1,0 +1,327 @@
+name: DeepSeek External Expert Engineer
+run-name: External Expert Engineer · ${{ inputs.package_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_commit:
+        required: true
+        type: string
+      package_id:
+        required: true
+        type: string
+      expected_start:
+        required: true
+        type: string
+      expected_tree:
+        required: true
+        type: string
+      task_path:
+        required: true
+        type: string
+      mode:
+        required: true
+        default: engineer
+        type: choice
+        options: [engineer]
+      dispatch_nonce:
+        required: true
+        type: string
+      allowed_paths_json:
+        required: true
+        type: string
+      max_changed_files:
+        required: true
+        type: string
+      max_diff_lines:
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: external-expert-engineer-${{ inputs.package_id }}
+  cancel-in-progress: false
+
+jobs:
+  expert-engineer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 210
+    steps:
+      - name: Checkout exact reviewer request commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.request_commit }}
+          persist-credentials: false
+
+      - name: Validate immutable External Expert package
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.request_commit }}"
+          python3 scripts/harness_engineer_package_contract.py workflow \
+            "${{ inputs.package_id }}" \
+            "${{ inputs.expected_start }}" \
+            "${{ inputs.expected_tree }}" \
+            "${{ inputs.task_path }}" \
+            "${{ inputs.mode }}" \
+            "${{ inputs.dispatch_nonce }}" \
+            '${{ inputs.allowed_paths_json }}' \
+            "${{ inputs.max_changed_files }}" \
+            "${{ inputs.max_diff_lines }}" > external-expert-package.json
+          test -f "${{ inputs.task_path }}"
+          test -f harness/engineer/prompts/qore-external-expert-engineer-v1.md
+          test -f harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs
+          CURRENT="$(python3 scripts/harness_engineer_package_contract.py request expert_engineer_requests/current.json)"
+          GENERATED="$(cat external-expert-package.json)"
+          test "$CURRENT" = "$GENERATED"
+
+      - name: Checkout exact qore-core start
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: ${{ inputs.expected_start }}
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact qore-core binding
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ inputs.expected_start }}"
+          test "$(git show -s --format=%T HEAD)" = "${{ inputs.expected_tree }}"
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Restore exact DSH plus LSP cache
+        id: dsh-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          key: qore-dsh-engineer-lsp-${{ runner.os }}-${{ runner.arch }}-node24-dsh0.1.1-rc.2-pyright1.1.413
+
+      - name: Require warm DSH and semantic LSP before API spend
+        run: |
+          set -euo pipefail
+          test "${{ steps.dsh-cache.outputs.cache-hit }}" = "true" || exit 78
+          ROOT="${{ runner.temp }}/qore-dsh-engineer-lsp-install"
+          test "$(node -p "require('${ROOT}/node_modules/@deepseek-ai/dsh/package.json').version")" = "0.1.1-rc.2"
+          test "$(node -p "require('${ROOT}/node_modules/pyright/package.json').version")" = "1.1.413"
+          test -x "$ROOT/node_modules/.bin/dsh"
+          test -x "$ROOT/node_modules/.bin/pyright-langserver"
+
+      - name: Prepare External Expert runtime, skills and LSP
+        env:
+          DSH_HOME: ${{ runner.temp }}/qore-external-expert-home
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+        run: |
+          set -euo pipefail
+          rm -rf "$DSH_HOME"
+          mkdir -p "$DSH_HOME/skills" "$DSH_HOME/profiles/headless"
+          chmod 700 "$DSH_HOME"
+          cp -R harness/skills/. "$DSH_HOME/skills/"
+          ln -s "$DSH_INSTALL_ROOT/node_modules" "$DSH_HOME/profiles/headless/node_modules"
+          PYRIGHT_LANGSERVER="$DSH_INSTALL_ROOT/node_modules/.bin/pyright-langserver"
+          REASONING_PLUGIN="$DSH_HOME/profiles/headless/qore-adaptive-reasoning-controller.mjs"
+          cp harness/engineer/plugins/qore-adaptive-reasoning-controller.mjs "$REASONING_PLUGIN"
+          cat > "$DSH_HOME/settings.yaml" <<'YAML'
+          agent-default-model:
+            provider: deepseek-official
+            model: deepseek-v4-pro
+            reasoningEffort: high
+          YAML
+          cat > "$DSH_HOME/cordis.patch.yml" <<EOF
+          - id: session-persistence-jsonl
+            config:
+              root: !!js dshHomePath('sessions')
+              compression: none
+              packChunks: false
+          - insert:
+              - id: qore-adaptive-reasoning-controller
+                name: '${REASONING_PLUGIN}'
+              - id: qore-lsp
+                name: '@deepseek-ai/dsh-lsp'
+              - id: qore-lsp-stdio
+                name: '@deepseek-ai/dsh-lsp-stdio'
+                config:
+                  servers:
+                    python:
+                      command: '${PYRIGHT_LANGSERVER}'
+                      args: ['--stdio']
+                      extensionToLanguage:
+                        '.py': python
+              - id: qore-tool-lsp
+                name: '@deepseek-ai/dsh-tool-lsp'
+          EOF
+          chmod 600 "$DSH_HOME/settings.yaml" "$DSH_HOME/cordis.patch.yml"
+          cp scripts/harness_lsp_smoke.mjs "$DSH_INSTALL_ROOT/external_expert_lsp_smoke.mjs"
+          node "$DSH_INSTALL_ROOT/external_expert_lsp_smoke.mjs" "$PYRIGHT_LANGSERVER" | tee external-expert-lsp-smoke.json
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' external-expert-lsp-smoke.json >/dev/null
+
+      - name: Seal qore-core publication authority
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          git remote remove origin || true
+          test -z "$(git remote)"
+          git config --local user.name "QORE External Expert Engineer - NO COMMIT"
+          git config --local user.email "no-commit@qore.invalid"
+
+      - name: Capture DeepSeek balance baseline
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -euo pipefail
+          python3 scripts/deepseek_balance_meter.py snapshot "$RUNNER_TEMP/external-expert-balance-before.json"
+
+      - name: Run independent five-lane External Expert Engineer
+        id: expert
+        working-directory: workspace/qore-core
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DSH_HOME: ${{ runner.temp }}/qore-external-expert-home
+          DSH_INSTALL_ROOT: ${{ runner.temp }}/qore-dsh-engineer-lsp-install
+          DSH_BIN: ${{ runner.temp }}/qore-dsh-engineer-lsp-install/node_modules/.bin/dsh
+          TASK_PATH: ${{ github.workspace }}/${{ inputs.task_path }}
+          PACKAGE_ID: ${{ inputs.package_id }}
+          EXPECTED_START: ${{ inputs.expected_start }}
+          EXPECTED_TREE: ${{ inputs.expected_tree }}
+          ALLOWED_PATHS_JSON: ${{ inputs.allowed_paths_json }}
+          MAX_CHANGED_FILES: ${{ inputs.max_changed_files }}
+          MAX_DIFF_LINES: ${{ inputs.max_diff_lines }}
+        run: |
+          set -euo pipefail
+          BASE_PROMPT="$(cat "$GITHUB_WORKSPACE/harness/engineer/prompts/qore-external-expert-engineer-v1.md")"
+          WORK_TASK="$(cat "$TASK_PATH")"
+          ALLOWED_PATHS="$(jq -r '.[] | "- " + .' <<<"$ALLOWED_PATHS_JSON")"
+          TASK="$(cat <<EOF
+          ${BASE_PROMPT}
+
+          # WORK PACKAGE
+          ${WORK_TASK}
+
+          # IMMUTABLE EXECUTION BINDING
+          package_id=${PACKAGE_ID}
+          expected_start=${EXPECTED_START}
+          expected_tree=${EXPECTED_TREE}
+
+          # ALLOWED REPOSITORY PATH SCOPES
+          ${ALLOWED_PATHS}
+
+          # HARD CHANGE BUDGETS
+          max_changed_files=${MAX_CHANGED_FILES}
+          max_added_plus_deleted_lines=${MAX_DIFF_LINES}
+
+          You have a hard AI wall budget of 135 minutes. Work in bounded phases: evidence+LSP, exactly five Trader lanes, synthesis, corrections, focused validation, final LSP, terminal report. Maintain /tmp/qore-external-expert-journal.md continuously so any hard-cap event remains recoverable. No network research and no access to Harness artifacts.
+          EOF
+          )"
+          mkdir -p "$RUNNER_TEMP/qore-external-expert-process-home"
+          set +e
+          env -i \
+            PATH="$DSH_INSTALL_ROOT/node_modules/.bin:$PATH" \
+            HOME="$RUNNER_TEMP/qore-external-expert-process-home" \
+            TMPDIR="$RUNNER_TEMP" \
+            LANG=C.UTF-8 LC_ALL=C.UTF-8 CI=true \
+            DEEPSEEK_API_KEY="$DEEPSEEK_API_KEY" \
+            DSH_HOME="$DSH_HOME" \
+            DSH_PERMISSION_MODE=workspace-write \
+            QORE_REASONING_AUDIT_PATH=/tmp/qore-external-expert-reasoning.jsonl \
+            NODE_OPTIONS=--max-old-space-size=4096 \
+            PYTHONDONTWRITEBYTECODE=1 \
+            COVERAGE_FILE="$RUNNER_TEMP/qore-external-expert-agent.coverage" \
+            timeout --signal=TERM --kill-after=30s 135m \
+              "$DSH_BIN" --profile headless "$TASK" \
+              | tee "$GITHUB_WORKSPACE/external-expert-output.md"
+          STATUS="${PIPESTATUS[0]}"
+          set -e
+          test "$STATUS" -eq 0
+          grep -q '^EXTERNAL_EXPERT_VT01_STATUS: COMPLETED$' "$GITHUB_WORKSPACE/external-expert-output.md"
+          grep -q '^EXTERNAL_EXPERT_VT08_STATUS: COMPLETED$' "$GITHUB_WORKSPACE/external-expert-output.md"
+          grep -q '^EXTERNAL_EXPERT_VT09_STATUS: COMPLETED$' "$GITHUB_WORKSPACE/external-expert-output.md"
+          grep -q '^EXTERNAL_EXPERT_VT17_STATUS: COMPLETED$' "$GITHUB_WORKSPACE/external-expert-output.md"
+          grep -q '^EXTERNAL_EXPERT_VT31_STATUS: COMPLETED$' "$GITHUB_WORKSPACE/external-expert-output.md"
+          grep -q '^CANDIDATE_READY_FOR_FULL_QG$' "$GITHUB_WORKSPACE/external-expert-output.md"
+
+      - name: Collect durable Expert journal and candidate patch
+        if: ${{ always() }}
+        run: |
+          set +e
+          cp /tmp/qore-external-expert-journal.md external-expert-journal.md 2>/dev/null || true
+          git -C workspace/qore-core diff --binary HEAD -- > external-expert-candidate.patch 2>/dev/null || true
+          git -C workspace/qore-core status --short > external-expert-status.txt 2>/dev/null || true
+
+      - name: Deterministic candidate scope gate
+        if: ${{ steps.expert.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package external-expert-package.json \
+            --patch external-expert-candidate.patch \
+            --metadata external-expert-gate.json
+          sha256sum external-expert-candidate.patch | tee external-expert-candidate.patch.sha256
+
+      - name: Run canonical FULL QORE quality gate
+        if: ${{ steps.expert.outcome == 'success' }}
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          ruff check . | tee "$GITHUB_WORKSPACE/external-expert-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/external-expert-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/external-expert-pytest.log"
+
+      - name: Revalidate exact candidate after FULL QG
+        if: ${{ steps.expert.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          git -C workspace/qore-core diff --binary HEAD -- > "$RUNNER_TEMP/external-expert-post-qg.patch"
+          test "$(sha256sum external-expert-candidate.patch | awk '{print $1}')" = "$(sha256sum "$RUNNER_TEMP/external-expert-post-qg.patch" | awk '{print $1}')"
+
+      - name: Capture DeepSeek balance delta
+        if: ${{ always() }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set +e
+          python3 scripts/deepseek_balance_meter.py delta "$RUNNER_TEMP/external-expert-balance-before.json" external-expert-billing-delta.json || true
+
+      - name: Upload External Expert engineering evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-expert-engineer-${{ inputs.package_id }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            external-expert-package.json
+            external-expert-output.md
+            external-expert-journal.md
+            external-expert-candidate.patch
+            external-expert-candidate.patch.sha256
+            external-expert-gate.json
+            external-expert-status.txt
+            external-expert-lsp-smoke.json
+            external-expert-ruff.log
+            external-expert-mypy.log
+            external-expert-pytest.log
+            external-expert-billing-delta.json
