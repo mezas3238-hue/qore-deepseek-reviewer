@@ -1,0 +1,157 @@
+name: External Expert Attempt 2 Deterministic Closure
+run-name: External Expert deterministic closure · attempt2 artifact 10162828705
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/external-expert-attempt2-deterministic-closure.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout exact reviewer closure commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Authenticate and recover exact attempt 2 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: '10162828705'
+          SOURCE_RUN_ID: '34497983172'
+          ARTIFACT_NAME: 'external-expert-engineer-HARNESS-ENGINEER-EXTERNAL-EXPERT-PR506-ELEVEN-MARKET-001'
+          ARTIFACT_DIGEST: 'sha256:8175d3b822220d974d9da62cd33ff5934754cf0792f299c61538c890c6b08a91'
+        run: |
+          set -euo pipefail
+          META="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}")"
+          test "$(jq -r '.expired' <<<"$META")" = false
+          test "$(jq -r '.name' <<<"$META")" = "$ARTIFACT_NAME"
+          test "$(jq -r '.workflow_run.id' <<<"$META")" = "$SOURCE_RUN_ID"
+          test "$(jq -r '.digest' <<<"$META")" = "$ARTIFACT_DIGEST"
+          mkdir -p recovered
+          gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > "$RUNNER_TEMP/expert-attempt2.zip"
+          unzip -q "$RUNNER_TEMP/expert-attempt2.zip" -d recovered
+          for f in external-expert-package.json external-expert-output.md external-expert-journal.md external-expert-candidate.patch external-expert-status.txt external-expert-lsp-smoke.json; do
+            test -s "recovered/$f"
+          done
+          printf 'artifact_id=%s\nsource_run_id=%s\ndigest=%s\n' "$ARTIFACT_ID" "$SOURCE_RUN_ID" "$ARTIFACT_DIGEST" > recovered-artifact.binding
+
+      - name: Verify five completed lanes and known terminal formatting defect only
+        run: |
+          set -euo pipefail
+          OUT=recovered/external-expert-output.md
+          grep -qx 'EXTERNAL_EXPERT_VT01_STATUS: COMPLETED' "$OUT"
+          grep -qx 'EXTERNAL_EXPERT_VT08_STATUS: COMPLETED' "$OUT"
+          grep -qx 'EXTERNAL_EXPERT_VT09_STATUS: COMPLETED' "$OUT"
+          grep -qx 'EXTERNAL_EXPERT_VT17_STATUS: COMPLETED' "$OUT"
+          grep -qx 'EXTERNAL_EXPERT_VT31_STATUS: COMPLETED' "$OUT"
+          grep -Eq '^(CANDIDATE_READY_FOR_FULL_QG|\*\*CANDIDATE_READY_FOR_FULL_QG\*\*)$' "$OUT"
+          jq -e '.definition_locations >= 1 and .reference_locations >= 2 and .hover_available == true' recovered/external-expert-lsp-smoke.json >/dev/null
+          jq -e '.expected_start == "18dc5736a28369ffb7bc1cfd0fccabb2334b208b" and .expected_tree == "4a897527d3d3250ddaaddf89009f04d18decae88" and .package_id == "HARNESS-ENGINEER-EXTERNAL-EXPERT-PR506-ELEVEN-MARKET-001"' recovered/external-expert-package.json >/dev/null
+
+      - name: Checkout exact frozen qore-core baseline
+        uses: actions/checkout@v4
+        with:
+          repository: mezas3238-hue/qore-core
+          ref: 18dc5736a28369ffb7bc1cfd0fccabb2334b208b
+          path: workspace/qore-core
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Reconstruct exact candidate and prove artifact completeness
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '18dc5736a28369ffb7bc1cfd0fccabb2334b208b'
+          test "$(git show -s --format=%T HEAD)" = '4a897527d3d3250ddaaddf89009f04d18decae88'
+          git diff --quiet HEAD --
+          git diff --cached --quiet HEAD --
+          test -z "$(git status --porcelain=v1 --untracked-files=all)"
+          PATCH="$GITHUB_WORKSPACE/recovered/external-expert-candidate.patch"
+          git apply --check "$PATCH"
+          git apply "$PATCH"
+          git diff --check HEAD --
+          git status --short > "$GITHUB_WORKSPACE/reconstructed-status.txt"
+          cut -c4- "$GITHUB_WORKSPACE/recovered/external-expert-status.txt" | sort -u > "$GITHUB_WORKSPACE/expected-status-paths.txt"
+          git diff --name-only HEAD -- | sort -u > "$GITHUB_WORKSPACE/reconstructed-paths.txt"
+          diff -u "$GITHUB_WORKSPACE/expected-status-paths.txt" "$GITHUB_WORKSPACE/reconstructed-paths.txt"
+          git remote remove origin || true
+          test -z "$(git remote)"
+
+      - name: Deterministic scope gate and candidate binding
+        run: |
+          set -euo pipefail
+          cp recovered/external-expert-package.json closure-package.json
+          python3 scripts/harness_engineer_gate.py \
+            --workspace workspace/qore-core \
+            --package closure-package.json \
+            --patch closure-canonical-candidate.patch \
+            --metadata closure-gate.json
+          ARTIFACT_PATCH_SHA="$(sha256sum recovered/external-expert-candidate.patch | awk '{print $1}')"
+          CANONICAL_PATCH_SHA="$(sha256sum closure-canonical-candidate.patch | awk '{print $1}')"
+          test "$ARTIFACT_PATCH_SHA" = "$CANONICAL_PATCH_SHA"
+          printf '%s\n' "$CANONICAL_PATCH_SHA" > closure-candidate.patch.sha256
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install qore-core development dependencies
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Run canonical FULL QORE quality gate
+        working-directory: workspace/qore-core
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          COVERAGE_FILE: ${{ runner.temp }}/external-expert-closure.coverage
+        run: |
+          set -euo pipefail
+          ruff check . | tee "$GITHUB_WORKSPACE/closure-ruff.log"
+          mypy src tests | tee "$GITHUB_WORKSPACE/closure-mypy.log"
+          pytest --cov=src/qore --cov-report=term-missing | tee "$GITHUB_WORKSPACE/closure-pytest.log"
+
+      - name: Revalidate exact candidate after FULL QG
+        working-directory: workspace/qore-core
+        run: |
+          set -euo pipefail
+          git diff --check HEAD --
+          git diff --binary HEAD -- > "$GITHUB_WORKSPACE/closure-post-qg.patch"
+          test "$(sha256sum "$GITHUB_WORKSPACE/closure-canonical-candidate.patch" | awk '{print $1}')" = "$(sha256sum "$GITHUB_WORKSPACE/closure-post-qg.patch" | awk '{print $1}')"
+          test -z "$(git remote)"
+
+      - name: Upload deterministic closure evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-expert-attempt2-deterministic-closure
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            recovered-artifact.binding
+            recovered/external-expert-output.md
+            recovered/external-expert-journal.md
+            recovered/external-expert-status.txt
+            recovered/external-expert-lsp-smoke.json
+            closure-gate.json
+            closure-candidate.patch.sha256
+            closure-canonical-candidate.patch
+            closure-post-qg.patch
+            closure-ruff.log
+            closure-mypy.log
+            closure-pytest.log
+            reconstructed-status.txt
+            expected-status-paths.txt
+            reconstructed-paths.txt
