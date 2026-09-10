@@ -1,16 +1,18 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-STORY-FORENSICS-ELEVEN-MARKET-003",
+  "package_id": "HARNESS-ENGINEER-QORE-TRADER-STORY-FORENSICS-ELEVEN-MARKET-RECOVERY-004",
   "expected_start": "18dc5736a28369ffb7bc1cfd0fccabb2334b208b",
   "expected_tree": "4a897527d3d3250ddaaddf89009f04d18decae88",
-  "task_path": "harness/engineer/tasks/qore-trader-story-forensics-eleven-market-research-001.md",
+  "task_path": "harness/engineer/tasks/qore-trader-story-forensics-eleven-market-recovery-004.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-story-forensics-eleven-market-003-20260910-certified-six-plus-five-lsp",
+  "dispatch_nonce": "qore-trader-story-forensics-eleven-market-recovery-004-20260910-resume-six-complete-expert-closure",
   "allowed_paths": [
     "src/qore/infrastructure/trader_lab",
     "tests/infrastructure/trader_lab"
   ],
   "max_changed_files": 40,
   "max_diff_lines": 24000,
-  "run_full_qg": true
+  "run_full_qg": true,
+  "recovery_artifact_id": 10152207410,
+  "recovery_patch_sha256": "117f1c766564f383b373da2aa01dc297603269a6ce2c39e55ccd48b7c1ac3dd2"
 }
