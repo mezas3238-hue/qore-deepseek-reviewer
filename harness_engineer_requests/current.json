@@ -1,25 +1,19 @@
 {
-  "package_id": "HARNESS-ENGINEER-QORE-TRADER-HISTORY-POST-FALSIFICATION-INTEGRITY-CLOSURE-009",
-  "expected_start": "e632a6bf999b22544125b1208c2fcf6475d5f5ed",
-  "expected_tree": "a638f7a1af8709441a1b240002ca61f51eac7320",
-  "task_path": "harness/engineer/tasks/qore-trader-history-post-falsification-integrity-closure-009.md",
+  "package_id": "HARNESS-ENGINEER-QORE-TRADER-STORY-FORENSICS-ELEVEN-MARKET-001",
+  "expected_start": "18dc5736a28369ffb7bc1cfd0fccabb2334b208b",
+  "expected_tree": "4a897527d3d3250ddaaddf89009f04d18decae88",
+  "task_path": "harness/engineer/tasks/qore-trader-story-forensics-eleven-market-research-001.md",
   "mode": "engineer",
   "artifact_only": true,
-  "dispatch_nonce": "qore-trader-history-post-falsification-integrity-closure-009-20260909-r1-v3-complete-l6-audit-qg",
+  "dispatch_nonce": "qore-trader-story-forensics-eleven-market-001-20260910-deep-six-lane-lsp-v1",
   "allowed_paths": [
-    "docs/architecture/QORE-TRADER-HISTORICAL-INTELLIGENCE-001.md",
-    "src/qore/infrastructure/trader_history",
-    "src/qore/infrastructure/cibo_trader_capability_profile.py",
-    "src/qore/infrastructure/cibo_trader_lab_authority.py",
-    "src/qore/infrastructure/cibo_trader_development_review.py",
-    "src/qore/infrastructure/trader_lab/cohort_authority.py",
-    "src/qore/infrastructure/research_evaluator_identity.py",
-    "src/qore/infrastructure/traders",
-    "tests/infrastructure"
+    "src/qore/infrastructure/trader_lab",
+    "tests/infrastructure/trader_lab",
+    ".github/workflows/trader-lab-first-cohort-backtest.yml"
   ],
-  "max_changed_files": 24,
-  "max_diff_lines": 16000,
+  "max_changed_files": 40,
+  "max_diff_lines": 24000,
   "run_full_qg": true,
-  "recovery_artifact_id": 10113034846,
-  "recovery_patch_sha256": "398309059e711445307cfbc515e32ba4e2deb9e4d962c80aba3c23ed26ff50c1"
+  "recovery_artifact_id": 0,
+  "recovery_patch_sha256": ""
 }
