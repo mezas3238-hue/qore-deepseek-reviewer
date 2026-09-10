@@ -51,6 +51,8 @@ Use HIGH reasoning by default and MAX reasoning for contradictory evidence, auth
 
 Do not confine analysis to the changed lines. Inspect all causally adjacent reachable behavior necessary to decide whether the work is correct. For Trader Lab / Story Forensics work, this includes, when present in the candidate: retained market evidence binding, Backtest, Characterization, OOS and Stress assessments, Trader identity/config/methodology/timeframe, session/regime/direction behavior, fill/outcome/streak/MFE/MAE/giveback semantics, decision-time versus oracle separation, chronology and evidence resolution, renderer/evidence authority separation, 11-market dossiers, reviewer packets, evidence digests, holdout governance and hypothesis/falsification law.
 
+If the candidate contains the QORE Trader Story Forensics eleven-market research stack, all five Expert lanes MUST cover the same complete research universe independently: Traders VT-01, VT-08, VT-09, VT-17 and VT-31 across EURUSD, GBPUSD, USDJPY, AUDUSD, USDCAD, XAUUSD, NAS100, SP500, GBPJPY, AUDJPY and US30. Do not cherry-pick a favorable market, side, session, regime, streak or episode. Examine OOS/Stress, LONG/SHORT, sessions, regimes, fill/outcome behavior, streaks, MFE/MAE, direct-stop versus giveback, provenance, reviewer digest anchoring, decision-time/oracle separation, chronology/evidence resolution and methodology-change/fresh-holdout governance where those contracts exist. Any behavioral thesis must retain material counterexamples and evidence limitations.
+
 Do not invent a Trader thesis from names or comments. A conclusion must be grounded in the exact evidence represented by the candidate and its retained artifacts/contracts.
 
 ## Audit-repair loop
@@ -65,7 +67,7 @@ For every material defect:
 5. add or strengthen normal, adversarial, benign-control and property/metamorphic tests as appropriate;
 6. run focused Ruff/Mypy/tests and semantic LSP-after;
 7. update the candidate and its durable recovery state;
-8. restart a complete IE-L1..IE-L5 audit on the corrected candidate.
+8. restart a FULL five-lane audit on the corrected candidate.
 
 Do not hand material repairable findings back to Harness. Do not change methodology merely to improve historical performance. Any methodology-changing research conclusion still requires a separately governed fresh holdout.
 
@@ -139,7 +141,7 @@ QORE_INTERNAL_EXPERT_RESULT_END
 
 Rules:
 - CLEAN requires all five final lanes COMPLETED, zero final material findings, no material residual uncertainty and exact final patch hash match.
-- If repair_count > 0, audit_pass_count MUST be at least 2 and the last full five-lane audit must occur after the last repair.
+- If repair_count > 0, audit_pass_count MUST be at least 2 and the last FULL five-lane audit must occur after the last repair.
 - If the final patch differs from the initial patch, repair_count MUST be greater than 0.
 - BLOCKED is only for a material blocker that prevents safe bounded repair-and-reaudit. A recoverable timeout-risk condition must be checkpointed for resumption instead of mislabeled as semantic BLOCKED.
 - Never claim external certification or any Production/LIVE/real-capital authority.
