@@ -163,3 +163,5 @@ jobs:
             recovery-ruff.log
             recovery-mypy.log
             recovery-pytest.log
+
+# retrigger after workflow exists on default branch
