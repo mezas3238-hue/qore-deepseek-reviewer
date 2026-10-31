@@ -1,0 +1,60 @@
+0421 |                     bool okLo = true
+0422 |                     for j = -left15 to right15
+0423 |                         if j != 0
+0424 |                             okHi := okHi and candH > array.get(highs15, pivot + j)
+0425 |                             okLo := okLo and candL < array.get(lows15, pivot + j)
+0426 |                     if okHi
+0427 |                         lastHigh15 := candH
+0428 |                         lastHigh15At := array.get(times15, pivot)
+0429 |                     if okLo
+0430 |                         lastLow15 := candL
+0431 |                         lastLow15At := array.get(times15, pivot)
+0432 | 
+0433 |                 // Comprobar rompimientos M15 correspondientes al MISMO CRT.
+0434 |                 // Se ejecuta ANTES del cierre H4: incluye el ultimo M15 de C2.
+0435 |                 int closed15At = m15LastEnd
+0436 |                 if c2Active and c2Dir != 0 and c2StrictSweep and not c2Double and closed15At > c2SweepEnd
+0437 |                     bool eligible15 = c2Dir == 1 ? (not na(c2Pivot15) and m15Close > c2Pivot15 and (na(prev15Close) or prev15Close <= c2Pivot15)) : (not na(c2Pivot15) and m15Close < c2Pivot15 and (na(prev15Close) or prev15Close >= c2Pivot15))
+0438 |                     if eligible15 and na(c2M15At)
+0439 |                         c2M15At := closed15At
+0440 |                 if c3Active and closed15At > c3Start and closed15At > c3SweepEnd
+0441 |                     bool eligible15 = c3Dir == 1 ? (not na(c3Pivot15) and m15Close > c3Pivot15 and (na(prev15Close) or prev15Close <= c3Pivot15)) : (not na(c3Pivot15) and m15Close < c3Pivot15 and (na(prev15Close) or prev15Close >= c3Pivot15))
+0442 |                     if eligible15 and na(c3M15At)
+0443 |                         c3M15At := closed15At
+0444 |                         if lastC1 == c1Start3
+0445 |                             lastM15 := closed15At
+0446 |                 prev15Close := m15Close
+0447 | 
+0448 |             m15Bucket := bucket15
+0449 |             m15High := bH
+0450 |             m15Low := bL
+0451 |             m15Close := bC
+0452 |             m15Count := 1
+0453 |             m15LastEnd := barEnd
+0454 |             m15Start := bucket15
+0455 |         else if na(m15Bucket)
+0456 |             m15Bucket := bucket15
+0457 |             m15High := bH
+0458 |             m15Low := bL
+0459 |             m15Close := bC
+0460 |             m15Count := 1
+0461 |             m15LastEnd := barEnd
+0462 |             m15Start := bucket15
+0463 |         else
+0464 |             if barT != m15LastEnd
+0465 |                 m15Count := -100 // M15 incompleta: no publicar MSS.
+0466 |             else if m15Count >= 0
+0467 |                 m15Count += 1
+0468 |             m15High := math.max(m15High, bH)
+0469 |             m15Low := math.min(m15Low, bL)
+0470 |             m15Close := bC
+0471 |             m15LastEnd := barEnd
+0472 | 
+0473 |     // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----
+0474 |     if not na(barT) and not na(bucketH1)
+0475 |         bool nextH1 = not na(h1Bucket) and bucketH1 != h1Bucket
+0476 |         if nextH1
+0477 |             bool fullH1 = h1Continuous and h1Count == 12 and h1FirstT == h1Bucket and h1LastEnd == h1Bucket + 3600000
+0478 |             if fullH1 and not na(h1Prev) and not na(h1Prev2)
+0479 |                 bool chainH1 = h1Prev.valid and h1Prev2.valid and h1Prev2.endAt == h1Prev.startAt and h1Prev.endAt == h1Bucket
+0480 |                 if chainH1
