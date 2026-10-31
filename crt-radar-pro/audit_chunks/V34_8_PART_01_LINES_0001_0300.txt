@@ -1,0 +1,300 @@
+//@version=6
+indicator("CRT + MSS M5/M15 | SCAN H4 CONTINUO v34.8 M4B INTEGRADO", shorttitle="CRT MSS 34.8", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+
+// MODULO 4B INTEGRADO (AUTORIZADO): estado PDH/PDL, primera barrida y dashboard 6 columnas.
+// MODULO 4A AUTORIZADO: PDH/PDL NY usando M5 cerradas; niveles internos, sin senales.
+// MODULO 3B.3B AUTORIZADO: expiracion y prioridad Inside Bar, sin cambiar MSS/dashboard.
+// MODULO 2B AUTORIZADO: CRT_2C_RETURN estructural y CRT_2C_EXPANSION solo diagnostico.
+// MODULO 1 APROBADO: CONTROL DE CONTINUIDAD DE VELAS M5 EN H4.
+// V34.1 AUDITORIA: correcciones de invalidacion C3 H4 y prioridad de candidatos.
+// PARCHE ESTATICO. Compilacion/ejecucion TradingView pendiente.
+// V34 - CAMBIO CRITICO: TODAS LAS H4 del ciclo NY se analizan como C1.
+// No se filtra por tres inicios predefinidos: FX 01/05/09/13/17/21,
+// indices 02/06/10/14/18/22. Sigue existiendo modo estricto opcional.
+// CRT provisional en C2, ratificado SOLO con cierre H4 de C2 dentro C1.
+// MSS M5 y M15 independientes y asociados a la barrida del mismo ciclo.
+// Analizar cada vela H4 no equivale a validar cualquier vela como CRT.
+// V34 no ha sido compilada dentro de Pine Editor: validacion real pendiente.
+// V32 30-OCT-2026: reparar visibilidad del activo abierto y CRT H4
+// Detectar durante C2, diferenciar provisional (*) de ratificado y
+// conservar el ultimo CRT confirmado por ventana parametrizable.
+// El grafico abierto va SIEMPRE primero, aun si esta en la pagina 4/5.
+// IMPORTANTE: motor independiente. No copia el Pine cerrado de GoldForexDoc.
+// V31: SCAN de 34 simbolos configurables + grafico abierto independiente.
+// Todos usan el MISMO f_engine() y la MISMA fuente M5; sin exclusiones de pares.
+// Dashboard seleccionable: solo CRT o auditoria de todos los simbolos por pagina.
+// NO garantiza vigilar todo el universo TradingView: los limites de peticiones aplican.
+// V30: motor original implementado a partir de las REGLAS PUBLICADAS, NO es una copia
+// exacta de los codigos de GoldForexDoc ni swordNshield.
+// UN motor por simbolo en M5: agrega C1/C2/C3 H4 y MSS M15, preservando MSS M5.
+// V34: se observan TODAS las H4 del ciclo NY; 3 origenes es modo opcional.
+// C2 barre UN limite de C1; regresa a C1 y debe CERRAR dentro. C3 expande.
+// MSS = cierre que cruza swing confirmado ANTES de la barrida C2.
+// Las confirmaciones M5/M15 del mismo CRT y direccion quedan latched.
+// No usa barstate.isconfirmed dentro de request.security: analiza M5 [1] CERRADA.
+// Mostrar solo CRT actual y sus dos niveles; sin marcas historicas BT-H4.
+// En M15 y H4, request.security(..., "5") entrega un ESTADO calculado en M5
+// pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
+
+string TZ = "America/New_York"
+int MIN5 = 300000
+int MIN15 = 900000
+int H4MS = 14400000
+
+string grp = "01 / Logica CRT"
+idxList = input.string("NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!", "Indices por ticker (CSV)", group=grp)
+scheduleMode = input.string("Todas las H4 NY", "Escaneo C1", options=["Todas las H4 NY", "Solo C1 de tres horarios NY"], group=grp, tooltip="Por defecto todas las H4: FX 01/05/09/13/17/21; indices 02/06/10/14/18/22. El modo de 3 horas es solo comparativo.")
+allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group=grp, tooltip="Los toques exactos se muestran PROVISIONALES; el cierre H4 de C2 dentro de C1 es obligatorio para ratificar. Desactivar para exigir barrida estricta.")
+minBarsC1 = input.int(25, "Minimo de velas M5 en C1", minval=5, maxval=48, group=grp)
+minBarsC2 = input.int(25, "Minimo de velas M5 en C2", minval=5, maxval=48, group=grp)
+showCandidate = input.bool(true, "Mostrar CRT C2 provisional (con *)", group=grp)
+showAtSweep = input.bool(true, "Mostrar barrida C2 antes del retorno (provisional *)", group=grp, tooltip="El toque del rango H4 no es confirmacion CRT; se identifica con * y no se le asignan MSS futuros. Debe retornar al rango para ratificarse.")
+keepLastCRT = input.bool(false, "Conservar ultimo CRT ratificado (solo historial)", group=grp)
+keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, group=grp)
+// M3B.3B: vigencia en H4 de negociacion cerradas y verificadas.
+maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
+
+string grp2 = "02 / MSS M5 y M15"
+left5 = input.int(2, "M5 swing izquierdo", minval=1, maxval=7, group=grp2)
+right5 = input.int(2, "M5 swing derecho", minval=1, maxval=7, group=grp2)
+left15 = input.int(2, "M15 swing izquierdo", minval=1, maxval=7, group=grp2)
+right15 = input.int(2, "M15 swing derecho", minval=1, maxval=7, group=grp2)
+maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval=15, maxval=1440, group=grp2)
+
+string grp3 = "03 / Dashboard"
+showDashboard = input.bool(true, "Mostrar dashboard", group=grp3)
+rowsToShow = input.int(8, "Filas", minval=3, maxval=12, group=grp3)
+modeDashboard = input.string("Solo CRT", "Vista", options=["Solo CRT", "Todos los instrumentos"], group=grp3, tooltip="Todos permite inspeccionar hasta los 34 instrumentos aunque no tengan CRT activo. Incluye el grafico si tiene otro ticker o proveedor.")
+page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=12, group=grp3)
+
+string grp4 = "04 / Grafico"
+showLevels = input.bool(true, "CRH y CRL del CRT actual", group=grp4)
+showMssLines = input.bool(true, "Lineas MSS confirmadas", group=grp4)
+useAlerts = input.bool(true, "Alertar confirmaciones M5/M15", group=grp4)
+
+// M4A PDH/PDL, diagnostico interno. NO dibuja niveles ni cambia senales.
+string grpPdh = "05 / PDH y PDL"
+useExtIdx = input.bool(false, "Indices: 17:00-17:00 NY (alternativa a RTH)", group=grpPdh, tooltip="RTH predeterminado 09:30-16:00 NY. El horario extendido real puede diferir segun el indice/proveedor.")
+
+f_index() =>
+    string name = str.upper(syminfo.ticker)
+    string csv = "," + str.upper(str.replace_all(idxList, " ", "")) + ","
+    bool listed = str.contains(csv, "," + name + ",")
+    bool typical = str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50")
+    syminfo.type == "index" or listed or typical
+
+f_allowed(int hh, bool indexFamily) =>
+    // Cada H4 de la sesion NY es una posible C1, incluso cuando otra es C2/C3.
+    bool exact = indexFamily ? (hh == 2 or hh == 6 or hh == 22) : (hh == 1 or hh == 5 or hh == 21)
+    bool anyH4 = indexFamily ? (hh == 2 or hh == 6 or hh == 10 or hh == 14 or hh == 18 or hh == 22) : (hh == 1 or hh == 5 or hh == 9 or hh == 13 or hh == 17 or hh == 21)
+    scheduleMode == "Todas las H4 NY" ? anyH4 : exact
+
+// Un campo = un estado de un solo CRT. Esta UDT elude el limite de 127
+// elementos que impediria empaquetar 34 tuplas grandes por separado.
+type Signal
+    int phase        // 0 sin CRT, 1 C2 provisional, 2 C3 ratificado, 3 ultimo ratificado
+    int direction    // +1 bullish, -1 bearish
+    int c1Start
+    float crh
+    float crl
+    int sweepAt
+    int m5At
+    int m15At
+    float m5Level
+    float m15Level
+    int m5PivotAt
+    int m15PivotAt
+    string modelKind        // PENDING, CRT_2C_RETURN, CRT_2C_EXPANSION, NONE
+    bool isPatternValid    // Independiente de MSS M5/M15
+    // M4B: campos de liquidez calculados en el mismo feed M5.
+    string pdhStatus       // N/D / INTACTO / TAKEN
+    string pdlStatus
+    int pdhSweepAt        // Fin de la primera vela M5 que tomo la referencia
+    int pdlSweepAt
+    int pdhSweepStage     // 0=sin CRT asignable; 2=C2; 3=C3
+    int pdlSweepStage
+    int pdhSweepC1        // Identidad C1 congelada durante primera barrida
+    int pdlSweepC1
+    int crtC2Start        // Inicio real de C2 para distinguir PRE de C2
+    int liquidityRefAt    // Timestamp de cierre de la sesion de referencia
+    bool pdhSweptDuringCRT
+    bool pdlSweptDuringCRT
+
+// M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
+// M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
+type InsideCandidate
+    string id
+    int c1Start
+    float c1High
+    float c1Low
+    float c2High
+    float c2Low
+    int c2End
+    int sweepAt          // Cierre de la primera M5 que observo la barrida
+    int sweepH4Start     // H4 que contiene la primera barrida observada
+    int sweepDir         // +1: minimo C2, -1: maximo C2; 0: doble
+    bool sweptLow        // Conserva barridas ocurridas en distintas M5 de la misma H4
+    bool sweptHigh
+    string state        // SEEKING/SWEPT/AMBIGUOUS/RATIFIED/CONTINUATION/UNRESOLVED/DATA_GAP
+    string modelKind    // Modelo diagnostico: Inside Return/Continuation
+    bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+    int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+
+// En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+// UNA peticion request.security por activo en vez de tres peticiones.
+f_engine() =>
+    bool isIndex = f_index()
+    int barT = time[1]
+    int barEnd = time_close[1]
+    float bH = high[1]
+    float bL = low[1]
+    float bC = close[1]
+    float prevClose = close[2]
+
+    // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
+    // prev_valid solo significa que la ULTIMA sesion finalizada paso control
+    // de calidad; no se reutiliza silenciosamente un nivel de hace dias.
+    var float curr_H = na
+    var float curr_L = na
+    var int curr_sess_id = na
+    var int curr_m5_count = 0
+    var int curr_firstT = na
+    var int curr_lastEnd = na
+    var bool curr_continuous = true
+    var float prev_PDH = na
+    var float prev_PDL = na
+    var bool prev_valid = false
+    var int prev_timestamp = na
+    var int prev_sess_id = na
+    // M4B: el ID del nivel es su fecha de confirmacion 4A.
+    // No se consulta curr_sess_id[1] ni se reevalua una vela incompleta.
+    var int liquidityRefAt = na
+    var bool pdhTaken = false
+    var bool pdlTaken = false
+    var int pdhSweepAt = na
+    var int pdlSweepAt = na
+    var int pdhSweepStage = 0
+    var int pdlSweepStage = 0
+    var int pdhSweepC1 = na
+    var int pdlSweepC1 = na
+
+    // ---- M4A PDH / PDL: SIN solicitudes adicionales ----
+    // Time() se consulta con [1] igual que barT/bH/bL: M5 CERRADA.
+    bool pdhRth = isIndex and not useExtIdx
+    string pdhSession = pdhRth ? "0930-1600:23456" : "1700-1700:23456"
+    bool pdhInSession = not na(time("5", pdhSession, TZ)[1])
+    if not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+        // Identidad calendario local del INICIO de sesion; segura en DST.
+        // Mediodia menos 24h identifica el DIA ANTERIOR incluso si DST
+        // cambio el desfase UTC una hora durante la madrugada.
+        int pdhNoon = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 12, 0)
+        int pdhAnchor = pdhRth or hour(barT, TZ) >= 17 ? pdhNoon : pdhNoon - 86400000
+        int pdhKey = year(pdhAnchor, TZ) * 10000 + month(pdhAnchor, TZ) * 100 + dayofmonth(pdhAnchor, TZ)
+        if pdhInSession
+            if na(curr_sess_id) or pdhKey != curr_sess_id
+                // Si un dia termino sin vela de cierre, NO publicar parcial.
+                if not na(curr_sess_id)
+                    prev_valid := false
+                curr_sess_id := pdhKey
+                curr_H := bH
+                curr_L := bL
+                curr_m5_count := 1
+                curr_firstT := barT
+                curr_lastEnd := barEnd
+                curr_continuous := true
+            else
+                curr_continuous := curr_continuous and barT == curr_lastEnd
+                curr_H := math.max(curr_H, bH)
+                curr_L := math.min(curr_L, bL)
+                curr_m5_count += 1
+                curr_lastEnd := barEnd
+            // Con la ultima M5 (15:55-16 o 16:55-17) se cierra
+            // la sesion, aunque el proveedor no tenga velas posteriores.
+            int endHour = pdhRth ? 16 : 17
+            bool sessClosed = hour(barEnd, TZ) == endHour and minute(barEnd, TZ) == 0
+            if sessClosed
+                int firstHour = pdhRth ? 9 : 17
+                int firstMinute = minute(curr_firstT, TZ)
+                bool startedOnTime = hour(curr_firstT, TZ) == firstHour and (pdhRth ? firstMinute == 30 : firstMinute <= 5)
+                bool complete = curr_continuous and startedOnTime and curr_m5_count >= (pdhRth ? 78 : 280)
+                prev_valid := complete
+                if complete
+                    prev_PDH := curr_H
+                    prev_PDL := curr_L
+                    prev_timestamp := barEnd
+                    prev_sess_id := curr_sess_id
+                // Valores historicos se conservan con prev_valid=false.
+                curr_sess_id := na
+                curr_H := na
+                curr_L := na
+                curr_m5_count := 0
+                curr_firstT := na
+                curr_lastEnd := na
+                curr_continuous := true
+        else if not na(curr_sess_id)
+            // Fin de sesion sin M5 de cierre: no falsificar PDH/PDL.
+            prev_valid := false
+            curr_sess_id := na
+            curr_m5_count := 0
+            curr_H := na
+            curr_L := na
+            curr_firstT := na
+            curr_lastEnd := na
+            curr_continuous := true
+
+    // Pivot M5: calculo en la barra cerrada [1]; nunca es una barra futura.
+    float pH5 = ta.pivothigh(high, left5, right5)[1]
+    float pL5 = ta.pivotlow(low, left5, right5)[1]
+    var float lastHigh5 = na
+    var float lastLow5 = na
+    var int lastHigh5At = na
+    var int lastLow5At = na
+
+    // Acumulador M15 sobre barras M5 completas.
+    var int m15Bucket = na
+    var float m15High = na
+    var float m15Low = na
+    var float m15Close = na
+    var int m15Count = 0
+    var int m15LastEnd = na
+    var int m15Start = na
+    var array<float> highs15 = array.new_float()
+    var array<float> lows15 = array.new_float()
+    var array<int> times15 = array.new_int()
+    var float lastHigh15 = na
+    var float lastLow15 = na
+    var int lastHigh15At = na
+    var int lastLow15At = na
+    var float prev15Close = na
+
+    // H4 reconstruida desde datos de M5 del mismo proveedor.
+    var int h4Bucket = na
+    var float h4High = na
+    var float h4Low = na
+    var float h4Close = na
+    var int h4Count = 0
+    var int h4FirstT = na
+    var int h4LastEnd = na
+    // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+    var bool h4Continuous = true
+
+    // C2 actual: puede coexistir con la C3 del CRT anterior.
+    // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+    var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+
+    var bool c2Active = false
+    var int c2Start = na
+    var int c1Start2 = na
+    var float c1High2 = na
+    var float c1Low2 = na
+    var int c2Dir = 0
+    var bool c2StrictSweep = false
+    var bool c2Double = false
+    var bool c2Returned = false
+    var int c2SweepEnd = na
+    var float c2Pivot5 = na
+    var float c2Pivot15 = na
+    var int c2Pivot5At = na
+    var int c2Pivot15At = na
+    var int c2M5At = na
+    var int c2M15At = na
