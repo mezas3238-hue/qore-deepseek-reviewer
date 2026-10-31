@@ -1,0 +1,60 @@
+0361 |     var float c3Pivot15 = na
+0362 |     var int c3Pivot5At = na
+0363 |     var int c3Pivot15At = na
+0364 |     var int c3M5At = na
+0365 |     var int c3M15At = na
+0366 |     var float c3Invalidation = na
+0367 |     // Metadatos del CRT ratificado que se encuentra en C3.
+0368 |     var string c3ModelKind = "NONE"
+0369 |     var bool c3PatternValid = false
+0370 |     var int c3ModelC1 = na
+0371 |     var int c3C2Start = na // Solo metadato para asociar PDH/PDL, sin alterar MSS.
+0372 | 
+0373 |     // Clasificacion diagnostica del ultimo cierre C2, aun si no es operativo.
+0374 |     var string last2CClassification = "NONE"
+0375 |     var int last2CClassificationAt = na
+0376 | 
+0377 |     // Memoria controlada del ULTIMO CRT realmente ratificado, NO de
+0378 |     // cualquier MSS aislado. Los flags se copian desde C2/C3 y no se
+0379 |     // inventan desde eventos antiguos no vinculados al ciclo.
+0380 |     var int lastC1 = na
+0381 |     var int lastDir = 0
+0382 |     var int lastConfirmedAt = na
+0383 |     var float lastHi = na
+0384 |     var float lastLo = na
+0385 |     var int lastSweepAt = na
+0386 |     var int lastM5 = na
+0387 |     var int lastM15 = na
+0388 |     var float lastM5Level = na
+0389 |     var float lastM15Level = na
+0390 |     var int lastM5PivotAt = na
+0391 |     var int lastM15PivotAt = na
+0392 |     var string lastModelKind = "NONE"
+0393 |     var bool lastPatternValid = false
+0394 |     var int lastModelC1 = na
+0395 |     var int lastC2Start = na // Memoria del mismo CRT ratificado.
+0396 | 
+0397 |     // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
+0398 |     // f_engine() debe evaluarse incondicionalmente en cada barra M5.
+0399 |     int bucketH1 = time("60")[1]
+0400 |     int bucket15 = time("15")[1]
+0401 |     int bucketH4 = isIndex ? time("240", "0200-0200:1234567", TZ)[1] : time("240", "0100-0100:1234567", TZ)[1]
+0402 | 
+0403 |     // ---- CERRAR M15 ANTERIOR ----
+0404 |     if not na(barT) and not na(bucket15)
+0405 |         bool next15 = not na(m15Bucket) and bucket15 != m15Bucket
+0406 |         if next15
+0407 |             if m15Count == 3 and m15LastEnd == bucket15
+0408 |                 array.push(highs15, m15High)
+0409 |                 array.push(lows15, m15Low)
+0410 |                 array.push(times15, m15Start)
+0411 |                 if array.size(highs15) > 48
+0412 |                     array.shift(highs15)
+0413 |                     array.shift(lows15)
+0414 |                     array.shift(times15)
+0415 |                 int n = array.size(highs15)
+0416 |                 int pivot = n - 1 - right15
+0417 |                 if pivot >= left15 and pivot >= 0
+0418 |                     float candH = array.get(highs15, pivot)
+0419 |                     float candL = array.get(lows15, pivot)
+0420 |                     bool okHi = true
