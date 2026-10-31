@@ -1,0 +1,26 @@
+name: QORE CRT ALERTS foundation offline tests
+on:
+  push:
+    branches:
+      - 'feature/qore-crt-alerts-*'
+    paths:
+      - 'qore-crt-alerts/**'
+      - '.github/workflows/qore-crt-alerts-foundation.yml'
+  pull_request:
+    paths:
+      - 'qore-crt-alerts/**'
+      - '.github/workflows/qore-crt-alerts-foundation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline OHLC, sessions and gap tests (no real price feed)
+        run: cd qore-crt-alerts && npm test
