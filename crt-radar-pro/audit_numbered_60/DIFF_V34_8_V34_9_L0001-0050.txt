@@ -1,0 +1,50 @@
+0001 | --- V34.8_OFICIAL.pine
+0002 | +++ V34.9_M5A_CANDIDATO.pine
+0003 | @@ -1,6 +1,7 @@
+0004 |  //@version=6
+0005 | -indicator("CRT + MSS M5/M15 | SCAN H4 CONTINUO v34.8 M4B INTEGRADO", shorttitle="CRT MSS 34.8", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+0006 | -
+0007 | +indicator("CRT + MSS M5/M15 | SCAN H4 CONTINUO v34.9 M5A CANDIDATO NO INTEGRADO", shorttitle="CRT MSS 34.9c", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+0008 | +
+0009 | +// MODULO 5A CANDIDATO: deteccion interna FVG H1/H4, pendiente autorizacion.
+0010 |  // MODULO 4B INTEGRADO (AUTORIZADO): estado PDH/PDL, primera barrida y dashboard 6 columnas.
+0011 |  // MODULO 4A AUTORIZADO: PDH/PDL NY usando M5 cerradas; niveles internos, sin senales.
+0012 |  // MODULO 3B.3B AUTORIZADO: expiracion y prioridad Inside Bar, sin cambiar MSS/dashboard.
+0013 | @@ -139,6 +140,40 @@
+0014 |      string modelKind    // Modelo diagnostico: Inside Return/Continuation
+0015 |      bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+0016 |      int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+0017 | +
+0018 | +// M5A CANDIDATO NO INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
+0019 | +// Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
+0020 | +type FvgBar
+0021 | +    int startAt
+0022 | +    int endAt
+0023 | +    float hi
+0024 | +    float lo
+0025 | +    bool valid
+0026 | +
+0027 | +type FvgContext
+0028 | +    string id
+0029 | +    string tf
+0030 | +    int dir
+0031 | +    float top
+0032 | +    float bottom
+0033 | +    int formedAt
+0034 | +    string state
+0035 | +    int linkedCrt
+0036 | +
+0037 | +// Funciones Pine deben definirse en el ambito global.
+0038 | +f_add_context_fvg(array<FvgContext> store, string tf, int dir, float top, float bottom, int formedAt) =>
+0039 | +    string k = syminfo.tickerid + "|" + tf + "|" + str.tostring(formedAt) + "|" + str.tostring(dir)
+0040 | +    bool exists = false
+0041 | +    if array.size(store) > 0
+0042 | +        for z = 0 to array.size(store) - 1
+0043 | +            if array.get(store, z).id == k
+0044 | +                exists := true
+0045 | +                break
+0046 | +    if not exists
+0047 | +        array.push(store, FvgContext.new(k, tf, dir, top, bottom, formedAt, "INTACTO", na))
+0048 | +        if array.size(store) > 10
+0049 | +            array.shift(store)
+0050 | +    not exists
