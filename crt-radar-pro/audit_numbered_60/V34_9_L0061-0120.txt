@@ -1,0 +1,60 @@
+0061 | left15 = input.int(2, "M15 swing izquierdo", minval=1, maxval=7, group=grp2)
+0062 | right15 = input.int(2, "M15 swing derecho", minval=1, maxval=7, group=grp2)
+0063 | maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval=15, maxval=1440, group=grp2)
+0064 | 
+0065 | string grp3 = "03 / Dashboard"
+0066 | showDashboard = input.bool(true, "Mostrar dashboard", group=grp3)
+0067 | rowsToShow = input.int(8, "Filas", minval=3, maxval=12, group=grp3)
+0068 | modeDashboard = input.string("Solo CRT", "Vista", options=["Solo CRT", "Todos los instrumentos"], group=grp3, tooltip="Todos permite inspeccionar hasta los 34 instrumentos aunque no tengan CRT activo. Incluye el grafico si tiene otro ticker o proveedor.")
+0069 | page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=12, group=grp3)
+0070 | 
+0071 | string grp4 = "04 / Grafico"
+0072 | showLevels = input.bool(true, "CRH y CRL del CRT actual", group=grp4)
+0073 | showMssLines = input.bool(true, "Lineas MSS confirmadas", group=grp4)
+0074 | useAlerts = input.bool(true, "Alertar confirmaciones M5/M15", group=grp4)
+0075 | 
+0076 | // M4A PDH/PDL, diagnostico interno. NO dibuja niveles ni cambia senales.
+0077 | string grpPdh = "05 / PDH y PDL"
+0078 | useExtIdx = input.bool(false, "Indices: 17:00-17:00 NY (alternativa a RTH)", group=grpPdh, tooltip="RTH predeterminado 09:30-16:00 NY. El horario extendido real puede diferir segun el indice/proveedor.")
+0079 | 
+0080 | f_index() =>
+0081 |     string name = str.upper(syminfo.ticker)
+0082 |     string csv = "," + str.upper(str.replace_all(idxList, " ", "")) + ","
+0083 |     bool listed = str.contains(csv, "," + name + ",")
+0084 |     bool typical = str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50")
+0085 |     syminfo.type == "index" or listed or typical
+0086 | 
+0087 | f_allowed(int hh, bool indexFamily) =>
+0088 |     // Cada H4 de la sesion NY es una posible C1, incluso cuando otra es C2/C3.
+0089 |     bool exact = indexFamily ? (hh == 2 or hh == 6 or hh == 22) : (hh == 1 or hh == 5 or hh == 21)
+0090 |     bool anyH4 = indexFamily ? (hh == 2 or hh == 6 or hh == 10 or hh == 14 or hh == 18 or hh == 22) : (hh == 1 or hh == 5 or hh == 9 or hh == 13 or hh == 17 or hh == 21)
+0091 |     scheduleMode == "Todas las H4 NY" ? anyH4 : exact
+0092 | 
+0093 | // Un campo = un estado de un solo CRT. Esta UDT elude el limite de 127
+0094 | // elementos que impediria empaquetar 34 tuplas grandes por separado.
+0095 | type Signal
+0096 |     int phase        // 0 sin CRT, 1 C2 provisional, 2 C3 ratificado, 3 ultimo ratificado
+0097 |     int direction    // +1 bullish, -1 bearish
+0098 |     int c1Start
+0099 |     float crh
+0100 |     float crl
+0101 |     int sweepAt
+0102 |     int m5At
+0103 |     int m15At
+0104 |     float m5Level
+0105 |     float m15Level
+0106 |     int m5PivotAt
+0107 |     int m15PivotAt
+0108 |     string modelKind        // PENDING, CRT_2C_RETURN, CRT_2C_EXPANSION, NONE
+0109 |     bool isPatternValid    // Independiente de MSS M5/M15
+0110 |     // M4B: campos de liquidez calculados en el mismo feed M5.
+0111 |     string pdhStatus       // N/D / INTACTO / TAKEN
+0112 |     string pdlStatus
+0113 |     int pdhSweepAt        // Fin de la primera vela M5 que tomo la referencia
+0114 |     int pdlSweepAt
+0115 |     int pdhSweepStage     // 0=sin CRT asignable; 2=C2; 3=C3
+0116 |     int pdlSweepStage
+0117 |     int pdhSweepC1        // Identidad C1 congelada durante primera barrida
+0118 |     int pdlSweepC1
+0119 |     int crtC2Start        // Inicio real de C2 para distinguir PRE de C2
+0120 |     int liquidityRefAt    // Timestamp de cierre de la sesion de referencia
