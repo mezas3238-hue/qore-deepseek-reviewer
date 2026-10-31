@@ -1,0 +1,60 @@
+0481 |                     if h1Low > h1Prev2.hi
+0482 |                         f_add_context_fvg(fvgsH1, "H1", 1, h1Low, h1Prev2.hi, h1LastEnd)
+0483 |                     else if h1High < h1Prev2.lo
+0484 |                         f_add_context_fvg(fvgsH1, "H1", -1, h1Prev2.lo, h1High, h1LastEnd)
+0485 |             h1Prev2 := h1Prev
+0486 |             h1Prev := FvgBar.new(h1Bucket, h1LastEnd, h1High, h1Low, fullH1)
+0487 |             h1Bucket := bucketH1
+0488 |             h1FirstT := barT
+0489 |             h1LastEnd := barEnd
+0490 |             h1High := bH
+0491 |             h1Low := bL
+0492 |             h1Count := 1
+0493 |             h1Continuous := true
+0494 |         else if na(h1Bucket)
+0495 |             h1Bucket := bucketH1
+0496 |             h1FirstT := barT
+0497 |             h1LastEnd := barEnd
+0498 |             h1High := bH
+0499 |             h1Low := bL
+0500 |             h1Count := 1
+0501 |             h1Continuous := true
+0502 |         else
+0503 |             h1Continuous := h1Continuous and barT == h1LastEnd
+0504 |             h1High := math.max(h1High, bH)
+0505 |             h1Low := math.min(h1Low, bL)
+0506 |             h1Count += 1
+0507 |             h1LastEnd := barEnd
+0508 | 
+0509 |     // ---- CERRAR H4 ANTERIOR Y ABRIR NUEVA ----
+0510 |     if not na(barT) and not na(bucketH4)
+0511 |         bool nextH4 = not na(h4Bucket) and bucketH4 != h4Bucket
+0512 |         if nextH4
+0513 |             // M5A: Tres H4 completas consecutivas, sin conectar gaps de mercado.
+0514 |             bool fullH4 = h4Continuous and h4Count == 48 and h4FirstT == h4Bucket and h4LastEnd == h4Bucket + H4MS
+0515 |             if fullH4 and not na(h4Prev) and not na(h4Prev2)
+0516 |                 bool chainH4 = h4Prev.valid and h4Prev2.valid and h4Prev2.endAt == h4Prev.startAt and h4Prev.endAt == h4Bucket
+0517 |                 if chainH4
+0518 |                     if h4Low > h4Prev2.hi
+0519 |                         f_add_context_fvg(fvgsH4, "H4", 1, h4Low, h4Prev2.hi, h4LastEnd)
+0520 |                     else if h4High < h4Prev2.lo
+0521 |                         f_add_context_fvg(fvgsH4, "H4", -1, h4Prev2.lo, h4High, h4LastEnd)
+0522 |             h4Prev2 := h4Prev
+0523 |             h4Prev := FvgBar.new(h4Bucket, h4LastEnd, h4High, h4Low, fullH4)
+0524 |             // C3 solo se invalida por el CIERRE de su H4, NO por cierre M5.
+0525 |             // La mecha o un cierre intrabar M5 que atraviese el extremo de C2
+0526 |             // no revocan el CRT cuando la C3 H4 finalmente cierra recuperada.
+0527 |             if c3Active and c3Start == h4Bucket
+0528 |                 bool validC3Close = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC2
+0529 |                 bool invalidAtC3Close = validC3Close and not na(c3Invalidation) and (c3Dir == 1 ? h4Close < c3Invalidation : h4Close > c3Invalidation)
+0530 |                 if invalidAtC3Close and lastC1 == c1Start3
+0531 |                     lastConfirmedAt := na
+0532 |                     lastM5 := na
+0533 |                     lastM15 := na
+0534 |                     lastModelKind := "NONE"
+0535 |                     lastPatternValid := false
+0536 |                     lastModelC1 := na
+0537 |                 c3Active := false
+0538 |                 c3ModelKind := "NONE"
+0539 |                 c3PatternValid := false
+0540 |                 c3ModelC1 := na
