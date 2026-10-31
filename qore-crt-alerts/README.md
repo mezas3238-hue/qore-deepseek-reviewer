@@ -21,6 +21,8 @@ market feed, database connection, Railway deployment, FCM, or Android applicatio
   C2/C3 continuity and cycle identity.
 - src/mss-m5.mjs: independent M5 swing and post-sweep close detector.
   An M5 cross on the same sweep candle is prohibited.
+- src/replay-cycle.mjs: offline integration from the same M5 closed bars through
+  H4/M15, CRT, both MSS detectors and the confluence decision.
 - src/signal-gate.mjs: only a ratified CRT and same-cycle M15 MSS form an
   offline replay confluence; M5 is optional context, never its substitute.
   All results enforce actionable:false and sendPush:false when present.
@@ -31,7 +33,7 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **59/59 offline tests PASS**.
+Evidence as of 31 Oct 2026: **63/63 offline tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 
 ## Important restrictions
