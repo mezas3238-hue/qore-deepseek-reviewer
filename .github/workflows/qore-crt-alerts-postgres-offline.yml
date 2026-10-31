@@ -49,3 +49,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/002_qa_devices_blocked.sql
       - name: Test registration dedup, opt-out, privacy and no delivery privileges
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_devices_blocked.sql
+      - name: Add transactional compare-and-swap QA registration operations
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/003_qa_device_revision.sql
+      - name: Test concurrent safety, stale rotations and SQL revocation
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_device_revision.sql
