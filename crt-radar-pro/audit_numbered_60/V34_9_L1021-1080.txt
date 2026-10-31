@@ -1,0 +1,60 @@
+1021 |         chartInScan := true
+1022 | bool chartAvailable = not na(own) and not na(own.phase)
+1023 | bool chartActive = chartAvailable and own.phase > 0
+1024 | string openName = f_name(syminfo.tickerid)
+1025 | bool visible = not na(own) and (own.phase == 1 or own.phase == 2) and not na(own.crh) and not na(own.crl)
+1026 | plot(visible ? own.crh : na, "CRH actual", color=color.new(color.orange, 100), display=display.data_window)
+1027 | plot(visible ? own.crl : na, "CRL actual", color=color.new(color.orange, 100), display=display.data_window)
+1028 | var line hiLine = na
+1029 | var line loLine = na
+1030 | var line m5Line = na
+1031 | var line m15Line = na
+1032 | var label hiLabel = na
+1033 | var label loLabel = na
+1034 | // Diagnostico del mismo motor que alimenta el dashboard.
+1035 | plot(not na(own) ? own.phase : na, title="AUDIT estado CRT grafico (1=provisional 2=activo 3=ultimo)", display=display.data_window)
+1036 | plot(not na(own) ? own.direction : na, title="AUDIT direccion CRT grafico (+1/-1)", display=display.data_window)
+1037 | plot(not na(own) ? own.c1Start : na, title="AUDIT ID C1 (timestamp)", display=display.data_window)
+1038 | if barstate.islast
+1039 |     if showLevels and visible
+1040 |         int t2 = time_close
+1041 |         int t1 = own.c1Start
+1042 |         color ink = own.phase == 2 ? color.rgb(168,65,115) : color.rgb(170,122,42)
+1043 |         if na(hiLine)
+1044 |             hiLine := line.new(t1,own.crh,t2,own.crh,xloc=xloc.bar_time,color=ink,width=2)
+1045 |             loLine := line.new(t1,own.crl,t2,own.crl,xloc=xloc.bar_time,color=ink,width=2)
+1046 |             hiLabel := label.new(t2,own.crh,"CRT HIGH",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+1047 |             loLabel := label.new(t2,own.crl,"CRT LOW",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+1048 |         line.set_xy1(hiLine,t1,own.crh)
+1049 |         line.set_xy2(hiLine,t2,own.crh)
+1050 |         line.set_color(hiLine,ink)
+1051 |         line.set_xy1(loLine,t1,own.crl)
+1052 |         line.set_xy2(loLine,t2,own.crl)
+1053 |         line.set_color(loLine,ink)
+1054 |         label.set_xy(hiLabel,t2,own.crh)
+1055 |         label.set_textcolor(hiLabel,ink)
+1056 |         label.set_xy(loLabel,t2,own.crl)
+1057 |         label.set_textcolor(loLabel,ink)
+1058 |         if showMssLines and not na(own.m5At) and not na(own.m5PivotAt) and own.m5PivotAt < own.m5At and not na(own.m5Level)
+1059 |             if na(m5Line)
+1060 |                 m5Line := line.new(own.m5PivotAt,own.m5Level,own.m5At,own.m5Level,xloc=xloc.bar_time,color=color.teal,style=line.style_dashed,width=2)
+1061 |             line.set_xy1(m5Line,own.m5PivotAt,own.m5Level)
+1062 |             line.set_xy2(m5Line,own.m5At,own.m5Level)
+1063 |         else if not na(m5Line)
+1064 |             line.delete(m5Line)
+1065 |             m5Line := na
+1066 |         if showMssLines and not na(own.m15At) and not na(own.m15PivotAt) and own.m15PivotAt < own.m15At and not na(own.m15Level)
+1067 |             if na(m15Line)
+1068 |                 m15Line := line.new(own.m15PivotAt,own.m15Level,own.m15At,own.m15Level,xloc=xloc.bar_time,color=color.blue,style=line.style_dashed,width=2)
+1069 |             line.set_xy1(m15Line,own.m15PivotAt,own.m15Level)
+1070 |             line.set_xy2(m15Line,own.m15At,own.m15Level)
+1071 |         else if not na(m15Line)
+1072 |             line.delete(m15Line)
+1073 |             m15Line := na
+1074 |     else
+1075 |         if not na(hiLine)
+1076 |             line.delete(hiLine)
+1077 |             hiLine := na
+1078 |         if not na(loLine)
+1079 |             line.delete(loLine)
+1080 |             loLine := na
