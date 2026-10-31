@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {QaDeviceRegistry} from "../src/device-registration.mjs";
 const NOW=Date.parse("2026-10-31T15:00:00Z"),PROJECT="qore-crt-qa-project";
+const FIREBASE_APP="1:1234567890:android:qa-test-only";
 const verifyAuth=async credential=>
   credential==="alice-valid"?{verified:true,subject:"user-alice-qa-123"}:
   credential==="bob-valid"?{verified:true,subject:"user-bob-qa-123"}:null;
 const verifyAppCheck=async token=>token==="app-check-valid"?
-  {verified:true,projectId:PROJECT,appId:"com.qore.crtalerts.qa"}:null;
+  {verified:true,projectId:PROJECT,appId:FIREBASE_APP}:null;
 const make=(now=()=>NOW)=>new QaDeviceRegistry({verifyAuth,verifyAppCheck,
-  now,projectId:PROJECT,
+  now,projectId:PROJECT,firebaseAppId:FIREBASE_APP,
   hashSecret:"fixture-only-secret-not-valid-for-prod-1234567890"});
 const input={credential:"alice-valid",appCheckToken:"app-check-valid",projectId:PROJECT,
   deviceSlot:"slot-android-qa-001",installationId:"fid-android-qa-1234567890",
@@ -75,7 +76,7 @@ test("do not accept client verified flag or weak secrets",async()=>{
  const r=make();
  assert.equal((await r.register({...input,credential:"bad",verified:true})).state,
  "AUTHENTICATION_REQUIRED");
- assert.throws(()=>new QaDeviceRegistry({verifyAuth,verifyAppCheck,projectId:PROJECT,
+ assert.throws(()=>new QaDeviceRegistry({verifyAuth,verifyAppCheck,projectId:PROJECT,firebaseAppId:FIREBASE_APP,
   hashSecret:"weak"}),/secret/);
 });
 
@@ -88,7 +89,7 @@ test("App Check attestation is mandatory in addition to user authentication",asy
  assert.equal(r.size,0);
 });
 test("wrong Firebase App Check project or app never enrolls",async()=>{
- const r=new QaDeviceRegistry({verifyAuth,projectId:PROJECT,
+ const r=new QaDeviceRegistry({verifyAuth,projectId:PROJECT,firebaseAppId:FIREBASE_APP,
    now:()=>NOW,hashSecret:"fixture-secret-not-usable-in-any-environment-123456",
    verifyAppCheck:async()=>({verified:true,projectId:PROJECT,
      appId:"com.unauthorized.app"})});

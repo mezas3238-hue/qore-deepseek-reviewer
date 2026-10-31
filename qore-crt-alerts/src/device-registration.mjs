@@ -10,18 +10,19 @@ const reply=(state,more={})=>Object.freeze({
   state,environment:"OFFLINE_REPLAY",actionable:false,sendPush:false,...more});
 
 export class QaDeviceRegistry {
-  #verify;#check;#now;#secret;#project;#rows=new Map();
+  #verify;#check;#now;#secret;#project;#firebaseAppId;#rows=new Map();
   constructor({verifyAuth,verifyAppCheck,now=Date.now,hashSecret,projectId,
-    applicationId="com.qore.crtalerts.qa"}={}){
+    firebaseAppId,applicationId="com.qore.crtalerts.qa"}={}){
     if(typeof verifyAuth!=="function"||typeof verifyAppCheck!=="function")
       throw Error("server Auth and App Check verifiers required");
     if(typeof now!=="function")throw Error("server clock required");
     if(typeof hashSecret!=="string"||hashSecret.length<32)
       throw Error("strong HMAC secret required");
-    if(!valid(projectId)||applicationId!=="com.qore.crtalerts.qa")
+    if(!valid(projectId)||!valid(firebaseAppId)||applicationId!=="com.qore.crtalerts.qa")
       throw Error("QA project and app identifier required");
     this.#verify=verifyAuth;this.#check=verifyAppCheck;this.#now=now;
     this.#secret=hashSecret;this.#project=projectId;
+    this.#firebaseAppId=firebaseAppId;
   }
   #hash(user,slot){
     return createHmac("sha256",this.#secret)
@@ -43,7 +44,7 @@ export class QaDeviceRegistry {
     try{
       const claim=await this.#check(appCheckToken);
       if(claim?.verified!==true||claim.projectId!==this.#project||
-         claim.appId!=="com.qore.crtalerts.qa"||claim.alreadyConsumed===true)
+         claim.appId!==this.#firebaseAppId||claim.alreadyConsumed===true)
         return reply("APP_CHECK_INVALID");
     }catch{return reply("APP_CHECK_INVALID");}
     if(projectId!==this.#project||!valid(deviceSlot)||!valid(installationId))
