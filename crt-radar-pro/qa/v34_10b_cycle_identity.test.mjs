@@ -37,7 +37,7 @@ test("STATIC: no MSS pivot reassignment before strict sweep",()=>{
  assert.ok(code.indexOf("c2StrictSweep := true")<code.indexOf("c2Pivot15 :="));
 });
 test("STATIC: M5 MSS after sweep bar, M15 MSS after sweep close",()=>{
- assert.ok(s.includes("c2StrictSweep and barT >= c2SweepEnd and cross5"));
+ assert.ok(s.includes("c2StrictSweep and previousM5Continuous and barT >= c2SweepEnd and cross5"));
  assert.ok(s.includes("closed15At > c2SweepEnd"));
  assert.ok(s.includes("lastHigh5At < barT")&&s.includes("lastLow5At < barT"));
  assert.ok(s.includes("lastHigh15At < barT")&&s.includes("lastLow15At < barT"));
