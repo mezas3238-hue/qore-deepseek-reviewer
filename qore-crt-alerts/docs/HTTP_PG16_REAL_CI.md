@@ -17,3 +17,19 @@ The test deliberately injects *mock* Firebase authentication/App Check
 verifiers to isolate real HTTP/PG behavior from cloud Firebase. It proves
 neither true Firebase authentication nor FCM or Pine parity. SQL migrations
 are proposals and must not be applied to external systems without review.
+
+## CI results, 31 October 2026
+
+- 12 of 12 actual HTTP/Postgres assertions SUCCESS in GitHub Actions:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41243532565
+- 170 of 170 Node tests SUCCESS in GitHub Actions:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41243532571
+- PostgreSQL SQLSTATE=23514 with a precisely allowlisted CAS conflict is
+  returned by HTTP as a redacted 409 QA_CONFLICT_HELD. Unknown database
+  exceptions fail closed as 503 QA_DATABASE_UNAVAILABLE.
+- Normal PostgreSQL rejected writes appear as ERROR in DB logs by
+  design; tests assert that the corresponding HTTP request is blocked.
+  They are not successful or LIVE signals.
+- The backend test DB role is explicitly restricted by RLS and cannot
+  inspect replay_observations, but its direct SQL permissions on its own
+  device table mean DB credentials must NEVER reach app clients.

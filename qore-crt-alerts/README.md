@@ -76,7 +76,7 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **168/168 offline Node tests PASS**.
+Evidence as of 31 Oct 2026: **170/170 offline Node tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 An additional GitHub Actions job uses a disposable PostgreSQL 16 container,
 NOT a real Supabase instance, to test the schema, RLS, deduplication,
@@ -118,8 +118,8 @@ conflicting OHLC rejection, revision-based rotation and revocation. See .github/
 
 ## Latest verified CI (31 Oct 2026)
 
-- Node.js 22 offline suite: **168 PASS / 0 FAIL**:
-  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41240129771
+- Node.js 22 offline suite: **170 PASS / 0 FAIL**:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41243532571
 - PostgreSQL 16 ephemeral transactional CAS & RLS: **SUCCESS**:
   https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41239931334
 - Android Kotlin QA compilation (prior verified): **SUCCESS**:
@@ -135,6 +135,29 @@ No real device, Firebase project or market feed was accessed.
   https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41241227126
   (successful compilation of the first QA UI revision).
 - Further integration tests for the actual compiled delivery-disabled flag
-  were added in QaNotificationPipelineTest.kt and require GitHub CI PASS.
+  passed in QaNotificationPipelineTest.kt via GitHub CI.
 - No actual Android permission request, Firebase registration, or notification
   delivery is implemented at this stage. Status UI is offline-only.
+
+## REAL HTTP → ephemeral PostgreSQL 16 integration (31 Oct 2026)
+
+- New CI-only role qore_crt_http_qa NOLOGIN, PostgreSQL RLS policy for
+  QA device table only, denied access to trading observation ledger.
+- New GitHub Actions integration test uses Node 22 HTTP bound to
+  127.0.0.1, actual PostgreSQL 16 and a restricted test login;
+  authenticated mock Firebase Auth/App Check verifiers only.
+- **12 / 12 E2E assertions passed**: registration, duplicate handling,
+  scoped listing, simultaneous CAS rotations, wrong-user revocation
+  rejection, App Check rejection, revocation and permanent no-delivery.
+- **170 / 170 Node tests passed**. QA SQL failures from concurrent
+  stale revisions are exposed to the HTTP caller as sanitized 409,
+  while unexpected database failures return 503.
+- GitHub CI evidence:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41243532565
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41243532571
+- Code: docs/HTTP_PG16_REAL_CI.md, sql/004_ephemeral_http_role.sql.
+- ALL external Firebase credentials, Supabase, Railway, real authorized
+  M5 prices and Android physical-device delivery remain absent.
+- RLS policy trusts a dedicated backend role, not end-user SQL claims:
+  never expose this login to Android/anonymous clients. Production-grade
+  role credentials, distributed rate limits and audited TLS are pending.
