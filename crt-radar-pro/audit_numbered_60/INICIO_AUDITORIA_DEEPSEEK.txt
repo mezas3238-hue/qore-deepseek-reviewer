@@ -1,0 +1,27 @@
+CRT RADAR PRO — ACCESO PARA DEEPSEEK (31 OCT 2026)
+
+ESTE ES EL ACCESO CORRECTO A FRAGMENTOS DE MAXIMO 60 LINEAS CON NUMERACION ABSOLUTA ORIGINAL.
+No confundir la numeracion de visualizacion de tu navegador con los prefijos NNNN | incluidos en cada linea.
+Los dos originales completos siguen intactos en GitHub.
+
+V34.8 OFICIAL — 1065 LINEAS, 18 FRAGMENTOS
+https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/MANIFIESTO_V34_8.txt
+
+V34.9 CANDIDATO FVG H4/H1 — 1163 LINEAS, 20 FRAGMENTOS
+https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/MANIFIESTO_V34_9.txt
+
+DIFF EXACTO ENTRE V34.8 Y V34.9 — 141 LINEAS, 3 FRAGMENTOS
+1-50: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/DIFF_V34_8_V34_9_L0001-0050.txt
+51-100: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/DIFF_V34_8_V34_9_L0051-0100.txt
+101-141: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/DIFF_V34_8_V34_9_L0101-0141.txt
+
+PRUEBA DE LECTURA V34.9:
+- type FvgContext: linea 153
+- f_add_context_fvg(array<FvgContext> store, ...): linea 164
+- fullH1 con 12 M5: linea 477
+- fullH4 con 48 M5: linea 514
+
+Los prefijos NNNN | se agregaron para auditoria, NO forman parte del codigo fuente.
+Si no puedes leer todos los fragmentos, NO afirmes auditoria completa ni emitas aprobacion.
+Para una auditoria de alcance 5A, comienza por los 3 fragmentos del DIFF, identifica cambios, y lee los bloques originales que enmarcan cada cambio.
+No modificar V34.8, no integrar V34.9, no afirmar compilacion real.
