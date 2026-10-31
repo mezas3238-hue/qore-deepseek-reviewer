@@ -1,0 +1,60 @@
+0901 |         if m15t > 0
+0902 |             with15 += 1
+0903 |         bool alert5 = m5t > 0 and array.get(alert5IDs, i) != id and timenow >= m5t and timenow - m5t <= 300000
+0904 |         bool alert15 = m15t > 0 and array.get(alert15IDs, i) != id and timenow >= m15t and timenow - m15t <= 300000
+0905 |         if useAlerts and barstate.isrealtime and alert5
+0906 |             alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M5 | "
+0907 |             array.set(alert5IDs, i, id)
+0908 |         if useAlerts and barstate.isrealtime and alert15
+0909 |             alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M15 | "
+0910 |             array.set(alert15IDs, i, id)
+0911 | 
+0912 | if str.length(alertsNow) > 0
+0913 |     alert("CRT+MSS " + alertsNow, alert.freq_once_per_bar)
+0914 | 
+0915 | // ---- Grafico: 35a solicitud total, independiente de los 34 feeds ----
+0916 | Signal own = request.security(syminfo.tickerid, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+0917 | // El simbolo abierto NUNCA se ignora: se calcula aunque no pertenezca a
+0918 | // los 34 feeds. Si ya existe con el mismo proveedor, no se muestra duplicado.
+0919 | string ownStd = ticker.standard(syminfo.tickerid)
+0920 | bool chartInScan = false
+0921 | for i = 0 to 33
+0922 |     if ticker.standard(array.get(scanSymbols, i)) == ownStd
+0923 |         chartInScan := true
+0924 | bool chartAvailable = not na(own) and not na(own.phase)
+0925 | bool chartActive = chartAvailable and own.phase > 0
+0926 | string openName = f_name(syminfo.tickerid)
+0927 | bool visible = not na(own) and (own.phase == 1 or own.phase == 2) and not na(own.crh) and not na(own.crl)
+0928 | plot(visible ? own.crh : na, "CRH actual", color=color.new(color.orange, 100), display=display.data_window)
+0929 | plot(visible ? own.crl : na, "CRL actual", color=color.new(color.orange, 100), display=display.data_window)
+0930 | var line hiLine = na
+0931 | var line loLine = na
+0932 | var line m5Line = na
+0933 | var line m15Line = na
+0934 | var label hiLabel = na
+0935 | var label loLabel = na
+0936 | // Diagnostico del mismo motor que alimenta el dashboard.
+0937 | plot(not na(own) ? own.phase : na, title="AUDIT estado CRT grafico (1=provisional 2=activo 3=ultimo)", display=display.data_window)
+0938 | plot(not na(own) ? own.direction : na, title="AUDIT direccion CRT grafico (+1/-1)", display=display.data_window)
+0939 | plot(not na(own) ? own.c1Start : na, title="AUDIT ID C1 (timestamp)", display=display.data_window)
+0940 | if barstate.islast
+0941 |     if showLevels and visible
+0942 |         int t2 = time_close
+0943 |         int t1 = own.c1Start
+0944 |         color ink = own.phase == 2 ? color.rgb(168,65,115) : color.rgb(170,122,42)
+0945 |         if na(hiLine)
+0946 |             hiLine := line.new(t1,own.crh,t2,own.crh,xloc=xloc.bar_time,color=ink,width=2)
+0947 |             loLine := line.new(t1,own.crl,t2,own.crl,xloc=xloc.bar_time,color=ink,width=2)
+0948 |             hiLabel := label.new(t2,own.crh,"CRT HIGH",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+0949 |             loLabel := label.new(t2,own.crl,"CRT LOW",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+0950 |         line.set_xy1(hiLine,t1,own.crh)
+0951 |         line.set_xy2(hiLine,t2,own.crh)
+0952 |         line.set_color(hiLine,ink)
+0953 |         line.set_xy1(loLine,t1,own.crl)
+0954 |         line.set_xy2(loLine,t2,own.crl)
+0955 |         line.set_color(loLine,ink)
+0956 |         label.set_xy(hiLabel,t2,own.crh)
+0957 |         label.set_textcolor(hiLabel,ink)
+0958 |         label.set_xy(loLabel,t2,own.crl)
+0959 |         label.set_textcolor(loLabel,ink)
+0960 |         if showMssLines and not na(own.m5At) and not na(own.m5PivotAt) and own.m5PivotAt < own.m5At and not na(own.m5Level)
