@@ -1,0 +1,60 @@
+0841 |         // de C3 puede atravesar la mecha de C2 para invalidar el CRT.
+0842 |         bool cross5c3 = c3Dir == 1 ? (not na(c3Pivot5) and bC > c3Pivot5 and prevClose <= c3Pivot5) : (not na(c3Pivot5) and bC < c3Pivot5 and prevClose >= c3Pivot5)
+0843 |         if c3Active and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
+0844 |             c3M5At := barEnd
+0845 |             if lastC1 == c1Start3
+0846 |                 lastM5 := barEnd
+0847 | 
+0848 |     // Actualizar swing M5 DESPUES de la barrida: no congelar un pivot que
+0849 |     // acababa de confirmarse simultaneamente con la vela de manipulacion.
+0850 |     if not na(pH5)
+0851 |         lastHigh5 := pH5
+0852 |         lastHigh5At := time[right5 + 1]
+0853 |     if not na(pL5)
+0854 |         lastLow5 := pL5
+0855 |         lastLow5At := time[right5 + 1]
+0856 | 
+0857 |     // Priorizar el CRT ratificado en C3 sobre una NUEVA C2 provisional
+0858 |     // superpuesta. La nueva C2 permanece registrada internamente y se
+0859 |     // mostrara cuando termine la C3, si aun continua vigente.
+0860 |     bool partial = showCandidate and c2Active and c2Dir != 0 and not c2Double and (showAtSweep or c2Returned)
+0861 |     bool recent = keepLastCRT and not na(lastConfirmedAt) and barEnd >= lastConfirmedAt and barEnd - lastConfirmedAt <= keepHours * 3600000
+0862 |     int outPhase = c3Active ? 2 : partial ? 1 : recent ? 3 : 0
+0863 |     int outDir = outPhase == 2 ? c3Dir : outPhase == 1 ? c2Dir : outPhase == 3 ? lastDir : 0
+0864 |     int outC1 = outPhase == 2 ? c1Start3 : outPhase == 1 ? c1Start2 : outPhase == 3 ? lastC1 : na
+0865 |     int outC2Start = outPhase == 2 ? c3C2Start : outPhase == 1 ? c2Start : outPhase == 3 ? lastC2Start : na
+0866 |     float outHi = outPhase == 2 ? c1High3 : outPhase == 1 ? c1High2 : outPhase == 3 ? lastHi : na
+0867 |     float outLo = outPhase == 2 ? c1Low3 : outPhase == 1 ? c1Low2 : outPhase == 3 ? lastLo : na
+0868 |     int outSweep = outPhase == 2 ? c3SweepEnd : outPhase == 1 ? c2SweepEnd : outPhase == 3 ? lastSweepAt : na
+0869 |     int outM5At = outPhase == 2 ? c3M5At : outPhase == 1 ? c2M5At : outPhase == 3 ? lastM5 : na
+0870 |     int outM15At = outPhase == 2 ? c3M15At : outPhase == 1 ? c2M15At : outPhase == 3 ? lastM15 : na
+0871 |     float outM5Level = outPhase == 2 ? c3Pivot5 : outPhase == 1 ? c2Pivot5 : outPhase == 3 ? lastM5Level : na
+0872 |     float outM15Level = outPhase == 2 ? c3Pivot15 : outPhase == 1 ? c2Pivot15 : outPhase == 3 ? lastM15Level : na
+0873 |     int outM5PivotAt = outPhase == 2 ? c3Pivot5At : outPhase == 1 ? c2Pivot5At : outPhase == 3 ? lastM5PivotAt : na
+0874 |     int outM15PivotAt = outPhase == 2 ? c3Pivot15At : outPhase == 1 ? c2Pivot15At : outPhase == 3 ? lastM15PivotAt : na
+0875 |     // El modelo es metadato independiente; phase y ticks MSS no cambian.
+0876 |     bool c3IdentityOK = outPhase == 2 and c3ModelC1 == outC1
+0877 |     bool lastIdentityOK = outPhase == 3 and lastModelC1 == outC1
+0878 |     bool rejectedRecent = outPhase == 0 and last2CClassification == "CRT_2C_EXPANSION" and not na(last2CClassificationAt) and barEnd >= last2CClassificationAt and barEnd - last2CClassificationAt < H4MS
+0879 |     string outModel = c3IdentityOK ? c3ModelKind : outPhase == 1 ? "PENDING" : lastIdentityOK ? lastModelKind : rejectedRecent ? "CRT_2C_EXPANSION" : "NONE"
+0880 |     bool outValid = c3IdentityOK ? c3PatternValid : lastIdentityOK ? lastPatternValid : false
+0881 |     string outPdhStatus = hasLiquidityRef ? (pdhTaken ? "TAKEN" : "INTACTO") : "N/D"
+0882 |     string outPdlStatus = hasLiquidityRef ? (pdlTaken ? "TAKEN" : "INTACTO") : "N/D"
+0883 |     bool pdhInDisplayedCRT = pdhTaken and outPhase > 0 and pdhSweepC1 == outC1 and (pdhSweepStage == 2 or pdhSweepStage == 3)
+0884 |     bool pdlInDisplayedCRT = pdlTaken and outPhase > 0 and pdlSweepC1 == outC1 and (pdlSweepStage == 2 or pdlSweepStage == 3)
+0885 |     Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, outM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT)
+0886 | 
+0887 | // M4B: texto compacto y explicitamente vinculado al CRT MOSTRADO.
+0888 | // PRE = primera barrida previa al comienzo de C2; OTR = fuera del
+0889 | // ciclo C2/C3 mostrado. Evita atribuir al CRT una barrida ajena.
+0890 | f_liqText(string status, int sweepAt, int stage, int sweepC1, int shownC1, int shownC2) =>
+0891 |     string result = status == "N/D" ? "N/D" : status == "INTACTO" ? "INT" : "T OTR"
+0892 |     if status == "TAKEN"
+0893 |         if not na(shownC1) and sweepC1 == shownC1 and stage == 2
+0894 |             result := "T C2"
+0895 |         else if not na(shownC1) and sweepC1 == shownC1 and stage == 3
+0896 |             result := "T C3"
+0897 |         else if not na(shownC2) and not na(sweepAt) and sweepAt <= shownC2
+0898 |             result := "T PRE"
+0899 |     result
+0900 | 
