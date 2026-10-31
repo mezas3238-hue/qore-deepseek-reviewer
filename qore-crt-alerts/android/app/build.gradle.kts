@@ -1,7 +1,7 @@
 plugins { id("com.android.application") }
 android {
     namespace = "com.qore.crtalerts"
-    compileSdk = 37
+    compileSdk = 36
     defaultConfig {
         applicationId = "com.qore.crtalerts.qa"
         minSdk = 24
