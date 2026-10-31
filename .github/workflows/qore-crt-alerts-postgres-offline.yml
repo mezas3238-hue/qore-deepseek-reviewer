@@ -45,3 +45,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/001_quarantined_observations.sql
       - name: Test replay dedup, immutable states and RLS in PostgreSQL
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_quarantined_observations.sql
+      - name: Create deny-all QA device-registration schema
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/002_qa_devices_blocked.sql
+      - name: Test registration dedup, opt-out, privacy and no delivery privileges
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_devices_blocked.sql
