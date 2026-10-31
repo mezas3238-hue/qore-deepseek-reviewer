@@ -9,8 +9,13 @@ const block=s=>s.split("    // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ---
 const nameBefore='indicator("CRT + MSS M5/M15 | V34.10b QA FVG OBSERVABILIDAD NO INTEGRADO", shorttitle="CRT MSS QA FVG"';
 const nameAfter='indicator("CRT + MSS M5/M15 | V34.10b QA BARRIDA ESTRICTA NO INTEGRADO", shorttitle="CRT MSS QA C2"';
 const removeQaCrtCycle = s => s.replace(/\n\/\/ QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos\.[\s\S]*?\n\/\/ FIN QA CRT CICLO/, "");
-test("REGRESSION: only strict-sweep block/title and explicitly delimited QA cycle traces change",()=>{
- assert.equal(original.replace(nameBefore,nameAfter).replace(block(original),block(fixed)),removeQaCrtCycle(fixed));
+const m15Block=s=>s.split("    // ---- CERRAR M15 ANTERIOR ----")[1].split("    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----")[0];
+test("REGRESSION: only C2 strict sweep, M15 continuity and QA trace blocks change",()=>{
+ const expected=original.replace(nameBefore,nameAfter)
+    .replace(block(original),block(fixed))
+    .replace(m15Block(original),m15Block(fixed))
+    .replace("    var float prev15Close = na", "    var float prev15Close = na\\n    // QA: solo comparar cierres M15 consecutivos completos (no saltar sesiones).\\n    var int prev15End = na".replaceAll("\\n", String.fromCharCode(10)));
+ assert.equal(expected,removeQaCrtCycle(fixed));
 });
 test("REGRESSION: strict C1/C2/C3 NY schedules unchanged",()=>{
  for(const p of ['scheduleMode = input.string("Solo C1 de tres horarios NY"',
