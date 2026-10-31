@@ -2,38 +2,134 @@ package com.qore.crtalerts
 
 import android.app.Activity
 import android.os.Bundle
-import android.view.Gravity
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Switch
+import android.widget.TextView
 
-// QA launcher only: no live signals or Firebase credentials connected.
+// QA shell: locally stores user preference only, never requests a token,
+// Android notification permission, or any Firebase/network enrollment.
+// Explicit backend and TradingView certifications remain unavailable.
 class MainActivity : Activity() {
+    private val navy = Color.rgb(10, 21, 35)
+    private val card = Color.rgb(21, 35, 54)
+    private val muted = Color.rgb(154, 175, 194)
+    private val amber = Color.rgb(244, 185, 80)
+    private val cyan = Color.rgb(105, 211, 224)
+
+    private fun label(value: String, sp: Float, tint: Int, bold: Boolean = false): TextView {
+        return TextView(this).apply {
+            text = value
+            textSize = sp
+            setTextColor(tint)
+            if (bold) setTypeface(typeface, Typeface.BOLD)
+            setPadding(0, 0, 0, 14)
+        }
+    }
+
+    private fun rounded(color: Int): GradientDrawable =
+        GradientDrawable().apply { setColor(color); cornerRadius = 24f }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val view = LinearLayout(this).apply {
+        window.statusBarColor = navy
+        window.navigationBarColor = navy
+        val prefs = getSharedPreferences(QaConsentGate.PREFS, MODE_PRIVATE)
+
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 90, 48, 48)
-            setBackgroundColor(Color.rgb(9, 20, 32))
-            gravity = Gravity.TOP
+            setBackgroundColor(navy)
+            setPadding(32, 44, 32, 32)
         }
-        fun label(value: String, size: Float, color: Int) {
-            val widget = TextView(this).apply {
-                text = value
-                textSize = size
-                setTextColor(color)
-                setPadding(0, 0, 0, 28)
+        root.addView(label("QORE  /  CRT ALERTS", 15f, cyan, true))
+        root.addView(label("Centro de alertas", 30f, Color.WHITE, true))
+        root.addView(label("Versión Android QA · laboratorio aislado", 14f, muted))
+
+        val statusCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(30, 28, 30, 18)
+            background = rounded(card)
+        }
+        statusCard.addView(label("ESTADO DEL SISTEMA", 12f, muted, true))
+        statusCard.addView(label("Notificaciones desactivadas", 20f, amber, true))
+        statusCard.addView(label(
+            "El motor CRT H4 + MSS M15 continúa en evaluación. " +
+                "No existe conexión a precios reales ni Firebase STAGING aprobado.",
+            15f, Color.WHITE
+        ))
+        root.addView(statusCard, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = 22 })
+
+        root.addView(label("Preferencias de futura prueba", 19f, Color.WHITE, true).apply {
+            setPadding(0, 38, 0, 16)
+        })
+        val preview = label("", 14f, muted)
+        val choice = Switch(this).apply {
+            text = "Guardar interés en alertas futuras"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            isChecked = prefs.getBoolean(QaConsentGate.INTEREST_KEY, false)
+        }
+        fun refresh() {
+            val decision = QaConsentGate.evaluate(
+                interest = choice.isChecked,
+                buildEnabled = BuildConfig.STAGING_NOTIFICATIONS_ENABLED,
+                serverEnrollmentVerified = false,
+                tradingEngineCertified = false,
+                systemPermission = false
+            )
+            preview.text = when (decision.state) {
+                "NO_LOCAL_INTEREST" -> "Sin interés registrado. Ningún dato se transmite."
+                "QA_TRANSPORT_LOCKED" -> "Interés guardado solo en este teléfono. " +
+                    "No se ha solicitado permiso de notificaciones ni registrado Firebase."
+                else -> "Registro externo pendiente de autorización."
             }
-            view.addView(widget)
         }
-        label("QORE CRT ALERTS", 28f, Color.WHITE)
-        label("QA • Android", 15f, Color.rgb(154, 176, 197))
-        label("Notificaciones desactivadas", 20f, Color.rgb(250, 194, 105))
-        label("Motor CRT/MSS en laboratorio. Falta equivalencia con TradingView, " +
-              "proveedor de cotizaciones y Firebase autenticado. Sin señales operativas.",
-              16f, Color.WHITE)
-        label("34 instrumentos inventariados • feed pendiente", 13f,
-              Color.rgb(154, 176, 197))
-        setContentView(view)
+        choice.setOnCheckedChangeListener { _, enabled ->
+            // A local preference does not call FirebaseMessaging.getToken,
+            // enable auto-init, or request POST_NOTIFICATIONS.
+            if (prefs.edit().putBoolean(QaConsentGate.INTEREST_KEY, enabled).commit()) refresh()
+            else {
+                choice.isChecked = prefs.getBoolean(QaConsentGate.INTEREST_KEY, false)
+                refresh()
+            }
+        }
+        root.addView(choice)
+        root.addView(preview.apply { setPadding(0, 20, 0, 0) })
+        refresh()
+
+        val clear = Button(this).apply {
+            text = "Borrar mi preferencia local"
+            isAllCaps = false
+            setOnClickListener {
+                if (prefs.edit().remove(QaConsentGate.INTEREST_KEY).commit()) {
+                    choice.isChecked = false
+                    refresh()
+                }
+            }
+        }
+        root.addView(clear, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = 20 })
+
+        root.addView(label("Cobertura prevista: 34 instrumentos · feed pendiente", 13f, muted)
+            .apply { setPadding(0, 34, 0, 0) })
+        root.addView(label(
+            "Para habilitar cualquier entrega se requieren Firebase Auth/App Check " +
+                "verificados, permiso Android, fuente M5 autorizada y paridad real " +
+                "del indicador Pine. El usuario nunca autoriza señales con este interruptor.",
+            13f, muted
+        ))
+
+        val scroll = ScrollView(this).apply { isFillViewport = true }
+        scroll.addView(root)
+        setContentView(scroll)
     }
 }

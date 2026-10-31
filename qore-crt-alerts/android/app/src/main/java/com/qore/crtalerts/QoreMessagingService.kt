@@ -22,6 +22,19 @@ class QoreMessagingService : FirebaseMessagingService() {
             message.data, BuildConfig.STAGING_NOTIFICATIONS_ENABLED
         )
         if (!result.accepted) return
+        // Incoming FCM data never grants local consent, certification or
+        // authenticated server enrollment. Those are independent checks.
+        val interested = getSharedPreferences(QaConsentGate.PREFS, MODE_PRIVATE)
+            .getBoolean(QaConsentGate.INTEREST_KEY, false)
+        if (!QaConsentGate.evaluate(
+                interest = interested,
+                buildEnabled = BuildConfig.STAGING_NOTIFICATIONS_ENABLED,
+                serverEnrollmentVerified = false,
+                tradingEngineCertified = false,
+                systemPermission = if (Build.VERSION.SDK_INT >= 33)
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                        PackageManager.PERMISSION_GRANTED else true
+            ).canShowNotification) return
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) return
