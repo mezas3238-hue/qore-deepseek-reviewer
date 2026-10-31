@@ -1,0 +1,60 @@
+0241 |             curr_firstT := na
+0242 |             curr_lastEnd := na
+0243 |             curr_continuous := true
+0244 | 
+0245 |     // Pivot M5: calculo en la barra cerrada [1]; nunca es una barra futura.
+0246 |     float pH5 = ta.pivothigh(high, left5, right5)[1]
+0247 |     float pL5 = ta.pivotlow(low, left5, right5)[1]
+0248 |     var float lastHigh5 = na
+0249 |     var float lastLow5 = na
+0250 |     var int lastHigh5At = na
+0251 |     var int lastLow5At = na
+0252 | 
+0253 |     // Acumulador M15 sobre barras M5 completas.
+0254 |     var int m15Bucket = na
+0255 |     var float m15High = na
+0256 |     var float m15Low = na
+0257 |     var float m15Close = na
+0258 |     var int m15Count = 0
+0259 |     var int m15LastEnd = na
+0260 |     var int m15Start = na
+0261 |     var array<float> highs15 = array.new_float()
+0262 |     var array<float> lows15 = array.new_float()
+0263 |     var array<int> times15 = array.new_int()
+0264 |     var float lastHigh15 = na
+0265 |     var float lastLow15 = na
+0266 |     var int lastHigh15At = na
+0267 |     var int lastLow15At = na
+0268 |     var float prev15Close = na
+0269 | 
+0270 |     // H4 reconstruida desde datos de M5 del mismo proveedor.
+0271 |     var int h4Bucket = na
+0272 |     var float h4High = na
+0273 |     var float h4Low = na
+0274 |     var float h4Close = na
+0275 |     var int h4Count = 0
+0276 |     var int h4FirstT = na
+0277 |     var int h4LastEnd = na
+0278 |     // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+0279 |     var bool h4Continuous = true
+0280 | 
+0281 |     // C2 actual: puede coexistir con la C3 del CRT anterior.
+0282 |     // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+0283 |     var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+0284 | 
+0285 |     var bool c2Active = false
+0286 |     var int c2Start = na
+0287 |     var int c1Start2 = na
+0288 |     var float c1High2 = na
+0289 |     var float c1Low2 = na
+0290 |     var int c2Dir = 0
+0291 |     var bool c2StrictSweep = false
+0292 |     var bool c2Double = false
+0293 |     var bool c2Returned = false
+0294 |     var int c2SweepEnd = na
+0295 |     var float c2Pivot5 = na
+0296 |     var float c2Pivot15 = na
+0297 |     var int c2Pivot5At = na
+0298 |     var int c2Pivot15At = na
+0299 |     var int c2M5At = na
+0300 |     var int c2M15At = na
