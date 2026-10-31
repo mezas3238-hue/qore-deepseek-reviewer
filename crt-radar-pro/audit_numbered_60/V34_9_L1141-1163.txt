@@ -1,0 +1,23 @@
+1141 |                     table.cell(board,1,r,side+(st == 1 ? "*" : ""),bgcolor=rowbg,text_color=dirInk,text_size=size.tiny)
+1142 |                     int hFlag = array.get(pdhFlags,i)
+1143 |                     int lFlag = array.get(pdlFlags,i)
+1144 |                     table.cell(board,2,r,array.get(pdhTexts,i),bgcolor=rowbg,text_color=hFlag == 1 ? color.rgb(237,164,83) : hFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+1145 |                     table.cell(board,3,r,array.get(pdlTexts,i),bgcolor=rowbg,text_color=lFlag == 1 ? color.rgb(237,164,83) : lFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+1146 |                     table.cell(board,4,r,hasCRT and array.get(m5Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m5Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+1147 |                     table.cell(board,5,r,hasCRT and array.get(m15Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m15Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+1148 |                     shown += 1
+1149 |                 passed += 1
+1150 |         if shown == 0 and passed == 0
+1151 |             table.cell(board,0,2,"SIN OTROS CRT",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+1152 |         table.cell(board,0,13,"34 FEEDS",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1153 |         table.cell(board,1,13,"CRT:"+str.tostring(found),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1154 |         table.cell(board,2,13,"H:PDH",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1155 |         table.cell(board,3,13,"L:PDL",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1156 |         table.cell(board,4,13,"M5:"+str.tostring(with5),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+1157 |         table.cell(board,5,13,"M15:"+str.tostring(with15),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+1158 |         table.cell(board,0,14,"OK:"+str.tostring(checked)+" SD:"+str.tostring(missing),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1159 |         table.cell(board,1,14,"PAG "+str.tostring(page)+"/"+str.tostring(math.max(1,int(math.ceil(passed*1.0/othersOnPage)))),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1160 |         table.cell(board,2,14,"INT=Intacto",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1161 |         table.cell(board,3,14,"T=Tomado",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1162 |         table.cell(board,4,14,"PRE/OTR/C2/C3",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1163 |         table.cell(board,5,14,"* PROV",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
