@@ -24,7 +24,7 @@ BEGIN
    RAISE EXCEPTION 'QA_DEVICE_INVALID_OR_MISSING_CONSENT' USING ERRCODE='23514';
  END IF;
  IF p_expected_revision=0 THEN
-   INSERT INTO qore_crt_alerts.qa_device_registrations d
+   INSERT INTO qore_crt_alerts.qa_device_registrations AS d
     (handle,user_scope_hash,installation_hash,project_id,consented,active)
    VALUES (p_handle,p_user_hash,p_installation_hash,p_project_id,TRUE,TRUE)
    ON CONFLICT (handle) DO NOTHING
