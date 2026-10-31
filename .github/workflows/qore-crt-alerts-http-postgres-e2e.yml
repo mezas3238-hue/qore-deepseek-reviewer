@@ -1,0 +1,71 @@
+name: QORE CRT ALERTS HTTP to real PostgreSQL 16 QA (NO LIVE)
+on:
+  push:
+    branches:
+      - 'feature/qore-crt-alerts-*'
+    paths:
+      - 'qore-crt-alerts/sql/**'
+      - 'qore-crt-alerts/src/qa-device-http.mjs'
+      - 'qore-crt-alerts/src/pg-qa-device-registry.mjs'
+      - 'qore-crt-alerts/scripts/ci-postgres-http-e2e.mjs'
+      - '.github/workflows/qore-crt-alerts-http-postgres-e2e.yml'
+  pull_request:
+    paths:
+      - 'qore-crt-alerts/sql/**'
+      - 'qore-crt-alerts/src/qa-device-http.mjs'
+      - 'qore-crt-alerts/src/pg-qa-device-registry.mjs'
+      - 'qore-crt-alerts/scripts/ci-postgres-http-e2e.mjs'
+      - '.github/workflows/qore-crt-alerts-http-postgres-e2e.yml'
+permissions:
+  contents: read
+jobs:
+  qa-real-http-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: github_qa_only
+          POSTGRES_DB: crt_replay_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crt_replay_qa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: "127.0.0.1"
+      PGPORT: "5432"
+      PGUSER: "postgres"
+      PGPASSWORD: "github_qa_only"
+      PGDATABASE: "crt_replay_qa"
+      CRT_EPHEMERAL_CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install PostgreSQL client
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Create QA schema only in disposable PostgreSQL 16
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/001_quarantined_observations.sql
+          psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/002_qa_devices_blocked.sql
+          psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/003_qa_device_revision.sql
+          psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/004_ephemeral_http_role.sql
+      - name: Assert restricted RLS and deny trading observation privilege
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_ephemeral_http_role.sql
+      - name: Create disposable CI-only login (no superuser, no BYPASSRLS)
+        run: |
+          psql -v ON_ERROR_STOP=1 -c "CREATE ROLE qore_crt_http_test LOGIN PASSWORD 'github_qa_only' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE"
+          psql -v ON_ERROR_STOP=1 -c "GRANT qore_crt_http_qa TO qore_crt_http_test"
+      - name: Install isolated PostgreSQL test client (no app runtime dependency)
+        run: npm install --prefix qore-crt-alerts --no-save --no-package-lock --ignore-scripts pg@8
+      - name: Run actual HTTP > PG16 registration, CAS conflict and revocation
+        env:
+          PGUSER: "qore_crt_http_test"
+        run: node qore-crt-alerts/scripts/ci-postgres-http-e2e.mjs
