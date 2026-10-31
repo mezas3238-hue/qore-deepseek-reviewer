@@ -9,7 +9,7 @@ test("SOURCE: only a complete 15-minute candle can be processed",()=>{
  verify("bool fullM15 = m15Count == 3 and m15LastEnd == bucket15 and m15Start + MIN15 == m15LastEnd");
 });
 test("SOURCE: previous M15 must be temporally adjacent",()=>{
- verify("var int prev15End = na");
+ assert.ok(src.includes("var int prev15End = na"));
  verify("bool prev15Continuous = not na(prev15End) and prev15End == m15Start and not na(prev15Close)");
 });
 test("SOURCE: absence of prior close cannot trigger bullish or bearish cross",()=>{
