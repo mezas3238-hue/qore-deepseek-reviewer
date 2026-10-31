@@ -1,0 +1,20 @@
+DEEPSEEK — CRT RADAR PRO V34.9 OFICIAL DE DESARROLLO
+MÓDULO 5B — MITIGACIÓN E INVALIDACIÓN FVG H1/H4 (PROPUESTA, NO INTEGRAR)
+
+FUENTE OBLIGATORIA — V34.9 OFICIAL:
+https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/development/crt-radar-v34-9-m5a-integrated-20261031/crt-radar-pro/CRT_RADAR_PRO_V34_9_MODULO5A_INTEGRADO.pine
+
+MISIÓN: crear solo un PARCHE CANDIDATO para seguimiento de FVG H4/H1 internos. No reescribir motor, dashboard ni CRT; no tocar rama main, no merge, no producción.
+1. Reutilizar solo M5 cerradas desde f_engine(), sin llamadas nuevas request.security().
+2. FVG creado en cierre H1/H4 solo admite primera mitigación por M5 con inicio >= formedAt: no usar vela C3 ni historial anterior.
+3. Describir estados INTACTO, PARCIAL, LLENADO_TOTAL, INVALIDADO y DATOS_INCOMPLETOS; NO confundir mitigación con invalidación. Definir umbral de contacto por mecha y propuesta de invalidación opcional por cierre.
+4. FVG alcista: zona [bottom,top]; primer contacto cuando low de M5 posterior <= top. FVG bajista: primer contacto cuando high >= bottom. Guardar primer touchedAt.
+5. Mantener porcentaje de mitigación en [0,1] usando extremo adverso observado DESPUÉS de formedAt; gestionar no-lookahead, doble procesamiento e IDs estables.
+6. Si faltan M5, informar DATA_GAP o incertidumbre. No asumir mitigación invisible.
+7. Independencia de 34 instrumentos, arrays limitados a 10 por TF y FVG H1/H4 separados.
+8. Mantener intactos CRT H4, Inside Bar, MSS M5/M15, PDH/PDL, dashboard 6 columnas y alertas. No imponer FVG como requisito CRT.
+9. No dibujar cajas/lineas FVG, no implementar aun FVG M15/M5 ni IFVG.
+10. Entregar UDT/campos nuevos estrictamente necesarios, parche minimo con ubicaciones exactas, 12 casos teóricos reproducibles (distinción pruebas no ejecutadas), impacto de rendimiento y riesgos.
+11. No afirmar compilación TradingView sin ejecución real.
+
+El propietario deberá autorizar expresamente cualquier integración V34.10.
