@@ -29,3 +29,15 @@ firebase_messaging_auto_init_enabled and firebase_analytics_collection_enabled.
 Firebase current documentation recommends both values false when requiring
 explicit consent before FID registration. Android QA has no permission UI,
 and cannot enable Firebase registration while build flag remains locked.
+
+## Local interest UI, not a push-registration flow
+
+The Android QA launcher displays the OFFLINE status and permits recording a
+local-only preference for future alerts. The user may erase that preference.
+This action never requests Android notification permission, initializes
+Firebase, uploads an FID/token, enrolls a device, or enables delivery.
+
+QaConsentGate requires: local interest, approved build, server-verified
+enrollment, verified Pine parity and Android permission. In this QA build,
+the compile-time flag and receiver's server/Pine gates remain FALSE.
+Kotlin tests verify the actual generated BuildConfig flag.
