@@ -59,10 +59,13 @@ delivery. Android QA intentionally rejects all notifications by build flag.
 - src/notification-preview.mjs: deterministic backend-to-Android
   envelope for a quarantined observation; OFFLINE_REPLAY, certified=false,
   transport DISABLED, never includes an FCM token or send operation.
-- android/: isolated Kotlin native Android QA launcher, FirebaseMessagingService
-  and strict payload validation. The Gradle build hardcodes
-  STAGING_NOTIFICATIONS_ENABLED=false. No google-services.json and no token
-  registration; source code is not a certified installed app.
+- android/: native Kotlin Android QA launcher with a local-only future
+  interest preference, erase control, FirebaseMessagingService, strict
+  payload validation and independent consent/enrollment/Pine/permission
+  gates. The Gradle build hardcodes STAGING_NOTIFICATIONS_ENABLED=false.
+  No request for Android notification permission, no google-services.json,
+  no Firebase auto-initialization, device registration, or actual delivery.
+  Local preference does NOT authorize signals.
 - src/signal-gate.mjs: only a ratified CRT and same-cycle M15 MSS form an
   offline replay confluence; M5 is optional context, never its substitute.
   All results enforce actionable:false and sendPush:false when present.
@@ -125,3 +128,13 @@ conflicting OHLC rejection, revision-based rotation and revocation. See .github/
 - PostgreSQL adapter: docs/PG_DEVICE_REGISTRY.md
 
 No real device, Firebase project or market feed was accessed.
+
+## Android QA latest evidence
+
+- Android source UI + QaConsentGate Android test matrix: GitHub Actions
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41241227126
+  (successful compilation of the first QA UI revision).
+- Further integration tests for the actual compiled delivery-disabled flag
+  were added in QaNotificationPipelineTest.kt and require GitHub CI PASS.
+- No actual Android permission request, Firebase registration, or notification
+  delivery is implemented at this stage. Status UI is offline-only.
