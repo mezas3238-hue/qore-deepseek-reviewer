@@ -1,0 +1,60 @@
+0121 |     bool pdlSweptDuringCRT
+0122 | 
+0123 | // M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
+0124 | // M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
+0125 | type InsideCandidate
+0126 |     string id
+0127 |     int c1Start
+0128 |     float c1High
+0129 |     float c1Low
+0130 |     float c2High
+0131 |     float c2Low
+0132 |     int c2End
+0133 |     int sweepAt          // Cierre de la primera M5 que observo la barrida
+0134 |     int sweepH4Start     // H4 que contiene la primera barrida observada
+0135 |     int sweepDir         // +1: minimo C2, -1: maximo C2; 0: doble
+0136 |     bool sweptLow        // Conserva barridas ocurridas en distintas M5 de la misma H4
+0137 |     bool sweptHigh
+0138 |     string state        // SEEKING/SWEPT/AMBIGUOUS/RATIFIED/CONTINUATION/UNRESOLVED/DATA_GAP
+0139 |     string modelKind    // Modelo diagnostico: Inside Return/Continuation
+0140 |     bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+0141 |     int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+0142 | 
+0143 | // En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+0144 | // UNA peticion request.security por activo en vez de tres peticiones.
+0145 | f_engine() =>
+0146 |     bool isIndex = f_index()
+0147 |     int barT = time[1]
+0148 |     int barEnd = time_close[1]
+0149 |     float bH = high[1]
+0150 |     float bL = low[1]
+0151 |     float bC = close[1]
+0152 |     float prevClose = close[2]
+0153 | 
+0154 |     // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
+0155 |     // prev_valid solo significa que la ULTIMA sesion finalizada paso control
+0156 |     // de calidad; no se reutiliza silenciosamente un nivel de hace dias.
+0157 |     var float curr_H = na
+0158 |     var float curr_L = na
+0159 |     var int curr_sess_id = na
+0160 |     var int curr_m5_count = 0
+0161 |     var int curr_firstT = na
+0162 |     var int curr_lastEnd = na
+0163 |     var bool curr_continuous = true
+0164 |     var float prev_PDH = na
+0165 |     var float prev_PDL = na
+0166 |     var bool prev_valid = false
+0167 |     var int prev_timestamp = na
+0168 |     var int prev_sess_id = na
+0169 |     // M4B: el ID del nivel es su fecha de confirmacion 4A.
+0170 |     // No se consulta curr_sess_id[1] ni se reevalua una vela incompleta.
+0171 |     var int liquidityRefAt = na
+0172 |     var bool pdhTaken = false
+0173 |     var bool pdlTaken = false
+0174 |     var int pdhSweepAt = na
+0175 |     var int pdlSweepAt = na
+0176 |     var int pdhSweepStage = 0
+0177 |     var int pdlSweepStage = 0
+0178 |     var int pdhSweepC1 = na
+0179 |     var int pdlSweepC1 = na
+0180 | 
