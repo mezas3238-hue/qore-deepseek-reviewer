@@ -23,6 +23,14 @@ market feed, database connection, Railway deployment, FCM, or Android applicatio
   An M5 cross on the same sweep candle is prohibited.
 - src/replay-cycle.mjs: offline integration from the same M5 closed bars through
   H4/M15, CRT, both MSS detectors and the confluence decision.
+- src/closed-m5-ingestion.mjs: one-source offline M5 intake with explicit
+  instrument/provider mapping, closed-candle finality, duplicate/gap
+  quarantine and fail-closed bounded memory. No live feed connection.
+- src/observation-ledger.mjs: immutable replay-only confluence records,
+  deterministic fingerprint, deduplication and conflicting-OHLC hold.
+- sql/001_quarantined_observations.sql: UNAPPLIED staging proposal for
+  PostgreSQL 16+ with RLS deny-by-default, blocked delivery state, and
+  a private idempotent function rejecting divergent evidence.
 - src/parity-audit.mjs: exact 12-field Pine QA Data Window comparison
   with M5 SHA-256 integrity, strict source identity and fail-closed
   missing/mismatched evidence; never calls itself certified.
@@ -36,8 +44,11 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **86/86 offline tests PASS**.
+Evidence as of 31 Oct 2026: **113/113 offline tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
+An additional GitHub Actions job uses a disposable PostgreSQL 16 container,
+NOT a real Supabase instance, to test the schema, RLS, deduplication and
+conflicting OHLC rejection. See .github/workflows/qore-crt-alerts-postgres-offline.yml.
 
 ## Important restrictions
 
@@ -61,7 +72,9 @@ Tests are fixture-based and do NOT compile Pine or establish runtime equivalence
    Compare using the strict offline runner (instructions:
    docs/PINE_PARITY_CAPTURE.md). A passing synthetic test is NOT Pine parity.
 3. Finish FVG/PDH/PDL contextual modules without making them CRT filters.
-4. Add a persistent outbox with replay-safe identifiers, database, API,
-   FCM and an actual Android client in a staging-only deployment.
+4. Connect this quarantined event model to an explicitly approved staging
+   PostgreSQL instance with credentials, audit and transactional retry. A
+   real persistent outbox, API, FCM, delivery service and Android client
+   remain unimplemented and must not be silently enabled.
 5. Execute physical-device E2E and real TradingView compilation before
    declaring the products certified.
