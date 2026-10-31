@@ -1,0 +1,60 @@
+0961 | int found = 0
+0962 | int with5 = 0
+0963 | int with15 = 0
+0964 | int missing = 0
+0965 | int checked = 0
+0966 | string alertsNow = ""
+0967 | 
+0968 | for i = 0 to 33
+0969 |     string symbol = array.get(scanSymbols, i)
+0970 |     // El UDT cuenta como un campo de retorno, evita 34*12 campos de tupla.
+0971 |     Signal s = request.security(symbol, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+0972 |     bool available = not na(s) and not na(s.phase)
+0973 |     int st = available ? s.phase : 0
+0974 |     int dr = available ? s.direction : 0
+0975 |     int id = available and not na(s.c1Start) ? s.c1Start : 0
+0976 |     int m5t = available and not na(s.m5At) ? s.m5At : 0
+0977 |     int m15t = available and not na(s.m15At) ? s.m15At : 0
+0978 |     array.set(statuses, i, st)
+0979 |     array.set(directions, i, dr)
+0980 |     array.set(c1IDs, i, id)
+0981 |     array.set(m5Flags, i, m5t > 0 ? 1 : 0)
+0982 |     array.set(m15Flags, i, m15t > 0 ? 1 : 0)
+0983 |     array.set(m5Times, i, m5t)
+0984 |     array.set(m15Times, i, m15t)
+0985 |     string hStatus = available ? s.pdhStatus : "N/D"
+0986 |     string lStatus = available ? s.pdlStatus : "N/D"
+0987 |     array.set(pdhFlags, i, hStatus == "N/D" ? -1 : hStatus == "TAKEN" ? 1 : 0)
+0988 |     array.set(pdlFlags, i, lStatus == "N/D" ? -1 : lStatus == "TAKEN" ? 1 : 0)
+0989 |     array.set(pdhTexts, i, available ? f_liqText(hStatus, s.pdhSweepAt, s.pdhSweepStage, s.pdhSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+0990 |     array.set(pdlTexts, i, available ? f_liqText(lStatus, s.pdlSweepAt, s.pdlSweepStage, s.pdlSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+0991 |     if not available
+0992 |         missing += 1
+0993 |     else
+0994 |         checked += 1
+0995 |     if st > 0
+0996 |         found += 1
+0997 |         if m5t > 0
+0998 |             with5 += 1
+0999 |         if m15t > 0
+1000 |             with15 += 1
+1001 |         bool alert5 = m5t > 0 and array.get(alert5IDs, i) != id and timenow >= m5t and timenow - m5t <= 300000
+1002 |         bool alert15 = m15t > 0 and array.get(alert15IDs, i) != id and timenow >= m15t and timenow - m15t <= 300000
+1003 |         if useAlerts and barstate.isrealtime and alert5
+1004 |             alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M5 | "
+1005 |             array.set(alert5IDs, i, id)
+1006 |         if useAlerts and barstate.isrealtime and alert15
+1007 |             alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M15 | "
+1008 |             array.set(alert15IDs, i, id)
+1009 | 
+1010 | if str.length(alertsNow) > 0
+1011 |     alert("CRT+MSS " + alertsNow, alert.freq_once_per_bar)
+1012 | 
+1013 | // ---- Grafico: 35a solicitud total, independiente de los 34 feeds ----
+1014 | Signal own = request.security(syminfo.tickerid, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+1015 | // El simbolo abierto NUNCA se ignora: se calcula aunque no pertenezca a
+1016 | // los 34 feeds. Si ya existe con el mismo proveedor, no se muestra duplicado.
+1017 | string ownStd = ticker.standard(syminfo.tickerid)
+1018 | bool chartInScan = false
+1019 | for i = 0 to 33
+1020 |     if ticker.standard(array.get(scanSymbols, i)) == ownStd
