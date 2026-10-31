@@ -1,0 +1,60 @@
+0001 | //@version=6
+0002 | indicator("CRT + MSS M5/M15 | SCAN H4 CONTINUO v34.9 M5A CANDIDATO NO INTEGRADO", shorttitle="CRT MSS 34.9c", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+0003 | 
+0004 | // MODULO 5A CANDIDATO: deteccion interna FVG H1/H4, pendiente autorizacion.
+0005 | // MODULO 4B INTEGRADO (AUTORIZADO): estado PDH/PDL, primera barrida y dashboard 6 columnas.
+0006 | // MODULO 4A AUTORIZADO: PDH/PDL NY usando M5 cerradas; niveles internos, sin senales.
+0007 | // MODULO 3B.3B AUTORIZADO: expiracion y prioridad Inside Bar, sin cambiar MSS/dashboard.
+0008 | // MODULO 2B AUTORIZADO: CRT_2C_RETURN estructural y CRT_2C_EXPANSION solo diagnostico.
+0009 | // MODULO 1 APROBADO: CONTROL DE CONTINUIDAD DE VELAS M5 EN H4.
+0010 | // V34.1 AUDITORIA: correcciones de invalidacion C3 H4 y prioridad de candidatos.
+0011 | // PARCHE ESTATICO. Compilacion/ejecucion TradingView pendiente.
+0012 | // V34 - CAMBIO CRITICO: TODAS LAS H4 del ciclo NY se analizan como C1.
+0013 | // No se filtra por tres inicios predefinidos: FX 01/05/09/13/17/21,
+0014 | // indices 02/06/10/14/18/22. Sigue existiendo modo estricto opcional.
+0015 | // CRT provisional en C2, ratificado SOLO con cierre H4 de C2 dentro C1.
+0016 | // MSS M5 y M15 independientes y asociados a la barrida del mismo ciclo.
+0017 | // Analizar cada vela H4 no equivale a validar cualquier vela como CRT.
+0018 | // V34 no ha sido compilada dentro de Pine Editor: validacion real pendiente.
+0019 | // V32 30-OCT-2026: reparar visibilidad del activo abierto y CRT H4
+0020 | // Detectar durante C2, diferenciar provisional (*) de ratificado y
+0021 | // conservar el ultimo CRT confirmado por ventana parametrizable.
+0022 | // El grafico abierto va SIEMPRE primero, aun si esta en la pagina 4/5.
+0023 | // IMPORTANTE: motor independiente. No copia el Pine cerrado de GoldForexDoc.
+0024 | // V31: SCAN de 34 simbolos configurables + grafico abierto independiente.
+0025 | // Todos usan el MISMO f_engine() y la MISMA fuente M5; sin exclusiones de pares.
+0026 | // Dashboard seleccionable: solo CRT o auditoria de todos los simbolos por pagina.
+0027 | // NO garantiza vigilar todo el universo TradingView: los limites de peticiones aplican.
+0028 | // V30: motor original implementado a partir de las REGLAS PUBLICADAS, NO es una copia
+0029 | // exacta de los codigos de GoldForexDoc ni swordNshield.
+0030 | // UN motor por simbolo en M5: agrega C1/C2/C3 H4 y MSS M15, preservando MSS M5.
+0031 | // V34: se observan TODAS las H4 del ciclo NY; 3 origenes es modo opcional.
+0032 | // C2 barre UN limite de C1; regresa a C1 y debe CERRAR dentro. C3 expande.
+0033 | // MSS = cierre que cruza swing confirmado ANTES de la barrida C2.
+0034 | // Las confirmaciones M5/M15 del mismo CRT y direccion quedan latched.
+0035 | // No usa barstate.isconfirmed dentro de request.security: analiza M5 [1] CERRADA.
+0036 | // Mostrar solo CRT actual y sus dos niveles; sin marcas historicas BT-H4.
+0037 | // En M15 y H4, request.security(..., "5") entrega un ESTADO calculado en M5
+0038 | // pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
+0039 | 
+0040 | string TZ = "America/New_York"
+0041 | int MIN5 = 300000
+0042 | int MIN15 = 900000
+0043 | int H4MS = 14400000
+0044 | 
+0045 | string grp = "01 / Logica CRT"
+0046 | idxList = input.string("NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!", "Indices por ticker (CSV)", group=grp)
+0047 | scheduleMode = input.string("Todas las H4 NY", "Escaneo C1", options=["Todas las H4 NY", "Solo C1 de tres horarios NY"], group=grp, tooltip="Por defecto todas las H4: FX 01/05/09/13/17/21; indices 02/06/10/14/18/22. El modo de 3 horas es solo comparativo.")
+0048 | allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group=grp, tooltip="Los toques exactos se muestran PROVISIONALES; el cierre H4 de C2 dentro de C1 es obligatorio para ratificar. Desactivar para exigir barrida estricta.")
+0049 | minBarsC1 = input.int(25, "Minimo de velas M5 en C1", minval=5, maxval=48, group=grp)
+0050 | minBarsC2 = input.int(25, "Minimo de velas M5 en C2", minval=5, maxval=48, group=grp)
+0051 | showCandidate = input.bool(true, "Mostrar CRT C2 provisional (con *)", group=grp)
+0052 | showAtSweep = input.bool(true, "Mostrar barrida C2 antes del retorno (provisional *)", group=grp, tooltip="El toque del rango H4 no es confirmacion CRT; se identifica con * y no se le asignan MSS futuros. Debe retornar al rango para ratificarse.")
+0053 | keepLastCRT = input.bool(false, "Conservar ultimo CRT ratificado (solo historial)", group=grp)
+0054 | keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, group=grp)
+0055 | // M3B.3B: vigencia en H4 de negociacion cerradas y verificadas.
+0056 | maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
+0057 | 
+0058 | string grp2 = "02 / MSS M5 y M15"
+0059 | left5 = input.int(2, "M5 swing izquierdo", minval=1, maxval=7, group=grp2)
+0060 | right5 = input.int(2, "M5 swing derecho", minval=1, maxval=7, group=grp2)
