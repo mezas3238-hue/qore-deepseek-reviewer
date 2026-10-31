@@ -1,0 +1,60 @@
+0481 |                 for ageI = 0 to array.size(insideCandidates) - 1
+0482 |                     InsideCandidate ageCand = array.get(insideCandidates, ageI)
+0483 |                     bool awaiting = ageCand.state == "SEEKING" or ageCand.state == "SWEPT"
+0484 |                     bool eligibleH4 = h4Bucket >= ageCand.c2End
+0485 |                     if awaiting and eligibleH4
+0486 |                         if not h4Continuous
+0487 |                             // Hay velas M5 en esta H4 pero falta continuidad interna.
+0488 |                             ageCand.state := "DATA_GAP"
+0489 |                             ageCand.isPatternValid := false
+0490 |                         else if insideH4Closed
+0491 |                             if ageCand.state == "SEEKING" and (h4Close < ageCand.c1Low or h4Close > ageCand.c1High)
+0492 |                                 ageCand.state := "INVALIDATED"
+0493 |                                 ageCand.isPatternValid := false
+0494 |                             else
+0495 |                                 ageCand.h4Life += 1
+0496 |                                 if ageCand.h4Life >= maxH4Life
+0497 |                                     ageCand.state := "EXPIRED"
+0498 |                                     ageCand.isPatternValid := false
+0499 |             // Los estados RATIFIED/CONTINUATION/AMBIGUOUS/UNRESOLVED son
+0500 |             // terminales: no se reactivan ni consumen mas vida H4.
+0501 | 
+0502 |             // C2 pasa a C3 solo cuando la H4 de C2 CIERRA dentro de C1.
+0503 |             bool c2Done = c2Active and c2Start == h4Bucket
+0504 |             if c2Done
+0505 |                 bool inside = h4Close >= c1Low2 and h4Close <= c1High2
+0506 |                 // El modulo 1 permanece OBLIGATORIO para cualquier clasificacion.
+0507 |                 bool validC2Data = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC2
+0508 |                 // M3B.1: C2 estrictamente interior a C1 al cierre H4 real.
+0509 |                 // No ratifica Inside, no altera C2-sweep, MSS ni dashboard.
+0510 |                 bool strictH4Inside = validC2Data and h4High < c1High2 and h4Low > c1Low2
+0511 |                 if strictH4Inside
+0512 |                     string insideId = syminfo.tickerid + "|" + str.tostring(c1Start2) + "|INSIDE"
+0513 |                     bool alreadyStored = false
+0514 |                     int candidateCount = array.size(insideCandidates)
+0515 |                     if candidateCount > 0
+0516 |                         for j = 0 to candidateCount - 1
+0517 |                             InsideCandidate existing = array.get(insideCandidates, j)
+0518 |                             if existing.id == insideId
+0519 |                                 alreadyStored := true
+0520 |                                 break
+0521 |                     if not alreadyStored
+0522 |                         InsideCandidate cand = InsideCandidate.new(insideId, c1Start2, c1High2, c1Low2, h4High, h4Low, bucketH4, na, na, 0, false, false, "SEEKING", "NONE", false, 0)
+0523 |                         // Una memoria llena descarta primero terminales sin
+0524 |                         // ratificacion, despues SEEKING, SWEPT y finalmente
+0525 |                         // el RATIFIED mas antiguo si todos son importantes.
+0526 |                         if array.size(insideCandidates) >= 10
+0527 |                             int dropIdx = na
+0528 |                             for tier = 0 to 3
+0529 |                                 if na(dropIdx)
+0530 |                                     for mi = 0 to array.size(insideCandidates) - 1
+0531 |                                         string st = array.get(insideCandidates, mi).state
+0532 |                                         bool discardable = tier == 0 ? (st == "EXPIRED" or st == "INVALIDATED" or st == "DATA_GAP" or st == "AMBIGUOUS" or st == "UNRESOLVED" or st == "CONTINUATION") : tier == 1 ? st == "SEEKING" : tier == 2 ? st == "SWEPT" : st == "RATIFIED"
+0533 |                                         if discardable
+0534 |                                             dropIdx := mi
+0535 |                                             break
+0536 |                             array.remove(insideCandidates, na(dropIdx) ? 0 : dropIdx)
+0537 |                         array.push(insideCandidates, cand)
+0538 |                 bool strictSingleSweep = c2Dir != 0 and c2StrictSweep and not c2Double
+0539 |                 bool expansionBull = c2Dir == 1 and h4Close < c1Low2
+0540 |                 bool expansionBear = c2Dir == -1 and h4Close > c1High2
