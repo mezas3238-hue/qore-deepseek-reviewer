@@ -1,0 +1,60 @@
+0121 |     bool pdhSweptDuringCRT
+0122 |     bool pdlSweptDuringCRT
+0123 | 
+0124 | // M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
+0125 | // M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
+0126 | type InsideCandidate
+0127 |     string id
+0128 |     int c1Start
+0129 |     float c1High
+0130 |     float c1Low
+0131 |     float c2High
+0132 |     float c2Low
+0133 |     int c2End
+0134 |     int sweepAt          // Cierre de la primera M5 que observo la barrida
+0135 |     int sweepH4Start     // H4 que contiene la primera barrida observada
+0136 |     int sweepDir         // +1: minimo C2, -1: maximo C2; 0: doble
+0137 |     bool sweptLow        // Conserva barridas ocurridas en distintas M5 de la misma H4
+0138 |     bool sweptHigh
+0139 |     string state        // SEEKING/SWEPT/AMBIGUOUS/RATIFIED/CONTINUATION/UNRESOLVED/DATA_GAP
+0140 |     string modelKind    // Modelo diagnostico: Inside Return/Continuation
+0141 |     bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+0142 |     int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+0143 | 
+0144 | // M5A CANDIDATO NO INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
+0145 | // Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
+0146 | type FvgBar
+0147 |     int startAt
+0148 |     int endAt
+0149 |     float hi
+0150 |     float lo
+0151 |     bool valid
+0152 | 
+0153 | type FvgContext
+0154 |     string id
+0155 |     string tf
+0156 |     int dir
+0157 |     float top
+0158 |     float bottom
+0159 |     int formedAt
+0160 |     string state
+0161 |     int linkedCrt
+0162 | 
+0163 | // Funciones Pine deben definirse en el ambito global.
+0164 | f_add_context_fvg(array<FvgContext> store, string tf, int dir, float top, float bottom, int formedAt) =>
+0165 |     string k = syminfo.tickerid + "|" + tf + "|" + str.tostring(formedAt) + "|" + str.tostring(dir)
+0166 |     bool exists = false
+0167 |     if array.size(store) > 0
+0168 |         for z = 0 to array.size(store) - 1
+0169 |             if array.get(store, z).id == k
+0170 |                 exists := true
+0171 |                 break
+0172 |     if not exists
+0173 |         array.push(store, FvgContext.new(k, tf, dir, top, bottom, formedAt, "INTACTO", na))
+0174 |         if array.size(store) > 10
+0175 |             array.shift(store)
+0176 |     not exists
+0177 | 
+0178 | // En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+0179 | // UNA peticion request.security por activo en vez de tres peticiones.
+0180 | f_engine() =>
