@@ -1,0 +1,60 @@
+0421 | 
+0422 |     // ---- CERRAR H4 ANTERIOR Y ABRIR NUEVA ----
+0423 |     if not na(barT) and not na(bucketH4)
+0424 |         bool nextH4 = not na(h4Bucket) and bucketH4 != h4Bucket
+0425 |         if nextH4
+0426 |             // C3 solo se invalida por el CIERRE de su H4, NO por cierre M5.
+0427 |             // La mecha o un cierre intrabar M5 que atraviese el extremo de C2
+0428 |             // no revocan el CRT cuando la C3 H4 finalmente cierra recuperada.
+0429 |             if c3Active and c3Start == h4Bucket
+0430 |                 bool validC3Close = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC2
+0431 |                 bool invalidAtC3Close = validC3Close and not na(c3Invalidation) and (c3Dir == 1 ? h4Close < c3Invalidation : h4Close > c3Invalidation)
+0432 |                 if invalidAtC3Close and lastC1 == c1Start3
+0433 |                     lastConfirmedAt := na
+0434 |                     lastM5 := na
+0435 |                     lastM15 := na
+0436 |                     lastModelKind := "NONE"
+0437 |                     lastPatternValid := false
+0438 |                     lastModelC1 := na
+0439 |                 c3Active := false
+0440 |                 c3ModelKind := "NONE"
+0441 |                 c3PatternValid := false
+0442 |                 c3ModelC1 := na
+0443 |                 c3C2Start := na
+0444 | 
+0445 |             // M3B.2 INTEGRADO: clasificar solo al cierre H4 de la manipulacion.
+0446 |             // Una barrida M5 no equivale por si sola a un CRT ratificado.
+0447 |             if array.size(insideCandidates) > 0
+0448 |                 for ic = 0 to array.size(insideCandidates) - 1
+0449 |                     InsideCandidate cand = array.get(insideCandidates, ic)
+0450 |                     bool closesSweepH4 = not na(cand.sweepH4Start) and cand.sweepH4Start == h4Bucket
+0451 |                     if closesSweepH4 and (cand.state == "SWEPT" or cand.state == "AMBIGUOUS")
+0452 |                         bool closedH4Complete = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC2
+0453 |                         if not closedH4Complete
+0454 |                             cand.state := "DATA_GAP"
+0455 |                             cand.isPatternValid := false
+0456 |                         else if cand.state == "AMBIGUOUS" or (cand.sweptLow and cand.sweptHigh)
+0457 |                             cand.state := "AMBIGUOUS"
+0458 |                             cand.modelKind := "NONE"
+0459 |                             cand.isPatternValid := false
+0460 |                         else
+0461 |                             bool returnC2 = h4Close >= cand.c2Low and h4Close <= cand.c2High
+0462 |                             if returnC2
+0463 |                                 cand.state := "RATIFIED"
+0464 |                                 cand.modelKind := cand.sweepDir == 1 ? "INSIDE_RETURN_BULL" : "INSIDE_RETURN_BEAR"
+0465 |                                 cand.isPatternValid := true
+0466 |                             else if h4Close < cand.c1Low or h4Close > cand.c1High
+0467 |                                 cand.state := "CONTINUATION"
+0468 |                                 cand.modelKind := h4Close < cand.c1Low ? "INSIDE_CONTINUATION_DOWN" : "INSIDE_CONTINUATION_UP"
+0469 |                                 cand.isPatternValid := false // Experimental, sin entradas
+0470 |                             else
+0471 |                                 // Cierra dentro de C1 pero fuera de C2: sin clasificacion final.
+0472 |                                 cand.state := "UNRESOLVED"
+0473 |                                 cand.modelKind := "NONE"
+0474 |                                 cand.isPatternValid := false
+0475 | 
+0476 |             // ---- M3B.3B: EXPIRACION Y GAPS (DESPUES de clasificar 3B.2) ----
+0477 |             // No confundir una pausa normal entre sesiones con un hueco M5
+0478 |             // interno. Contamos cierres H4 verificados, no tiempo UTC / 4h.
+0479 |             bool insideH4Closed = h4Continuous and h4FirstT == h4Bucket and h4Count >= minBarsC2 and (h4LastEnd == bucketH4 or h4LastEnd == h4Bucket + H4MS)
+0480 |             if array.size(insideCandidates) > 0
