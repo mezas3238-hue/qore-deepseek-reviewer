@@ -46,9 +46,56 @@ BEGIN
     NULL;
   END;
 END $$;
+
+-- Check staged function idempotency and divergent evidence handling, not just
+-- the table's primary-key uniqueness. A conflict must never disappear silently.
+DO $body$
+DECLARE p JSONB;
+DECLARE changed JSONB;
+DECLARE outcome TEXT;
+BEGIN
+  p:=jsonb_build_object(
+    'eventKey','FIXTURE|EURUSD|1000|1|MSS_M15|900001',
+    'fingerprint',repeat('c',64),'sourceId','fixture',
+    'provider','TEST_FIXTURE','instrumentId','EURUSD','family','forex',
+    'c1StartMs',1000,'mssM15AtMs',900001,'ohlcSha256',repeat('d',64),
+    'mssM5AtMs',NULL,'status','QUARANTINED_REPLAY',
+    'deliveryState','BLOCKED_NOT_CERTIFIED','actionable',FALSE,'sendPush',FALSE);
+  outcome:=qore_crt_alerts.stage_replay_observation(p);
+  IF outcome<>'QUARANTINED_RECORDED' THEN
+    RAISE EXCEPTION 'staging did not record a new replay observation';
+  END IF;
+  outcome:=qore_crt_alerts.stage_replay_observation(p);
+  IF outcome<>'DUPLICATE_IGNORED' THEN
+    RAISE EXCEPTION 'staging did not deduplicate exact same record';
+  END IF;
+  changed:=jsonb_set(p,'{ohlcSha256}',to_jsonb(repeat('e',64)));
+  BEGIN
+    PERFORM qore_crt_alerts.stage_replay_observation(changed);
+    RAISE EXCEPTION 'divergent OHLC was silently discarded';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+  changed:=jsonb_set(p,'{sendPush}','true'::jsonb);
+  BEGIN
+    PERFORM qore_crt_alerts.stage_replay_observation(changed);
+    RAISE EXCEPTION 'push authorization was accepted in replay table';
+  EXCEPTION WHEN check_violation THEN NULL;
+  END;
+END $body$;
+
 -- Explicit RLS denies all table rows and INSERT even when privileges granted.
 SET ROLE qore_crt_untrusted;
-DO $$
+-- Even an ordinary role with table privileges cannot call the private write
+-- function. This is an explicit deny-by-default security property.
+DO $blocked$
+BEGIN
+  BEGIN
+    PERFORM qore_crt_alerts.stage_replay_observation('{}'::jsonb);
+    RAISE EXCEPTION 'untrusted function invocation succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
+END $blocked$;
+DO $
 DECLARE n bigint;
 BEGIN
   SELECT count(*) INTO n FROM qore_crt_alerts.replay_observations;
