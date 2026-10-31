@@ -1,0 +1,47 @@
+name: QORE CRT ALERTS isolated PostgreSQL replay ledger
+on:
+  push:
+    paths:
+      - "qore-crt-alerts/sql/**"
+      - "qore-crt-alerts/src/observation-ledger.mjs"
+      - "qore-crt-alerts/test/observation-ledger.test.mjs"
+      - ".github/workflows/qore-crt-alerts-postgres-offline.yml"
+  pull_request:
+    paths:
+      - "qore-crt-alerts/sql/**"
+      - "qore-crt-alerts/src/observation-ledger.mjs"
+      - "qore-crt-alerts/test/observation-ledger.test.mjs"
+      - ".github/workflows/qore-crt-alerts-postgres-offline.yml"
+permissions:
+  contents: read
+jobs:
+  ephemeral-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: github_qa_only
+          POSTGRES_DB: crt_replay_qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d crt_replay_qa"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: github_qa_only
+      PGDATABASE: crt_replay_qa
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql only on ephemeral CI worker
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+      - name: Apply schema to temporary CI PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/001_quarantined_observations.sql
+      - name: Test replay dedup, immutable states and RLS in PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_quarantined_observations.sql
