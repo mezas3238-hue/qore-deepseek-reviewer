@@ -1,0 +1,41 @@
+0101 | +            h1Prev := FvgBar.new(h1Bucket, h1LastEnd, h1High, h1Low, fullH1)
+0102 | +            h1Bucket := bucketH1
+0103 | +            h1FirstT := barT
+0104 | +            h1LastEnd := barEnd
+0105 | +            h1High := bH
+0106 | +            h1Low := bL
+0107 | +            h1Count := 1
+0108 | +            h1Continuous := true
+0109 | +        else if na(h1Bucket)
+0110 | +            h1Bucket := bucketH1
+0111 | +            h1FirstT := barT
+0112 | +            h1LastEnd := barEnd
+0113 | +            h1High := bH
+0114 | +            h1Low := bL
+0115 | +            h1Count := 1
+0116 | +            h1Continuous := true
+0117 | +        else
+0118 | +            h1Continuous := h1Continuous and barT == h1LastEnd
+0119 | +            h1High := math.max(h1High, bH)
+0120 | +            h1Low := math.min(h1Low, bL)
+0121 | +            h1Count += 1
+0122 | +            h1LastEnd := barEnd
+0123 | +
+0124 |      // ---- CERRAR H4 ANTERIOR Y ABRIR NUEVA ----
+0125 |      if not na(barT) and not na(bucketH4)
+0126 |          bool nextH4 = not na(h4Bucket) and bucketH4 != h4Bucket
+0127 |          if nextH4
+0128 | +            // M5A: Tres H4 completas consecutivas, sin conectar gaps de mercado.
+0129 | +            bool fullH4 = h4Continuous and h4Count == 48 and h4FirstT == h4Bucket and h4LastEnd == h4Bucket + H4MS
+0130 | +            if fullH4 and not na(h4Prev) and not na(h4Prev2)
+0131 | +                bool chainH4 = h4Prev.valid and h4Prev2.valid and h4Prev2.endAt == h4Prev.startAt and h4Prev.endAt == h4Bucket
+0132 | +                if chainH4
+0133 | +                    if h4Low > h4Prev2.hi
+0134 | +                        f_add_context_fvg(fvgsH4, "H4", 1, h4Low, h4Prev2.hi, h4LastEnd)
+0135 | +                    else if h4High < h4Prev2.lo
+0136 | +                        f_add_context_fvg(fvgsH4, "H4", -1, h4Prev2.lo, h4High, h4LastEnd)
+0137 | +            h4Prev2 := h4Prev
+0138 | +            h4Prev := FvgBar.new(h4Bucket, h4LastEnd, h4High, h4Low, fullH4)
+0139 |              // C3 solo se invalida por el CIERRE de su H4, NO por cierre M5.
+0140 |              // La mecha o un cierre intrabar M5 que atraviese el extremo de C2
+0141 |              // no revocan el CRT cuando la C3 H4 finalmente cierra recuperada.
