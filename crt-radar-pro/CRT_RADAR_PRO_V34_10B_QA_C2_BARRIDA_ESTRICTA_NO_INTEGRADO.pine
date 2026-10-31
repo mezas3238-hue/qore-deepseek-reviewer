@@ -378,6 +378,8 @@ f_engine() =>
     var int lastHigh15At = na
     var int lastLow15At = na
     var float prev15Close = na
+    // QA: solo comparar cierres M15 consecutivos completos (no saltar sesiones).
+    var int prev15End = na
 
     // H4 reconstruida desde datos de M5 del mismo proveedor.
     var int h4Bucket = na
@@ -481,7 +483,8 @@ f_engine() =>
     if not na(barT) and not na(bucket15)
         bool next15 = not na(m15Bucket) and bucket15 != m15Bucket
         if next15
-            if m15Count == 3 and m15LastEnd == bucket15
+            bool fullM15 = m15Count == 3 and m15LastEnd == bucket15 and m15Start + MIN15 == m15LastEnd
+            if fullM15
                 array.push(highs15, m15High)
                 array.push(lows15, m15Low)
                 array.push(times15, m15Start)
@@ -507,20 +510,36 @@ f_engine() =>
                         lastLow15 := candL
                         lastLow15At := array.get(times15, pivot)
 
+                // QA: MSS M15 requiere cierre anterior INMEDIATO y completo.
+                // Tras huecos, inicios de feed o pausas no se inventa cross.
+                bool prev15Continuous = not na(prev15End) and prev15End == m15Start and not na(prev15Close)
                 // Comprobar rompimientos M15 correspondientes al MISMO CRT.
                 // Se ejecuta ANTES del cierre H4: incluye el ultimo M15 de C2.
                 int closed15At = m15LastEnd
                 if c2Active and c2Dir != 0 and c2StrictSweep and not c2Double and closed15At > c2SweepEnd
-                    bool eligible15 = c2Dir == 1 ? (not na(c2Pivot15) and m15Close > c2Pivot15 and (na(prev15Close) or prev15Close <= c2Pivot15)) : (not na(c2Pivot15) and m15Close < c2Pivot15 and (na(prev15Close) or prev15Close >= c2Pivot15))
+                    bool eligible15 = prev15Continuous and (c2Dir == 1 ? (not na(c2Pivot15) and m15Close > c2Pivot15 and prev15Close <= c2Pivot15) : (not na(c2Pivot15) and m15Close < c2Pivot15 and prev15Close >= c2Pivot15))
                     if eligible15 and na(c2M15At)
                         c2M15At := closed15At
                 if c3Active and closed15At > c3Start and closed15At > c3SweepEnd
-                    bool eligible15 = c3Dir == 1 ? (not na(c3Pivot15) and m15Close > c3Pivot15 and (na(prev15Close) or prev15Close <= c3Pivot15)) : (not na(c3Pivot15) and m15Close < c3Pivot15 and (na(prev15Close) or prev15Close >= c3Pivot15))
+                    bool eligible15 = prev15Continuous and (c3Dir == 1 ? (not na(c3Pivot15) and m15Close > c3Pivot15 and prev15Close <= c3Pivot15) : (not na(c3Pivot15) and m15Close < c3Pivot15 and prev15Close >= c3Pivot15))
                     if eligible15 and na(c3M15At)
                         c3M15At := closed15At
                         if lastC1 == c1Start3
                             lastM15 := closed15At
                 prev15Close := m15Close
+                prev15End := m15LastEnd
+            else
+                // Una M15 omitida o incompleta invalida pivotes construidos
+                // con muestras discontinuas, y el cierre previo del MSS.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
 
             m15Bucket := bucket15
             m15High := bH
@@ -540,6 +559,16 @@ f_engine() =>
         else
             if barT != m15LastEnd
                 m15Count := -100 // M15 incompleta: no publicar MSS.
+                // No conservar swings ni el cierre de un M15 sin continuidad.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
             else if m15Count >= 0
                 m15Count += 1
             m15High := math.max(m15High, bH)
