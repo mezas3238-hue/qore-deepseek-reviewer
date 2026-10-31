@@ -1,0 +1,60 @@
+0181 |     bool isIndex = f_index()
+0182 |     int barT = time[1]
+0183 |     int barEnd = time_close[1]
+0184 |     float bH = high[1]
+0185 |     float bL = low[1]
+0186 |     float bC = close[1]
+0187 |     float prevClose = close[2]
+0188 | 
+0189 |     // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
+0190 |     // prev_valid solo significa que la ULTIMA sesion finalizada paso control
+0191 |     // de calidad; no se reutiliza silenciosamente un nivel de hace dias.
+0192 |     var float curr_H = na
+0193 |     var float curr_L = na
+0194 |     var int curr_sess_id = na
+0195 |     var int curr_m5_count = 0
+0196 |     var int curr_firstT = na
+0197 |     var int curr_lastEnd = na
+0198 |     var bool curr_continuous = true
+0199 |     var float prev_PDH = na
+0200 |     var float prev_PDL = na
+0201 |     var bool prev_valid = false
+0202 |     var int prev_timestamp = na
+0203 |     var int prev_sess_id = na
+0204 |     // M4B: el ID del nivel es su fecha de confirmacion 4A.
+0205 |     // No se consulta curr_sess_id[1] ni se reevalua una vela incompleta.
+0206 |     var int liquidityRefAt = na
+0207 |     var bool pdhTaken = false
+0208 |     var bool pdlTaken = false
+0209 |     var int pdhSweepAt = na
+0210 |     var int pdlSweepAt = na
+0211 |     var int pdhSweepStage = 0
+0212 |     var int pdlSweepStage = 0
+0213 |     var int pdhSweepC1 = na
+0214 |     var int pdlSweepC1 = na
+0215 | 
+0216 |     // ---- M4A PDH / PDL: SIN solicitudes adicionales ----
+0217 |     // Time() se consulta con [1] igual que barT/bH/bL: M5 CERRADA.
+0218 |     bool pdhRth = isIndex and not useExtIdx
+0219 |     string pdhSession = pdhRth ? "0930-1600:23456" : "1700-1700:23456"
+0220 |     bool pdhInSession = not na(time("5", pdhSession, TZ)[1])
+0221 |     if not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+0222 |         // Identidad calendario local del INICIO de sesion; segura en DST.
+0223 |         // Mediodia menos 24h identifica el DIA ANTERIOR incluso si DST
+0224 |         // cambio el desfase UTC una hora durante la madrugada.
+0225 |         int pdhNoon = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 12, 0)
+0226 |         int pdhAnchor = pdhRth or hour(barT, TZ) >= 17 ? pdhNoon : pdhNoon - 86400000
+0227 |         int pdhKey = year(pdhAnchor, TZ) * 10000 + month(pdhAnchor, TZ) * 100 + dayofmonth(pdhAnchor, TZ)
+0228 |         if pdhInSession
+0229 |             if na(curr_sess_id) or pdhKey != curr_sess_id
+0230 |                 // Si un dia termino sin vela de cierre, NO publicar parcial.
+0231 |                 if not na(curr_sess_id)
+0232 |                     prev_valid := false
+0233 |                 curr_sess_id := pdhKey
+0234 |                 curr_H := bH
+0235 |                 curr_L := bL
+0236 |                 curr_m5_count := 1
+0237 |                 curr_firstT := barT
+0238 |                 curr_lastEnd := barEnd
+0239 |                 curr_continuous := true
+0240 |             else
