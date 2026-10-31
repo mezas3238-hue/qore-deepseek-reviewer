@@ -1,0 +1,60 @@
+0241 |                 curr_continuous := curr_continuous and barT == curr_lastEnd
+0242 |                 curr_H := math.max(curr_H, bH)
+0243 |                 curr_L := math.min(curr_L, bL)
+0244 |                 curr_m5_count += 1
+0245 |                 curr_lastEnd := barEnd
+0246 |             // Con la ultima M5 (15:55-16 o 16:55-17) se cierra
+0247 |             // la sesion, aunque el proveedor no tenga velas posteriores.
+0248 |             int endHour = pdhRth ? 16 : 17
+0249 |             bool sessClosed = hour(barEnd, TZ) == endHour and minute(barEnd, TZ) == 0
+0250 |             if sessClosed
+0251 |                 int firstHour = pdhRth ? 9 : 17
+0252 |                 int firstMinute = minute(curr_firstT, TZ)
+0253 |                 bool startedOnTime = hour(curr_firstT, TZ) == firstHour and (pdhRth ? firstMinute == 30 : firstMinute <= 5)
+0254 |                 bool complete = curr_continuous and startedOnTime and curr_m5_count >= (pdhRth ? 78 : 280)
+0255 |                 prev_valid := complete
+0256 |                 if complete
+0257 |                     prev_PDH := curr_H
+0258 |                     prev_PDL := curr_L
+0259 |                     prev_timestamp := barEnd
+0260 |                     prev_sess_id := curr_sess_id
+0261 |                 // Valores historicos se conservan con prev_valid=false.
+0262 |                 curr_sess_id := na
+0263 |                 curr_H := na
+0264 |                 curr_L := na
+0265 |                 curr_m5_count := 0
+0266 |                 curr_firstT := na
+0267 |                 curr_lastEnd := na
+0268 |                 curr_continuous := true
+0269 |         else if not na(curr_sess_id)
+0270 |             // Fin de sesion sin M5 de cierre: no falsificar PDH/PDL.
+0271 |             prev_valid := false
+0272 |             curr_sess_id := na
+0273 |             curr_m5_count := 0
+0274 |             curr_H := na
+0275 |             curr_L := na
+0276 |             curr_firstT := na
+0277 |             curr_lastEnd := na
+0278 |             curr_continuous := true
+0279 | 
+0280 |     // Pivot M5: calculo en la barra cerrada [1]; nunca es una barra futura.
+0281 |     float pH5 = ta.pivothigh(high, left5, right5)[1]
+0282 |     float pL5 = ta.pivotlow(low, left5, right5)[1]
+0283 |     var float lastHigh5 = na
+0284 |     var float lastLow5 = na
+0285 |     var int lastHigh5At = na
+0286 |     var int lastLow5At = na
+0287 | 
+0288 |     // Acumulador M15 sobre barras M5 completas.
+0289 |     var int m15Bucket = na
+0290 |     var float m15High = na
+0291 |     var float m15Low = na
+0292 |     var float m15Close = na
+0293 |     var int m15Count = 0
+0294 |     var int m15LastEnd = na
+0295 |     var int m15Start = na
+0296 |     var array<float> highs15 = array.new_float()
+0297 |     var array<float> lows15 = array.new_float()
+0298 |     var array<int> times15 = array.new_int()
+0299 |     var float lastHigh15 = na
+0300 |     var float lastLow15 = na
