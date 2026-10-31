@@ -1,0 +1,45 @@
+1021 |         table.cell(board,2,1,ownPDH,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdhStatus) : color.gray,text_size=size.tiny)
+1022 |         table.cell(board,3,1,ownPDL,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdlStatus) : color.gray,text_size=size.tiny)
+1023 |         table.cell(board,4,1,chartActive and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m5At) ? posInk : color.gray,text_size=size.small)
+1024 |         table.cell(board,5,1,chartActive and not na(own.m15At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m15At) ? posInk : color.gray,text_size=size.small)
+1025 | 
+1026 |         int othersOnPage = math.max(1,rowsToShow-1)
+1027 |         int offset = (page-1)*othersOnPage
+1028 |         int passed = 0
+1029 |         int shown = 0
+1030 |         for i = 0 to 33
+1031 |             string sym = array.get(scanSymbols,i)
+1032 |             bool sameAsChart = ticker.standard(sym) == ownStd
+1033 |             int st = array.get(statuses,i)
+1034 |             bool hasCRT = st > 0
+1035 |             if not sameAsChart and (allMode or hasCRT)
+1036 |                 if passed >= offset and shown < othersOnPage
+1037 |                     int r = shown+2
+1038 |                     int dir = array.get(directions,i)
+1039 |                     color rowbg = r % 2 == 0 ? navy : shade
+1040 |                     color dirInk = hasCRT ? (st == 3 ? color.silver : dir > 0 ? posInk : negInk) : color.gray
+1041 |                     string side = hasCRT ? (dir > 0 ? "BULLISH" : "BEARISH") : "—"
+1042 |                     table.cell(board,0,r,array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
+1043 |                     table.cell(board,1,r,side+(st == 1 ? "*" : ""),bgcolor=rowbg,text_color=dirInk,text_size=size.tiny)
+1044 |                     int hFlag = array.get(pdhFlags,i)
+1045 |                     int lFlag = array.get(pdlFlags,i)
+1046 |                     table.cell(board,2,r,array.get(pdhTexts,i),bgcolor=rowbg,text_color=hFlag == 1 ? color.rgb(237,164,83) : hFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+1047 |                     table.cell(board,3,r,array.get(pdlTexts,i),bgcolor=rowbg,text_color=lFlag == 1 ? color.rgb(237,164,83) : lFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+1048 |                     table.cell(board,4,r,hasCRT and array.get(m5Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m5Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+1049 |                     table.cell(board,5,r,hasCRT and array.get(m15Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m15Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+1050 |                     shown += 1
+1051 |                 passed += 1
+1052 |         if shown == 0 and passed == 0
+1053 |             table.cell(board,0,2,"SIN OTROS CRT",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+1054 |         table.cell(board,0,13,"34 FEEDS",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1055 |         table.cell(board,1,13,"CRT:"+str.tostring(found),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1056 |         table.cell(board,2,13,"H:PDH",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1057 |         table.cell(board,3,13,"L:PDL",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1058 |         table.cell(board,4,13,"M5:"+str.tostring(with5),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+1059 |         table.cell(board,5,13,"M15:"+str.tostring(with15),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+1060 |         table.cell(board,0,14,"OK:"+str.tostring(checked)+" SD:"+str.tostring(missing),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1061 |         table.cell(board,1,14,"PAG "+str.tostring(page)+"/"+str.tostring(math.max(1,int(math.ceil(passed*1.0/othersOnPage)))),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1062 |         table.cell(board,2,14,"INT=Intacto",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1063 |         table.cell(board,3,14,"T=Tomado",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1064 |         table.cell(board,4,14,"PRE/OTR/C2/C3",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+1065 |         table.cell(board,5,14,"* PROV",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
