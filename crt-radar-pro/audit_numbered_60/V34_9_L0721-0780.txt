@@ -1,0 +1,60 @@
+0721 |             h4High := bH
+0722 |             h4Low := bL
+0723 |             h4Close := bC
+0724 |             h4Count := 1
+0725 |             h4FirstT := barT
+0726 |             h4LastEnd := barEnd
+0727 |             h4Continuous := true
+0728 |         else
+0729 |             h4Continuous := h4Continuous and barT == h4LastEnd
+0730 |             h4High := math.max(h4High, bH)
+0731 |             h4Low := math.min(h4Low, bL)
+0732 |             h4Close := bC
+0733 |             h4Count += 1
+0734 |             h4LastEnd := barEnd
+0735 | 
+0736 |     // ---- M4B: ESTADO DE LIQUIDEZ DE LA SESION DE REFERENCIA ----
+0737 |     // M4A ya procesó esta M5 cerrada. Después del cambio H4,
+0738 |     // c2Active/c3Active corresponden al H4 actual, incluso en su primera M5.
+0739 |     bool hasLiquidityRef = prev_valid and not na(prev_timestamp) and not na(prev_PDH) and not na(prev_PDL)
+0740 |     if not hasLiquidityRef
+0741 |         liquidityRefAt := na
+0742 |         pdhTaken := false
+0743 |         pdlTaken := false
+0744 |         pdhSweepAt := na
+0745 |         pdlSweepAt := na
+0746 |         pdhSweepStage := 0
+0747 |         pdlSweepStage := 0
+0748 |         pdhSweepC1 := na
+0749 |         pdlSweepC1 := na
+0750 |     else
+0751 |         if na(liquidityRefAt) or liquidityRefAt != prev_timestamp
+0752 |             liquidityRefAt := prev_timestamp
+0753 |             pdhTaken := false
+0754 |             pdlTaken := false
+0755 |             pdhSweepAt := na
+0756 |             pdlSweepAt := na
+0757 |             pdhSweepStage := 0
+0758 |             pdlSweepStage := 0
+0759 |             pdhSweepC1 := na
+0760 |             pdlSweepC1 := na
+0761 |         // No comparar velas del dia anterior con el nuevo PDH/PDL,
+0762 |         // ni after-hours con niveles RTH. Solo M5 cerrada elegible.
+0763 |         bool eligibleLiquidityBar = pdhInSession and not na(barT) and not na(barEnd) and barT >= liquidityRefAt
+0764 |         if eligibleLiquidityBar
+0765 |             int eventStage = c3Active and bucketH4 == c3Start ? 3 : c2Active and bucketH4 == c2Start ? 2 : 0
+0766 |             int eventC1 = eventStage == 3 ? c1Start3 : eventStage == 2 ? c1Start2 : na
+0767 |             if not pdhTaken and bH > prev_PDH
+0768 |                 pdhTaken := true
+0769 |                 pdhSweepAt := barEnd
+0770 |                 pdhSweepStage := eventStage
+0771 |                 pdhSweepC1 := eventC1
+0772 |             if not pdlTaken and bL < prev_PDL
+0773 |                 pdlTaken := true
+0774 |                 pdlSweepAt := barEnd
+0775 |                 pdlSweepStage := eventStage
+0776 |                 pdlSweepC1 := eventC1
+0777 | 
+0778 |     // ---- M3B.2 INTEGRADO: PRIMERA BARRIDA M5 DE INSIDE BAR ----
+0779 |     // M5 cerrada [1]; solo despues del cierre H4 de C2.
+0780 |     // Se rastrean ambos extremos durante una MISMA H4 de manipulacion.
