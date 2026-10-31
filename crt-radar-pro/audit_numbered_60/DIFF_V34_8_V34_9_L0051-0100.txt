@@ -1,0 +1,50 @@
+0051 |  
+0052 |  // En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+0053 |  // UNA peticion request.security por activo en vez de tres peticiones.
+0054 | @@ -278,6 +313,21 @@
+0055 |      // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+0056 |      var bool h4Continuous = true
+0057 |  
+0058 | +    // M5A: Reconstruccion H1 desde M5 cerradas y memoria de 3 barras TF.
+0059 | +    var int h1Bucket = na
+0060 | +    var int h1FirstT = na
+0061 | +    var int h1LastEnd = na
+0062 | +    var float h1High = na
+0063 | +    var float h1Low = na
+0064 | +    var int h1Count = 0
+0065 | +    var bool h1Continuous = true
+0066 | +    var FvgBar h1Prev = na
+0067 | +    var FvgBar h1Prev2 = na
+0068 | +    var FvgBar h4Prev = na
+0069 | +    var FvgBar h4Prev2 = na
+0070 | +    var array<FvgContext> fvgsH1 = array.new<FvgContext>()
+0071 | +    var array<FvgContext> fvgsH4 = array.new<FvgContext>()
+0072 | +
+0073 |      // C2 actual: puede coexistir con la C3 del CRT anterior.
+0074 |      // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+0075 |      var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+0076 | @@ -346,6 +396,7 @@
+0077 |  
+0078 |      // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
+0079 |      // f_engine() debe evaluarse incondicionalmente en cada barra M5.
+0080 | +    int bucketH1 = time("60")[1]
+0081 |      int bucket15 = time("15")[1]
+0082 |      int bucketH4 = isIndex ? time("240", "0200-0200:1234567", TZ)[1] : time("240", "0100-0100:1234567", TZ)[1]
+0083 |  
+0084 | @@ -419,10 +470,57 @@
+0085 |              m15Close := bC
+0086 |              m15LastEnd := barEnd
+0087 |  
+0088 | +    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----
+0089 | +    if not na(barT) and not na(bucketH1)
+0090 | +        bool nextH1 = not na(h1Bucket) and bucketH1 != h1Bucket
+0091 | +        if nextH1
+0092 | +            bool fullH1 = h1Continuous and h1Count == 12 and h1FirstT == h1Bucket and h1LastEnd == h1Bucket + 3600000
+0093 | +            if fullH1 and not na(h1Prev) and not na(h1Prev2)
+0094 | +                bool chainH1 = h1Prev.valid and h1Prev2.valid and h1Prev2.endAt == h1Prev.startAt and h1Prev.endAt == h1Bucket
+0095 | +                if chainH1
+0096 | +                    if h1Low > h1Prev2.hi
+0097 | +                        f_add_context_fvg(fvgsH1, "H1", 1, h1Low, h1Prev2.hi, h1LastEnd)
+0098 | +                    else if h1High < h1Prev2.lo
+0099 | +                        f_add_context_fvg(fvgsH1, "H1", -1, h1Prev2.lo, h1High, h1LastEnd)
+0100 | +            h1Prev2 := h1Prev
