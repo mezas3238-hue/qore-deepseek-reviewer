@@ -1,0 +1,33 @@
+# Auditoria CRT RADAR PRO — Guia de archivos RAW
+
+Repositorio: mezas3238-hue/qore-deepseek-reviewer
+Rama aislada: review/crt-radar-v34-8-v34-9-20261031
+Base V34.8: 1065 lineas
+Candidato V34.9: 1163 lineas
+
+IMPORTANTE: los archivos originales y sus bloques son IDENTICOS al concatenar cada bloque en orden, colocando un salto de linea entre bloques. Los bloques conservan la numeracion del codigo fuente original.
+
+ARCHIVOS RAW COMPLETOS
+V34.8: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/CRT_RADAR_PRO_V34_8_MODULO4B_INTEGRADO.pine
+V34.9: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/CRT_RADAR_PRO_V34_9_MODULO5A_CANDIDATO_NO_INTEGRADO.pine
+
+FRAGMENTOS RAW PARA EVITAR RECORTES
+
+V34_8 — cuatro bloques:
+- lineas 1-300: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_8_PART_01_LINES_0001_0300.txt
+- lineas 301-600: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_8_PART_02_LINES_0301_0600.txt
+- lineas 601-900: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_8_PART_03_LINES_0601_0900.txt
+- lineas 901-1065: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_8_PART_04_LINES_0901_1065.txt
+
+V34_9 — cuatro bloques:
+- lineas 1-300: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_9_PART_01_LINES_0001_0300.txt
+- lineas 301-600: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_9_PART_02_LINES_0301_0600.txt
+- lineas 601-900: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_9_PART_03_LINES_0601_0900.txt
+- lineas 901-1163: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-v34-8-v34-9-20261031/crt-radar-pro/audit_chunks/V34_9_PART_04_LINES_0901_1163.txt
+
+INSTRUCCIONES A DEEPSEEK
+1. Lee todos los cuatro bloques de V34.8 y los cuatro de V34.9. No interpretes 300 lineas como archivo completo.
+2. Confirma que reconstruyes 1065 lineas V34.8 y 1163 lineas V34.9.
+3. Verifica en V34.9: type FvgContext linea 153; f_add_context_fvg(array<FvgContext> ...) linea 164; fullH1 linea 477; fullH4 linea 514.
+4. Solo entonces compara ambos y audita todo. Si no puedes abrir algun bloque, informa fallo de acceso y NO inventes dictamen.
+5. No modificar V34.8 ni integrar V34.9. No declarar compilacion sin TradingView.
