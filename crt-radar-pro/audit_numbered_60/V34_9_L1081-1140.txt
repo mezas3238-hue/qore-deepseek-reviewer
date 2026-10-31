@@ -1,0 +1,60 @@
+1081 |         if not na(m5Line)
+1082 |             line.delete(m5Line)
+1083 |             m5Line := na
+1084 |         if not na(m15Line)
+1085 |             line.delete(m15Line)
+1086 |             m15Line := na
+1087 |         if not na(hiLabel)
+1088 |             label.delete(hiLabel)
+1089 |             hiLabel := na
+1090 |         if not na(loLabel)
+1091 |             label.delete(loLabel)
+1092 |             loLabel := na
+1093 | 
+1094 | // ---- DASHBOARD M4B: FILA DEL GRAFICO, PAGINACION Y MSS CONSERVADOS ----
+1095 | // Seis columnas; 15 filas reservadas (encabezado, 12 datos, 2 pies).
+1096 | var table board = table.new(position.top_right,6,15,frame_color=color.new(color.gray,70),frame_width=1,border_width=0)
+1097 | color navy = color.rgb(24,36,56)
+1098 | color shade = color.rgb(33,44,62)
+1099 | color posInk = color.rgb(65,190,138)
+1100 | color negInk = color.rgb(240,113,108)
+1101 | if barstate.islast
+1102 |     table.clear(board,0,0,5,14)
+1103 |     if showDashboard
+1104 |         table.cell(board,0,0,"ACTIVO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1105 |         table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1106 |         table.cell(board,2,0,"PDH",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1107 |         table.cell(board,3,0,"PDL",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1108 |         table.cell(board,4,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1109 |         table.cell(board,5,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1110 |         bool allMode = modeDashboard == "Todos los instrumentos"
+1111 |         // Activo abierto SIEMPRE en la primera fila, sin duplicados.
+1112 |         int ownDir = chartActive ? own.direction : 0
+1113 |         string ownState = chartActive ? (ownDir > 0 ? "BULLISH" : "BEARISH") : "—"
+1114 |         color ownInk = chartActive ? (own.phase == 3 ? color.silver : ownDir > 0 ? posInk : negInk) : color.gray
+1115 |         string ownPDH = chartAvailable ? f_liqText(own.pdhStatus,own.pdhSweepAt,own.pdhSweepStage,own.pdhSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+1116 |         string ownPDL = chartAvailable ? f_liqText(own.pdlStatus,own.pdlSweepAt,own.pdlSweepStage,own.pdlSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+1117 |         table.cell(board,0,1,openName+" [G]",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+1118 |         table.cell(board,1,1,ownState+(chartActive and own.phase == 1 ? "*" : ""),bgcolor=shade,text_color=ownInk,text_size=size.tiny)
+1119 |         table.cell(board,2,1,ownPDH,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdhStatus) : color.gray,text_size=size.tiny)
+1120 |         table.cell(board,3,1,ownPDL,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdlStatus) : color.gray,text_size=size.tiny)
+1121 |         table.cell(board,4,1,chartActive and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m5At) ? posInk : color.gray,text_size=size.small)
+1122 |         table.cell(board,5,1,chartActive and not na(own.m15At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m15At) ? posInk : color.gray,text_size=size.small)
+1123 | 
+1124 |         int othersOnPage = math.max(1,rowsToShow-1)
+1125 |         int offset = (page-1)*othersOnPage
+1126 |         int passed = 0
+1127 |         int shown = 0
+1128 |         for i = 0 to 33
+1129 |             string sym = array.get(scanSymbols,i)
+1130 |             bool sameAsChart = ticker.standard(sym) == ownStd
+1131 |             int st = array.get(statuses,i)
+1132 |             bool hasCRT = st > 0
+1133 |             if not sameAsChart and (allMode or hasCRT)
+1134 |                 if passed >= offset and shown < othersOnPage
+1135 |                     int r = shown+2
+1136 |                     int dir = array.get(directions,i)
+1137 |                     color rowbg = r % 2 == 0 ? navy : shade
+1138 |                     color dirInk = hasCRT ? (st == 3 ? color.silver : dir > 0 ? posInk : negInk) : color.gray
+1139 |                     string side = hasCRT ? (dir > 0 ? "BULLISH" : "BEARISH") : "—"
+1140 |                     table.cell(board,0,r,array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
