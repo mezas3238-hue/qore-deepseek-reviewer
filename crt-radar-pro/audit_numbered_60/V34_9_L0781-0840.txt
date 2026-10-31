@@ -1,0 +1,60 @@
+0781 |     if not na(barT) and not na(bucketH4) and array.size(insideCandidates) > 0
+0782 |         for ic = 0 to array.size(insideCandidates) - 1
+0783 |             InsideCandidate cand = array.get(insideCandidates, ic)
+0784 |             if cand.state == "SEEKING" and barT >= cand.c2End
+0785 |                 bool brokeLow = bL < cand.c2Low
+0786 |                 bool brokeHigh = bH > cand.c2High
+0787 |                 if brokeLow or brokeHigh
+0788 |                     cand.sweepAt := barEnd
+0789 |                     cand.sweepH4Start := bucketH4
+0790 |                     cand.sweptLow := brokeLow
+0791 |                     cand.sweptHigh := brokeHigh
+0792 |                     cand.sweepDir := brokeLow and not brokeHigh ? 1 : brokeHigh and not brokeLow ? -1 : 0
+0793 |                     cand.state := brokeLow and brokeHigh ? "AMBIGUOUS" : "SWEPT"
+0794 |             else if cand.state == "SWEPT" and bucketH4 == cand.sweepH4Start
+0795 |                 cand.sweptLow := cand.sweptLow or bL < cand.c2Low
+0796 |                 cand.sweptHigh := cand.sweptHigh or bH > cand.c2High
+0797 |                 if cand.sweptLow and cand.sweptHigh
+0798 |                     cand.sweepDir := 0
+0799 |                     cand.state := "AMBIGUOUS"
+0800 | 
+0801 |     // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----
+0802 |     if c2Active and not na(barT) and bucketH4 == c2Start
+0803 |         if c2Dir == 0
+0804 |             // Toque en el extremo = candidato. Nunca es MSS confirmado.
+0805 |             bool compareTouches = allowTouches
+0806 |             bool lowSweep = compareTouches ? bL <= c1Low2 : bL < c1Low2
+0807 |             bool highSweep = compareTouches ? bH >= c1High2 : bH > c1High2
+0808 |             if lowSweep and highSweep
+0809 |                 c2Double := true
+0810 |             else if lowSweep != highSweep
+0811 |                 c2Dir := lowSweep ? 1 : -1
+0812 |                 // El toque exacto es SOLO candidato. El evento de sweep
+0813 |                 // necesita atravesar estrictamente CRH/CRL.
+0814 |                 // Snapshot de pivotes se toma al PRIMER sweep real,
+0815 |                 // no en el primer toque exacto.
+0816 |         if c2Dir != 0
+0817 |             bool firstStrictSweep = not c2StrictSweep and (c2Dir == 1 ? bL < c1Low2 : bH > c1High2)
+0818 |             if firstStrictSweep
+0819 |                 c2StrictSweep := true
+0820 |                 c2SweepEnd := barEnd
+0821 |                 c2Returned := false
+0822 |                 bool lowSide = c2Dir == 1
+0823 |                 bool fresh5 = lowSide ? (not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000) : (not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000)
+0824 |                 bool fresh15 = lowSide ? (not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000) : (not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000)
+0825 |                 c2Pivot5 := fresh5 ? (lowSide ? lastHigh5 : lastLow5) : na
+0826 |                 c2Pivot15 := fresh15 ? (lowSide ? lastHigh15 : lastLow15) : na
+0827 |                 c2Pivot5At := fresh5 ? (lowSide ? lastHigh5At : lastLow5At) : na
+0828 |                 c2Pivot15At := fresh15 ? (lowSide ? lastHigh15At : lastLow15At) : na
+0829 |             bool compareOther = allowTouches
+0830 |             c2Double := c2Double or (c2Dir == 1 and (compareOther ? bH >= c1High2 : bH > c1High2)) or (c2Dir == -1 and (compareOther ? bL <= c1Low2 : bL < c1Low2))
+0831 |             if not c2Double
+0832 |                 c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
+0833 |                 // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
+0834 |                 bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
+0835 |                 if c2StrictSweep and barT >= c2SweepEnd and cross5 and na(c2M5At)
+0836 |                     c2M5At := barEnd
+0837 | 
+0838 |     // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
+0839 |     if c3Active and not na(barT) and bucketH4 == c3Start
+0840 |         // No invalidar aqui por una vela M5. Solo el cierre H4 completo
