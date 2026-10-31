@@ -23,6 +23,9 @@ market feed, database connection, Railway deployment, FCM, or Android applicatio
   An M5 cross on the same sweep candle is prohibited.
 - src/replay-cycle.mjs: offline integration from the same M5 closed bars through
   H4/M15, CRT, both MSS detectors and the confluence decision.
+- src/parity-audit.mjs: exact 12-field Pine QA Data Window comparison
+  with M5 SHA-256 integrity, strict source identity and fail-closed
+  missing/mismatched evidence; never calls itself certified.
 - src/signal-gate.mjs: only a ratified CRT and same-cycle M15 MSS form an
   offline replay confluence; M5 is optional context, never its substitute.
   All results enforce actionable:false and sendPush:false when present.
@@ -33,7 +36,7 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **63/63 offline tests PASS**.
+Evidence as of 31 Oct 2026: **86/86 offline tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 
 ## Important restrictions
@@ -54,8 +57,9 @@ Tests are fixture-based and do NOT compile Pine or establish runtime equivalence
 
 1. Source and validate authorized M5 market feeds for all 34 assets,
    their trading calendars, historical completeness and broker mappings.
-2. Build a deterministic Pine/backend candle-level parity harness,
-   especially pivot confirmation and intra-C2/C3 chronology.
+2. Obtain REAL TradingView Data Window captures and the same provider M5.
+   Compare using the strict offline runner (instructions:
+   docs/PINE_PARITY_CAPTURE.md). A passing synthetic test is NOT Pine parity.
 3. Finish FVG/PDH/PDL contextual modules without making them CRT filters.
 4. Add a persistent outbox with replay-safe identifiers, database, API,
    FCM and an actual Android client in a staging-only deployment.

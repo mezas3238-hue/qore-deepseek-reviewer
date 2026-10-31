@@ -124,3 +124,15 @@ test("exact 12 required data-window fields in canonical order",()=>{
   assert.equal(AUDIT_FIELDS.length,12);
   assert.equal(new Set(Object.values(PINE_DATA_WINDOW_LABELS)).size,12);
 });
+
+test("post-C3 full H4 snapshot blocks parity until phase semantics are modeled",()=>{
+  const d=dataset(),last=d.candlesM5.at(-1);
+  for(let i=96;i<144;i++){
+    const openedAt=START+i*MS;
+    d.candlesM5.push({...last,openedAt,closedAt:openedAt+MS,
+      open:100,high:102,low:97,close:100});
+  }
+  const result=buildBackendAudit(d);
+  assert.equal(result.status,"BACKEND_INCOMPLETE");
+  assert.equal(result.reason,"POST_C3_CLOSE_PHASE_NOT_MODELED");
+});

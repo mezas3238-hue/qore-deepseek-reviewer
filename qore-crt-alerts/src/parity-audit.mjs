@@ -31,6 +31,13 @@ export function buildBackendAudit({candlesM5,c1Start,family,sourceId}){
     schema:PARITY_SCHEMA,status:"BACKEND_INCOMPLETE",sourceId,
     candleSha256:hash,reason:run.state,actionable:false});
   const {crt,mssM5,mssM15}=run;
+  // Pine's chart phase can change at the full H4 close of C3; this
+  // offline snapshot contract currently compares only C2 ratification
+  // and C3-in-progress. Never silently label post-C3 as a matched phase.
+  if(data.at(-1).closedAt>=c1Start+3*14400000)
+    return Object.freeze({schema:PARITY_SCHEMA,status:"BACKEND_INCOMPLETE",
+      sourceId,candleSha256:hash,reason:"POST_C3_CLOSE_PHASE_NOT_MODELED",
+      actionable:false});
   if(!Number.isSafeInteger(crt.c1Start)||![1,-1].includes(crt.direction))
     return Object.freeze({schema:PARITY_SCHEMA,status:"BACKEND_INCOMPLETE",
       sourceId,candleSha256:hash,reason:crt.state,actionable:false});
