@@ -1,0 +1,60 @@
+0841 | string[] scanSymbols = array.from(s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34)
+0842 | // Nombres calculados del simbolo ELEGIDO en ajustes. Si se cambia el broker,
+0843 | // nunca dejamos en pantalla el viejo alias.
+0844 | f_name(string sym) =>
+0845 |     int pos = str.pos(sym, ":")
+0846 |     pos >= 0 ? str.substring(sym, pos + 1) : sym
+0847 | 
+0848 | string[] scanNames = array.from(f_name(s01), f_name(s02), f_name(s03), f_name(s04), f_name(s05), f_name(s06), f_name(s07), f_name(s08), f_name(s09), f_name(s10), f_name(s11), f_name(s12), f_name(s13), f_name(s14), f_name(s15), f_name(s16), f_name(s17), f_name(s18), f_name(s19), f_name(s20), f_name(s21), f_name(s22), f_name(s23), f_name(s24), f_name(s25), f_name(s26), f_name(s27), f_name(s28), f_name(s29), f_name(s30), f_name(s31), f_name(s32), f_name(s33), f_name(s34))
+0849 | 
+0850 | var array<int> statuses = array.new_int(34, 0)
+0851 | var array<int> directions = array.new_int(34, 0)
+0852 | var array<int> m5Flags = array.new_int(34, 0)
+0853 | var array<int> m15Flags = array.new_int(34, 0)
+0854 | var array<int> c1IDs = array.new_int(34, 0)
+0855 | var array<int> m5Times = array.new_int(34, 0)
+0856 | var array<int> m15Times = array.new_int(34, 0)
+0857 | var array<string> pdhTexts = array.new_string(34, "N/D")
+0858 | var array<string> pdlTexts = array.new_string(34, "N/D")
+0859 | var array<int> pdhFlags = array.new_int(34, -1)
+0860 | var array<int> pdlFlags = array.new_int(34, -1)
+0861 | var array<int> alert5IDs = array.new_int(34, 0)
+0862 | var array<int> alert15IDs = array.new_int(34, 0)
+0863 | int found = 0
+0864 | int with5 = 0
+0865 | int with15 = 0
+0866 | int missing = 0
+0867 | int checked = 0
+0868 | string alertsNow = ""
+0869 | 
+0870 | for i = 0 to 33
+0871 |     string symbol = array.get(scanSymbols, i)
+0872 |     // El UDT cuenta como un campo de retorno, evita 34*12 campos de tupla.
+0873 |     Signal s = request.security(symbol, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+0874 |     bool available = not na(s) and not na(s.phase)
+0875 |     int st = available ? s.phase : 0
+0876 |     int dr = available ? s.direction : 0
+0877 |     int id = available and not na(s.c1Start) ? s.c1Start : 0
+0878 |     int m5t = available and not na(s.m5At) ? s.m5At : 0
+0879 |     int m15t = available and not na(s.m15At) ? s.m15At : 0
+0880 |     array.set(statuses, i, st)
+0881 |     array.set(directions, i, dr)
+0882 |     array.set(c1IDs, i, id)
+0883 |     array.set(m5Flags, i, m5t > 0 ? 1 : 0)
+0884 |     array.set(m15Flags, i, m15t > 0 ? 1 : 0)
+0885 |     array.set(m5Times, i, m5t)
+0886 |     array.set(m15Times, i, m15t)
+0887 |     string hStatus = available ? s.pdhStatus : "N/D"
+0888 |     string lStatus = available ? s.pdlStatus : "N/D"
+0889 |     array.set(pdhFlags, i, hStatus == "N/D" ? -1 : hStatus == "TAKEN" ? 1 : 0)
+0890 |     array.set(pdlFlags, i, lStatus == "N/D" ? -1 : lStatus == "TAKEN" ? 1 : 0)
+0891 |     array.set(pdhTexts, i, available ? f_liqText(hStatus, s.pdhSweepAt, s.pdhSweepStage, s.pdhSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+0892 |     array.set(pdlTexts, i, available ? f_liqText(lStatus, s.pdlSweepAt, s.pdlSweepStage, s.pdlSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+0893 |     if not available
+0894 |         missing += 1
+0895 |     else
+0896 |         checked += 1
+0897 |     if st > 0
+0898 |         found += 1
+0899 |         if m5t > 0
+0900 |             with5 += 1
