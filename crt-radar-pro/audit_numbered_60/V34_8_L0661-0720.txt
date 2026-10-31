@@ -1,0 +1,60 @@
+0661 |             pdhSweepC1 := na
+0662 |             pdlSweepC1 := na
+0663 |         // No comparar velas del dia anterior con el nuevo PDH/PDL,
+0664 |         // ni after-hours con niveles RTH. Solo M5 cerrada elegible.
+0665 |         bool eligibleLiquidityBar = pdhInSession and not na(barT) and not na(barEnd) and barT >= liquidityRefAt
+0666 |         if eligibleLiquidityBar
+0667 |             int eventStage = c3Active and bucketH4 == c3Start ? 3 : c2Active and bucketH4 == c2Start ? 2 : 0
+0668 |             int eventC1 = eventStage == 3 ? c1Start3 : eventStage == 2 ? c1Start2 : na
+0669 |             if not pdhTaken and bH > prev_PDH
+0670 |                 pdhTaken := true
+0671 |                 pdhSweepAt := barEnd
+0672 |                 pdhSweepStage := eventStage
+0673 |                 pdhSweepC1 := eventC1
+0674 |             if not pdlTaken and bL < prev_PDL
+0675 |                 pdlTaken := true
+0676 |                 pdlSweepAt := barEnd
+0677 |                 pdlSweepStage := eventStage
+0678 |                 pdlSweepC1 := eventC1
+0679 | 
+0680 |     // ---- M3B.2 INTEGRADO: PRIMERA BARRIDA M5 DE INSIDE BAR ----
+0681 |     // M5 cerrada [1]; solo despues del cierre H4 de C2.
+0682 |     // Se rastrean ambos extremos durante una MISMA H4 de manipulacion.
+0683 |     if not na(barT) and not na(bucketH4) and array.size(insideCandidates) > 0
+0684 |         for ic = 0 to array.size(insideCandidates) - 1
+0685 |             InsideCandidate cand = array.get(insideCandidates, ic)
+0686 |             if cand.state == "SEEKING" and barT >= cand.c2End
+0687 |                 bool brokeLow = bL < cand.c2Low
+0688 |                 bool brokeHigh = bH > cand.c2High
+0689 |                 if brokeLow or brokeHigh
+0690 |                     cand.sweepAt := barEnd
+0691 |                     cand.sweepH4Start := bucketH4
+0692 |                     cand.sweptLow := brokeLow
+0693 |                     cand.sweptHigh := brokeHigh
+0694 |                     cand.sweepDir := brokeLow and not brokeHigh ? 1 : brokeHigh and not brokeLow ? -1 : 0
+0695 |                     cand.state := brokeLow and brokeHigh ? "AMBIGUOUS" : "SWEPT"
+0696 |             else if cand.state == "SWEPT" and bucketH4 == cand.sweepH4Start
+0697 |                 cand.sweptLow := cand.sweptLow or bL < cand.c2Low
+0698 |                 cand.sweptHigh := cand.sweptHigh or bH > cand.c2High
+0699 |                 if cand.sweptLow and cand.sweptHigh
+0700 |                     cand.sweepDir := 0
+0701 |                     cand.state := "AMBIGUOUS"
+0702 | 
+0703 |     // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----
+0704 |     if c2Active and not na(barT) and bucketH4 == c2Start
+0705 |         if c2Dir == 0
+0706 |             // Toque en el extremo = candidato. Nunca es MSS confirmado.
+0707 |             bool compareTouches = allowTouches
+0708 |             bool lowSweep = compareTouches ? bL <= c1Low2 : bL < c1Low2
+0709 |             bool highSweep = compareTouches ? bH >= c1High2 : bH > c1High2
+0710 |             if lowSweep and highSweep
+0711 |                 c2Double := true
+0712 |             else if lowSweep != highSweep
+0713 |                 c2Dir := lowSweep ? 1 : -1
+0714 |                 // El toque exacto es SOLO candidato. El evento de sweep
+0715 |                 // necesita atravesar estrictamente CRH/CRL.
+0716 |                 // Snapshot de pivotes se toma al PRIMER sweep real,
+0717 |                 // no en el primer toque exacto.
+0718 |         if c2Dir != 0
+0719 |             bool firstStrictSweep = not c2StrictSweep and (c2Dir == 1 ? bL < c1Low2 : bH > c1High2)
+0720 |             if firstStrictSweep
