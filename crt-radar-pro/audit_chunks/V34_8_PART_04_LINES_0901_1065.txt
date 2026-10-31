@@ -1,0 +1,165 @@
+        if m15t > 0
+            with15 += 1
+        bool alert5 = m5t > 0 and array.get(alert5IDs, i) != id and timenow >= m5t and timenow - m5t <= 300000
+        bool alert15 = m15t > 0 and array.get(alert15IDs, i) != id and timenow >= m15t and timenow - m15t <= 300000
+        if useAlerts and barstate.isrealtime and alert5
+            alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M5 | "
+            array.set(alert5IDs, i, id)
+        if useAlerts and barstate.isrealtime and alert15
+            alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M15 | "
+            array.set(alert15IDs, i, id)
+
+if str.length(alertsNow) > 0
+    alert("CRT+MSS " + alertsNow, alert.freq_once_per_bar)
+
+// ---- Grafico: 35a solicitud total, independiente de los 34 feeds ----
+Signal own = request.security(syminfo.tickerid, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+// El simbolo abierto NUNCA se ignora: se calcula aunque no pertenezca a
+// los 34 feeds. Si ya existe con el mismo proveedor, no se muestra duplicado.
+string ownStd = ticker.standard(syminfo.tickerid)
+bool chartInScan = false
+for i = 0 to 33
+    if ticker.standard(array.get(scanSymbols, i)) == ownStd
+        chartInScan := true
+bool chartAvailable = not na(own) and not na(own.phase)
+bool chartActive = chartAvailable and own.phase > 0
+string openName = f_name(syminfo.tickerid)
+bool visible = not na(own) and (own.phase == 1 or own.phase == 2) and not na(own.crh) and not na(own.crl)
+plot(visible ? own.crh : na, "CRH actual", color=color.new(color.orange, 100), display=display.data_window)
+plot(visible ? own.crl : na, "CRL actual", color=color.new(color.orange, 100), display=display.data_window)
+var line hiLine = na
+var line loLine = na
+var line m5Line = na
+var line m15Line = na
+var label hiLabel = na
+var label loLabel = na
+// Diagnostico del mismo motor que alimenta el dashboard.
+plot(not na(own) ? own.phase : na, title="AUDIT estado CRT grafico (1=provisional 2=activo 3=ultimo)", display=display.data_window)
+plot(not na(own) ? own.direction : na, title="AUDIT direccion CRT grafico (+1/-1)", display=display.data_window)
+plot(not na(own) ? own.c1Start : na, title="AUDIT ID C1 (timestamp)", display=display.data_window)
+if barstate.islast
+    if showLevels and visible
+        int t2 = time_close
+        int t1 = own.c1Start
+        color ink = own.phase == 2 ? color.rgb(168,65,115) : color.rgb(170,122,42)
+        if na(hiLine)
+            hiLine := line.new(t1,own.crh,t2,own.crh,xloc=xloc.bar_time,color=ink,width=2)
+            loLine := line.new(t1,own.crl,t2,own.crl,xloc=xloc.bar_time,color=ink,width=2)
+            hiLabel := label.new(t2,own.crh,"CRT HIGH",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+            loLabel := label.new(t2,own.crl,"CRT LOW",xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+        line.set_xy1(hiLine,t1,own.crh)
+        line.set_xy2(hiLine,t2,own.crh)
+        line.set_color(hiLine,ink)
+        line.set_xy1(loLine,t1,own.crl)
+        line.set_xy2(loLine,t2,own.crl)
+        line.set_color(loLine,ink)
+        label.set_xy(hiLabel,t2,own.crh)
+        label.set_textcolor(hiLabel,ink)
+        label.set_xy(loLabel,t2,own.crl)
+        label.set_textcolor(loLabel,ink)
+        if showMssLines and not na(own.m5At) and not na(own.m5PivotAt) and own.m5PivotAt < own.m5At and not na(own.m5Level)
+            if na(m5Line)
+                m5Line := line.new(own.m5PivotAt,own.m5Level,own.m5At,own.m5Level,xloc=xloc.bar_time,color=color.teal,style=line.style_dashed,width=2)
+            line.set_xy1(m5Line,own.m5PivotAt,own.m5Level)
+            line.set_xy2(m5Line,own.m5At,own.m5Level)
+        else if not na(m5Line)
+            line.delete(m5Line)
+            m5Line := na
+        if showMssLines and not na(own.m15At) and not na(own.m15PivotAt) and own.m15PivotAt < own.m15At and not na(own.m15Level)
+            if na(m15Line)
+                m15Line := line.new(own.m15PivotAt,own.m15Level,own.m15At,own.m15Level,xloc=xloc.bar_time,color=color.blue,style=line.style_dashed,width=2)
+            line.set_xy1(m15Line,own.m15PivotAt,own.m15Level)
+            line.set_xy2(m15Line,own.m15At,own.m15Level)
+        else if not na(m15Line)
+            line.delete(m15Line)
+            m15Line := na
+    else
+        if not na(hiLine)
+            line.delete(hiLine)
+            hiLine := na
+        if not na(loLine)
+            line.delete(loLine)
+            loLine := na
+        if not na(m5Line)
+            line.delete(m5Line)
+            m5Line := na
+        if not na(m15Line)
+            line.delete(m15Line)
+            m15Line := na
+        if not na(hiLabel)
+            label.delete(hiLabel)
+            hiLabel := na
+        if not na(loLabel)
+            label.delete(loLabel)
+            loLabel := na
+
+// ---- DASHBOARD M4B: FILA DEL GRAFICO, PAGINACION Y MSS CONSERVADOS ----
+// Seis columnas; 15 filas reservadas (encabezado, 12 datos, 2 pies).
+var table board = table.new(position.top_right,6,15,frame_color=color.new(color.gray,70),frame_width=1,border_width=0)
+color navy = color.rgb(24,36,56)
+color shade = color.rgb(33,44,62)
+color posInk = color.rgb(65,190,138)
+color negInk = color.rgb(240,113,108)
+if barstate.islast
+    table.clear(board,0,0,5,14)
+    if showDashboard
+        table.cell(board,0,0,"ACTIVO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,0,"PDH",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,3,0,"PDL",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,4,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,5,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        bool allMode = modeDashboard == "Todos los instrumentos"
+        // Activo abierto SIEMPRE en la primera fila, sin duplicados.
+        int ownDir = chartActive ? own.direction : 0
+        string ownState = chartActive ? (ownDir > 0 ? "BULLISH" : "BEARISH") : "—"
+        color ownInk = chartActive ? (own.phase == 3 ? color.silver : ownDir > 0 ? posInk : negInk) : color.gray
+        string ownPDH = chartAvailable ? f_liqText(own.pdhStatus,own.pdhSweepAt,own.pdhSweepStage,own.pdhSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+        string ownPDL = chartAvailable ? f_liqText(own.pdlStatus,own.pdlSweepAt,own.pdlSweepStage,own.pdlSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+        table.cell(board,0,1,openName+" [G]",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,1,ownState+(chartActive and own.phase == 1 ? "*" : ""),bgcolor=shade,text_color=ownInk,text_size=size.tiny)
+        table.cell(board,2,1,ownPDH,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdhStatus) : color.gray,text_size=size.tiny)
+        table.cell(board,3,1,ownPDL,bgcolor=shade,text_color=chartAvailable ? f_liqColor(own.pdlStatus) : color.gray,text_size=size.tiny)
+        table.cell(board,4,1,chartActive and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m5At) ? posInk : color.gray,text_size=size.small)
+        table.cell(board,5,1,chartActive and not na(own.m15At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m15At) ? posInk : color.gray,text_size=size.small)
+
+        int othersOnPage = math.max(1,rowsToShow-1)
+        int offset = (page-1)*othersOnPage
+        int passed = 0
+        int shown = 0
+        for i = 0 to 33
+            string sym = array.get(scanSymbols,i)
+            bool sameAsChart = ticker.standard(sym) == ownStd
+            int st = array.get(statuses,i)
+            bool hasCRT = st > 0
+            if not sameAsChart and (allMode or hasCRT)
+                if passed >= offset and shown < othersOnPage
+                    int r = shown+2
+                    int dir = array.get(directions,i)
+                    color rowbg = r % 2 == 0 ? navy : shade
+                    color dirInk = hasCRT ? (st == 3 ? color.silver : dir > 0 ? posInk : negInk) : color.gray
+                    string side = hasCRT ? (dir > 0 ? "BULLISH" : "BEARISH") : "—"
+                    table.cell(board,0,r,array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
+                    table.cell(board,1,r,side+(st == 1 ? "*" : ""),bgcolor=rowbg,text_color=dirInk,text_size=size.tiny)
+                    int hFlag = array.get(pdhFlags,i)
+                    int lFlag = array.get(pdlFlags,i)
+                    table.cell(board,2,r,array.get(pdhTexts,i),bgcolor=rowbg,text_color=hFlag == 1 ? color.rgb(237,164,83) : hFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+                    table.cell(board,3,r,array.get(pdlTexts,i),bgcolor=rowbg,text_color=lFlag == 1 ? color.rgb(237,164,83) : lFlag == 0 ? color.rgb(97,192,152) : color.gray,text_size=size.tiny)
+                    table.cell(board,4,r,hasCRT and array.get(m5Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m5Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+                    table.cell(board,5,r,hasCRT and array.get(m15Flags,i)==1 ? "✓" : "—",bgcolor=rowbg,text_color=hasCRT and array.get(m15Flags,i)==1 ? posInk : color.gray,text_size=size.small)
+                    shown += 1
+                passed += 1
+        if shown == 0 and passed == 0
+            table.cell(board,0,2,"SIN OTROS CRT",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,0,13,"34 FEEDS",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,13,"CRT:"+str.tostring(found),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,13,"H:PDH",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,3,13,"L:PDL",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,4,13,"M5:"+str.tostring(with5),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+        table.cell(board,5,13,"M15:"+str.tostring(with15),bgcolor=navy,text_color=posInk,text_size=size.tiny)
+        table.cell(board,0,14,"OK:"+str.tostring(checked)+" SD:"+str.tostring(missing),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,14,"PAG "+str.tostring(page)+"/"+str.tostring(math.max(1,int(math.ceil(passed*1.0/othersOnPage)))),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,14,"INT=Intacto",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,3,14,"T=Tomado",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,4,14,"PRE/OTR/C2/C3",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,5,14,"* PROV",bgcolor=navy,text_color=color.gray,text_size=size.tiny)
