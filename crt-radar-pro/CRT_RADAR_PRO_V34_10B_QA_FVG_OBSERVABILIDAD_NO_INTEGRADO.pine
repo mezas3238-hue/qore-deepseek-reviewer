@@ -1,5 +1,5 @@
 //@version=6
-indicator("CRT + MSS M5/M15 | SCAN H4 CONTINUO v34.10b M5B CANDIDATO SESIONES NO INTEGRADO", shorttitle="CRT MSS 34.10b", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+indicator("CRT + MSS M5/M15 | V34.10b QA FVG OBSERVABILIDAD NO INTEGRADO", shorttitle="CRT MSS QA FVG", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
 
 // MODULO 5B CANDIDATO V34.10b NO INTEGRADO: manejo conservador de pausas de sesion. Requiere auditoria TradingView.
 // MODULO 5A INTEGRADO (AUTORIZADO): deteccion interna FVG H1/H4. Validacion TradingView pendiente.
@@ -72,7 +72,7 @@ page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=12, group=grp3
 string grp4 = "04 / Grafico"
 showLevels = input.bool(true, "CRH y CRL del CRT actual", group=grp4)
 showMssLines = input.bool(true, "Lineas MSS confirmadas", group=grp4)
-useAlerts = input.bool(true, "Alertar confirmaciones M5/M15", group=grp4)
+useAlerts = input.bool(false, "Alertar confirmaciones M5/M15 (QA: OFF por defecto)", group=grp4)
 showFvgAudit = input.bool(true, "QA: exportar estados FVG en ventana de datos", group=grp4, tooltip="SOLO ENSAYO: ultimo FVG H1/H4, limites, porcentaje, formedAt y gapAt. Sin cajas nuevas, sin cambiar CRT ni alertas.")
 alertFreshMinutes = input.int(20, "Ventana de alertas ratificadas (min)", minval=5, maxval=240, group=grp4, tooltip="Solo CRT H4 ratificado: MSS previo de C2 se notifica al ratificar C2, MSS nuevo de C3 al confirmarse. En graficos H4 puede haber retrasos y perdidas de eventos; ensayo en M5/M15.")
 
