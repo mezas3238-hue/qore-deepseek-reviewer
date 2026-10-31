@@ -30,6 +30,9 @@ delivery. Android QA intentionally rejects all notifications by build flag.
   quarantine and fail-closed bounded memory. No live feed connection.
 - src/observation-ledger.mjs: immutable replay-only confluence records,
   deterministic fingerprint, deduplication and conflicting-OHLC hold.
+- sql/002_qa_devices_blocked.sql: UNAPPLIED PostgreSQL QA table for
+  HMAC handles, server-side consent, rotation, opt-out, 30-day expiry and
+  permanently BLOCKED_NOT_CERTIFIED delivery. RLS denies client access.
 - sql/001_quarantined_observations.sql: UNAPPLIED staging proposal for
   PostgreSQL 16+ with RLS deny-by-default, blocked delivery state, and
   a private idempotent function rejecting divergent evidence.
@@ -58,7 +61,7 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **139/139 offline Node tests EXPECTED, subject to CI**.
+Evidence as of 31 Oct 2026: **141/141 offline Node tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 An additional GitHub Actions job uses a disposable PostgreSQL 16 container,
 NOT a real Supabase instance, to test the schema, RLS, deduplication and
@@ -88,8 +91,8 @@ conflicting OHLC rejection. See .github/workflows/qore-crt-alerts-postgres-offli
 3. Finish FVG/PDH/PDL contextual modules without making them CRT filters.
 4. Connect this quarantined event model to an explicitly approved staging
    PostgreSQL instance with credentials, audit and transactional retry. A
-   real persistent outbox, API, FCM, delivery service and Android client
-   remain unimplemented and must not be silently enabled.
+   real authenticated device API, App Check verifier, persistent outbox,
+   FCM send service, and working Android receipt are NOT implemented.
 5. Finish Firebase project configuration, authenticated device enrollment,
    Android notification permission UI, FCM server adapter and physical-device
    E2E. Android source exists but all notifications remain blocked.

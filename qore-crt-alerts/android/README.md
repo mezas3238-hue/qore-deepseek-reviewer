@@ -23,3 +23,9 @@ Do not enable delivery by editing one flag. Before any approved staging
 delivery: confirm raw M5 feed + Pine equivalence, create Firebase project,
 authenticated installation/device registration, approved server sender,
 platform permission UI and physical Android end-to-end test. No merge.
+
+QA security gate, 31 Oct 2026: AndroidManifest.xml explicitly disables
+firebase_messaging_auto_init_enabled and firebase_analytics_collection_enabled.
+Firebase current documentation recommends both values false when requiring
+explicit consent before FID registration. Android QA has no permission UI,
+and cannot enable Firebase registration while build flag remains locked.
