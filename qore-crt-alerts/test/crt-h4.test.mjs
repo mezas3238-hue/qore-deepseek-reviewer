@@ -41,7 +41,7 @@ test("C3 bearish invalidation only uses CLOSED H4 close above C2 wick",()=>{
   assert.equal(evalCRT(c2bear,bar(2,115,101,113)).state,"C3_INVALIDATED");
 });
 test("nonconsecutive H4 or unauthorized C1 NY hour rejected",()=>{
-  assert.equal(evalCRT(bar(1,108,98,105,{openedAt:t+5*14400000})).state,"INVALID_CYCLE");
+  assert.equal(evalCRT(bar(1,108,98,105,{openedAt:t+5*14400000,closedAt:t+6*14400000})).state,"INVALID_CYCLE");
   assert.equal(evalCRT(c2bull,null,bar(0,110,100,105,{nyHour:9})).state,"INVALID_CYCLE");
 });
 test("missing or incomplete H4 cannot become a CRT",()=>{
