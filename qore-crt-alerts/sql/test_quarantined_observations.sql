@@ -95,7 +95,7 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN NULL;
   END;
 END $blocked$;
-DO $
+DO $$
 DECLARE n bigint;
 BEGIN
   SELECT count(*) INTO n FROM qore_crt_alerts.replay_observations;
