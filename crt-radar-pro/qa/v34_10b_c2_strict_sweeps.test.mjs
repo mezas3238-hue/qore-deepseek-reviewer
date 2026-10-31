@@ -8,8 +8,9 @@ const fixed=read("CRT_RADAR_PRO_V34_10B_QA_C2_BARRIDA_ESTRICTA_NO_INTEGRADO.pine
 const block=s=>s.split("    // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----")[1].split("    // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----")[0];
 const nameBefore='indicator("CRT + MSS M5/M15 | V34.10b QA FVG OBSERVABILIDAD NO INTEGRADO", shorttitle="CRT MSS QA FVG"';
 const nameAfter='indicator("CRT + MSS M5/M15 | V34.10b QA BARRIDA ESTRICTA NO INTEGRADO", shorttitle="CRT MSS QA C2"';
-test("REGRESSION: untouched CRT/FVG/MSS/alerts/UI, exact C2 block plus title changed",()=>{
- assert.equal(original.replace(nameBefore,nameAfter).replace(block(original),block(fixed)),fixed);
+const removeQaCrtCycle = s => s.replace(/\n\/\/ QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos\.[\s\S]*?\n\/\/ FIN QA CRT CICLO/, "");
+test("REGRESSION: only strict-sweep block/title and explicitly delimited QA cycle traces change",()=>{
+ assert.equal(original.replace(nameBefore,nameAfter).replace(block(original),block(fixed)),removeQaCrtCycle(fixed));
 });
 test("REGRESSION: strict C1/C2/C3 NY schedules unchanged",()=>{
  for(const p of ['scheduleMode = input.string("Solo C1 de tres horarios NY"',
