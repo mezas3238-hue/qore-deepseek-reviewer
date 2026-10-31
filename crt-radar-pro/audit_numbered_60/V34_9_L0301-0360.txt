@@ -1,0 +1,60 @@
+0301 |     var int lastHigh15At = na
+0302 |     var int lastLow15At = na
+0303 |     var float prev15Close = na
+0304 | 
+0305 |     // H4 reconstruida desde datos de M5 del mismo proveedor.
+0306 |     var int h4Bucket = na
+0307 |     var float h4High = na
+0308 |     var float h4Low = na
+0309 |     var float h4Close = na
+0310 |     var int h4Count = 0
+0311 |     var int h4FirstT = na
+0312 |     var int h4LastEnd = na
+0313 |     // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+0314 |     var bool h4Continuous = true
+0315 | 
+0316 |     // M5A: Reconstruccion H1 desde M5 cerradas y memoria de 3 barras TF.
+0317 |     var int h1Bucket = na
+0318 |     var int h1FirstT = na
+0319 |     var int h1LastEnd = na
+0320 |     var float h1High = na
+0321 |     var float h1Low = na
+0322 |     var int h1Count = 0
+0323 |     var bool h1Continuous = true
+0324 |     var FvgBar h1Prev = na
+0325 |     var FvgBar h1Prev2 = na
+0326 |     var FvgBar h4Prev = na
+0327 |     var FvgBar h4Prev2 = na
+0328 |     var array<FvgContext> fvgsH1 = array.new<FvgContext>()
+0329 |     var array<FvgContext> fvgsH4 = array.new<FvgContext>()
+0330 | 
+0331 |     // C2 actual: puede coexistir con la C3 del CRT anterior.
+0332 |     // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+0333 |     var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+0334 | 
+0335 |     var bool c2Active = false
+0336 |     var int c2Start = na
+0337 |     var int c1Start2 = na
+0338 |     var float c1High2 = na
+0339 |     var float c1Low2 = na
+0340 |     var int c2Dir = 0
+0341 |     var bool c2StrictSweep = false
+0342 |     var bool c2Double = false
+0343 |     var bool c2Returned = false
+0344 |     var int c2SweepEnd = na
+0345 |     var float c2Pivot5 = na
+0346 |     var float c2Pivot15 = na
+0347 |     var int c2Pivot5At = na
+0348 |     var int c2Pivot15At = na
+0349 |     var int c2M5At = na
+0350 |     var int c2M15At = na
+0351 | 
+0352 |     // C3 ratificada: los MSS de C2 se heredan, los faltantes se esperan en C3.
+0353 |     var bool c3Active = false
+0354 |     var int c3Start = na
+0355 |     var int c1Start3 = na
+0356 |     var float c1High3 = na
+0357 |     var float c1Low3 = na
+0358 |     var int c3Dir = 0
+0359 |     var int c3SweepEnd = na
+0360 |     var float c3Pivot5 = na
