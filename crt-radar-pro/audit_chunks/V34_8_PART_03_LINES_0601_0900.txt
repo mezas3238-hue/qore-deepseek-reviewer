@@ -1,0 +1,300 @@
+            c2Pivot15 := na
+            c2Pivot5At := na
+            c2Pivot15At := na
+            int lastC1Hour = hour(h4Bucket, TZ)
+            int expectedC2 = (lastC1Hour + 4) % 24
+            if f_allowed(lastC1Hour, isIndex) and hour(bucketH4, TZ) == expectedC2 and h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC1 and h4High > h4Low
+                c2Active := true
+                c2Start := bucketH4
+                c1Start2 := h4Bucket
+                c1High2 := h4High
+                c1Low2 := h4Low
+
+            h4Bucket := bucketH4
+            h4High := bH
+            h4Low := bL
+            h4Close := bC
+            h4Count := 1
+            h4FirstT := barT
+            h4LastEnd := barEnd
+            h4Continuous := true
+        else if na(h4Bucket)
+            h4Bucket := bucketH4
+            h4High := bH
+            h4Low := bL
+            h4Close := bC
+            h4Count := 1
+            h4FirstT := barT
+            h4LastEnd := barEnd
+            h4Continuous := true
+        else
+            h4Continuous := h4Continuous and barT == h4LastEnd
+            h4High := math.max(h4High, bH)
+            h4Low := math.min(h4Low, bL)
+            h4Close := bC
+            h4Count += 1
+            h4LastEnd := barEnd
+
+    // ---- M4B: ESTADO DE LIQUIDEZ DE LA SESION DE REFERENCIA ----
+    // M4A ya procesó esta M5 cerrada. Después del cambio H4,
+    // c2Active/c3Active corresponden al H4 actual, incluso en su primera M5.
+    bool hasLiquidityRef = prev_valid and not na(prev_timestamp) and not na(prev_PDH) and not na(prev_PDL)
+    if not hasLiquidityRef
+        liquidityRefAt := na
+        pdhTaken := false
+        pdlTaken := false
+        pdhSweepAt := na
+        pdlSweepAt := na
+        pdhSweepStage := 0
+        pdlSweepStage := 0
+        pdhSweepC1 := na
+        pdlSweepC1 := na
+    else
+        if na(liquidityRefAt) or liquidityRefAt != prev_timestamp
+            liquidityRefAt := prev_timestamp
+            pdhTaken := false
+            pdlTaken := false
+            pdhSweepAt := na
+            pdlSweepAt := na
+            pdhSweepStage := 0
+            pdlSweepStage := 0
+            pdhSweepC1 := na
+            pdlSweepC1 := na
+        // No comparar velas del dia anterior con el nuevo PDH/PDL,
+        // ni after-hours con niveles RTH. Solo M5 cerrada elegible.
+        bool eligibleLiquidityBar = pdhInSession and not na(barT) and not na(barEnd) and barT >= liquidityRefAt
+        if eligibleLiquidityBar
+            int eventStage = c3Active and bucketH4 == c3Start ? 3 : c2Active and bucketH4 == c2Start ? 2 : 0
+            int eventC1 = eventStage == 3 ? c1Start3 : eventStage == 2 ? c1Start2 : na
+            if not pdhTaken and bH > prev_PDH
+                pdhTaken := true
+                pdhSweepAt := barEnd
+                pdhSweepStage := eventStage
+                pdhSweepC1 := eventC1
+            if not pdlTaken and bL < prev_PDL
+                pdlTaken := true
+                pdlSweepAt := barEnd
+                pdlSweepStage := eventStage
+                pdlSweepC1 := eventC1
+
+    // ---- M3B.2 INTEGRADO: PRIMERA BARRIDA M5 DE INSIDE BAR ----
+    // M5 cerrada [1]; solo despues del cierre H4 de C2.
+    // Se rastrean ambos extremos durante una MISMA H4 de manipulacion.
+    if not na(barT) and not na(bucketH4) and array.size(insideCandidates) > 0
+        for ic = 0 to array.size(insideCandidates) - 1
+            InsideCandidate cand = array.get(insideCandidates, ic)
+            if cand.state == "SEEKING" and barT >= cand.c2End
+                bool brokeLow = bL < cand.c2Low
+                bool brokeHigh = bH > cand.c2High
+                if brokeLow or brokeHigh
+                    cand.sweepAt := barEnd
+                    cand.sweepH4Start := bucketH4
+                    cand.sweptLow := brokeLow
+                    cand.sweptHigh := brokeHigh
+                    cand.sweepDir := brokeLow and not brokeHigh ? 1 : brokeHigh and not brokeLow ? -1 : 0
+                    cand.state := brokeLow and brokeHigh ? "AMBIGUOUS" : "SWEPT"
+            else if cand.state == "SWEPT" and bucketH4 == cand.sweepH4Start
+                cand.sweptLow := cand.sweptLow or bL < cand.c2Low
+                cand.sweptHigh := cand.sweptHigh or bH > cand.c2High
+                if cand.sweptLow and cand.sweptHigh
+                    cand.sweepDir := 0
+                    cand.state := "AMBIGUOUS"
+
+    // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----
+    if c2Active and not na(barT) and bucketH4 == c2Start
+        if c2Dir == 0
+            // Toque en el extremo = candidato. Nunca es MSS confirmado.
+            bool compareTouches = allowTouches
+            bool lowSweep = compareTouches ? bL <= c1Low2 : bL < c1Low2
+            bool highSweep = compareTouches ? bH >= c1High2 : bH > c1High2
+            if lowSweep and highSweep
+                c2Double := true
+            else if lowSweep != highSweep
+                c2Dir := lowSweep ? 1 : -1
+                // El toque exacto es SOLO candidato. El evento de sweep
+                // necesita atravesar estrictamente CRH/CRL.
+                // Snapshot de pivotes se toma al PRIMER sweep real,
+                // no en el primer toque exacto.
+        if c2Dir != 0
+            bool firstStrictSweep = not c2StrictSweep and (c2Dir == 1 ? bL < c1Low2 : bH > c1High2)
+            if firstStrictSweep
+                c2StrictSweep := true
+                c2SweepEnd := barEnd
+                c2Returned := false
+                bool lowSide = c2Dir == 1
+                bool fresh5 = lowSide ? (not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000) : (not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000)
+                bool fresh15 = lowSide ? (not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000) : (not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000)
+                c2Pivot5 := fresh5 ? (lowSide ? lastHigh5 : lastLow5) : na
+                c2Pivot15 := fresh15 ? (lowSide ? lastHigh15 : lastLow15) : na
+                c2Pivot5At := fresh5 ? (lowSide ? lastHigh5At : lastLow5At) : na
+                c2Pivot15At := fresh15 ? (lowSide ? lastHigh15At : lastLow15At) : na
+            bool compareOther = allowTouches
+            c2Double := c2Double or (c2Dir == 1 and (compareOther ? bH >= c1High2 : bH > c1High2)) or (c2Dir == -1 and (compareOther ? bL <= c1Low2 : bL < c1Low2))
+            if not c2Double
+                c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
+                // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
+                bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
+                if c2StrictSweep and barT >= c2SweepEnd and cross5 and na(c2M5At)
+                    c2M5At := barEnd
+
+    // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
+    if c3Active and not na(barT) and bucketH4 == c3Start
+        // No invalidar aqui por una vela M5. Solo el cierre H4 completo
+        // de C3 puede atravesar la mecha de C2 para invalidar el CRT.
+        bool cross5c3 = c3Dir == 1 ? (not na(c3Pivot5) and bC > c3Pivot5 and prevClose <= c3Pivot5) : (not na(c3Pivot5) and bC < c3Pivot5 and prevClose >= c3Pivot5)
+        if c3Active and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
+            c3M5At := barEnd
+            if lastC1 == c1Start3
+                lastM5 := barEnd
+
+    // Actualizar swing M5 DESPUES de la barrida: no congelar un pivot que
+    // acababa de confirmarse simultaneamente con la vela de manipulacion.
+    if not na(pH5)
+        lastHigh5 := pH5
+        lastHigh5At := time[right5 + 1]
+    if not na(pL5)
+        lastLow5 := pL5
+        lastLow5At := time[right5 + 1]
+
+    // Priorizar el CRT ratificado en C3 sobre una NUEVA C2 provisional
+    // superpuesta. La nueva C2 permanece registrada internamente y se
+    // mostrara cuando termine la C3, si aun continua vigente.
+    bool partial = showCandidate and c2Active and c2Dir != 0 and not c2Double and (showAtSweep or c2Returned)
+    bool recent = keepLastCRT and not na(lastConfirmedAt) and barEnd >= lastConfirmedAt and barEnd - lastConfirmedAt <= keepHours * 3600000
+    int outPhase = c3Active ? 2 : partial ? 1 : recent ? 3 : 0
+    int outDir = outPhase == 2 ? c3Dir : outPhase == 1 ? c2Dir : outPhase == 3 ? lastDir : 0
+    int outC1 = outPhase == 2 ? c1Start3 : outPhase == 1 ? c1Start2 : outPhase == 3 ? lastC1 : na
+    int outC2Start = outPhase == 2 ? c3C2Start : outPhase == 1 ? c2Start : outPhase == 3 ? lastC2Start : na
+    float outHi = outPhase == 2 ? c1High3 : outPhase == 1 ? c1High2 : outPhase == 3 ? lastHi : na
+    float outLo = outPhase == 2 ? c1Low3 : outPhase == 1 ? c1Low2 : outPhase == 3 ? lastLo : na
+    int outSweep = outPhase == 2 ? c3SweepEnd : outPhase == 1 ? c2SweepEnd : outPhase == 3 ? lastSweepAt : na
+    int outM5At = outPhase == 2 ? c3M5At : outPhase == 1 ? c2M5At : outPhase == 3 ? lastM5 : na
+    int outM15At = outPhase == 2 ? c3M15At : outPhase == 1 ? c2M15At : outPhase == 3 ? lastM15 : na
+    float outM5Level = outPhase == 2 ? c3Pivot5 : outPhase == 1 ? c2Pivot5 : outPhase == 3 ? lastM5Level : na
+    float outM15Level = outPhase == 2 ? c3Pivot15 : outPhase == 1 ? c2Pivot15 : outPhase == 3 ? lastM15Level : na
+    int outM5PivotAt = outPhase == 2 ? c3Pivot5At : outPhase == 1 ? c2Pivot5At : outPhase == 3 ? lastM5PivotAt : na
+    int outM15PivotAt = outPhase == 2 ? c3Pivot15At : outPhase == 1 ? c2Pivot15At : outPhase == 3 ? lastM15PivotAt : na
+    // El modelo es metadato independiente; phase y ticks MSS no cambian.
+    bool c3IdentityOK = outPhase == 2 and c3ModelC1 == outC1
+    bool lastIdentityOK = outPhase == 3 and lastModelC1 == outC1
+    bool rejectedRecent = outPhase == 0 and last2CClassification == "CRT_2C_EXPANSION" and not na(last2CClassificationAt) and barEnd >= last2CClassificationAt and barEnd - last2CClassificationAt < H4MS
+    string outModel = c3IdentityOK ? c3ModelKind : outPhase == 1 ? "PENDING" : lastIdentityOK ? lastModelKind : rejectedRecent ? "CRT_2C_EXPANSION" : "NONE"
+    bool outValid = c3IdentityOK ? c3PatternValid : lastIdentityOK ? lastPatternValid : false
+    string outPdhStatus = hasLiquidityRef ? (pdhTaken ? "TAKEN" : "INTACTO") : "N/D"
+    string outPdlStatus = hasLiquidityRef ? (pdlTaken ? "TAKEN" : "INTACTO") : "N/D"
+    bool pdhInDisplayedCRT = pdhTaken and outPhase > 0 and pdhSweepC1 == outC1 and (pdhSweepStage == 2 or pdhSweepStage == 3)
+    bool pdlInDisplayedCRT = pdlTaken and outPhase > 0 and pdlSweepC1 == outC1 and (pdlSweepStage == 2 or pdlSweepStage == 3)
+    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, outM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT)
+
+// M4B: texto compacto y explicitamente vinculado al CRT MOSTRADO.
+// PRE = primera barrida previa al comienzo de C2; OTR = fuera del
+// ciclo C2/C3 mostrado. Evita atribuir al CRT una barrida ajena.
+f_liqText(string status, int sweepAt, int stage, int sweepC1, int shownC1, int shownC2) =>
+    string result = status == "N/D" ? "N/D" : status == "INTACTO" ? "INT" : "T OTR"
+    if status == "TAKEN"
+        if not na(shownC1) and sweepC1 == shownC1 and stage == 2
+            result := "T C2"
+        else if not na(shownC1) and sweepC1 == shownC1 and stage == 3
+            result := "T C3"
+        else if not na(shownC2) and not na(sweepAt) and sweepAt <= shownC2
+            result := "T PRE"
+    result
+
+f_liqColor(string status) =>
+    status == "TAKEN" ? color.rgb(237, 164, 83) : status == "INTACTO" ? color.rgb(97, 192, 152) : color.gray
+
+// ---- 34 activos: una sola peticion 5m por activo ----
+s01 = input.symbol("IC:AUDJPY", "AUDJPY", group="Activos 1")
+s02 = input.symbol("IC:GBPUSD", "GBPUSD", group="Activos 1")
+s03 = input.symbol("IC:GBPJPY", "GBPJPY", group="Activos 1")
+s04 = input.symbol("IC:XAUUSD", "XAUUSD", group="Activos 1")
+s05 = input.symbol("OANDA:NAS100USD", "NDX100", group="Activos 1")
+s06 = input.symbol("IC:US500", "SPX500", group="Activos 1")
+s07 = input.symbol("IC:US30", "US30", group="Activos 1")
+s08 = input.symbol("IC:BTCUSD", "BTCUSD", group="Activos 1")
+s09 = input.symbol("IC:AUDUSD", "AUDUSD", group="Activos 1")
+s10 = input.symbol("IC:USDCAD", "USDCAD", group="Activos 1")
+s11 = input.symbol("IC:USDJPY", "USDJPY", group="Activos 1")
+s12 = input.symbol("IC:EURUSD", "EURUSD", group="Activos 1")
+s13 = input.symbol("IC:USDCHF", "USDCHF", group="Activos 2")
+s14 = input.symbol("IC:NZDUSD", "NZDUSD", group="Activos 2")
+s15 = input.symbol("IC:NZDJPY", "NZDJPY", group="Activos 2")
+s16 = input.symbol("IC:NZDCHF", "NZDCHF", group="Activos 2")
+s17 = input.symbol("IC:XAGUSD", "XAGUSD", group="Activos 2")
+s18 = input.symbol("IC:AUDCAD", "AUDCAD", group="Activos 2")
+s19 = input.symbol("IC:AUDCHF", "AUDCHF", group="Activos 2")
+s20 = input.symbol("IC:AUDNZD", "AUDNZD", group="Activos 2")
+s21 = input.symbol("IC:CADCHF", "CADCHF", group="Activos 2")
+s22 = input.symbol("IC:CADJPY", "CADJPY", group="Activos 2")
+s23 = input.symbol("IC:CHFJPY", "CHFJPY", group="Activos 2")
+s24 = input.symbol("IC:EURAUD", "EURAUD", group="Activos 2")
+s25 = input.symbol("IC:EURCAD", "EURCAD", group="Activos 3")
+s26 = input.symbol("OANDA:EURCHF", "EURCHF", group="Activos 3")
+s27 = input.symbol("OANDA:EURGBP", "EURGBP", group="Activos 3")
+s28 = input.symbol("IC:EURJPY", "EURJPY", group="Activos 3")
+s29 = input.symbol("OANDA:EURNZD", "EURNZD", group="Activos 3")
+s30 = input.symbol("IC:GBPAUD", "GBPAUD", group="Activos 3")
+s31 = input.symbol("IC:GBPCAD", "GBPCAD", group="Activos 3")
+s32 = input.symbol("OANDA:GBPCHF", "GBPCHF", group="Activos 3")
+s33 = input.symbol("IC:GBPNZD", "GBPNZD", group="Activos 3")
+s34 = input.symbol("IC:NZDCAD", "NZDCAD", group="Activos 3")
+string[] scanSymbols = array.from(s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34)
+// Nombres calculados del simbolo ELEGIDO en ajustes. Si se cambia el broker,
+// nunca dejamos en pantalla el viejo alias.
+f_name(string sym) =>
+    int pos = str.pos(sym, ":")
+    pos >= 0 ? str.substring(sym, pos + 1) : sym
+
+string[] scanNames = array.from(f_name(s01), f_name(s02), f_name(s03), f_name(s04), f_name(s05), f_name(s06), f_name(s07), f_name(s08), f_name(s09), f_name(s10), f_name(s11), f_name(s12), f_name(s13), f_name(s14), f_name(s15), f_name(s16), f_name(s17), f_name(s18), f_name(s19), f_name(s20), f_name(s21), f_name(s22), f_name(s23), f_name(s24), f_name(s25), f_name(s26), f_name(s27), f_name(s28), f_name(s29), f_name(s30), f_name(s31), f_name(s32), f_name(s33), f_name(s34))
+
+var array<int> statuses = array.new_int(34, 0)
+var array<int> directions = array.new_int(34, 0)
+var array<int> m5Flags = array.new_int(34, 0)
+var array<int> m15Flags = array.new_int(34, 0)
+var array<int> c1IDs = array.new_int(34, 0)
+var array<int> m5Times = array.new_int(34, 0)
+var array<int> m15Times = array.new_int(34, 0)
+var array<string> pdhTexts = array.new_string(34, "N/D")
+var array<string> pdlTexts = array.new_string(34, "N/D")
+var array<int> pdhFlags = array.new_int(34, -1)
+var array<int> pdlFlags = array.new_int(34, -1)
+var array<int> alert5IDs = array.new_int(34, 0)
+var array<int> alert15IDs = array.new_int(34, 0)
+int found = 0
+int with5 = 0
+int with15 = 0
+int missing = 0
+int checked = 0
+string alertsNow = ""
+
+for i = 0 to 33
+    string symbol = array.get(scanSymbols, i)
+    // El UDT cuenta como un campo de retorno, evita 34*12 campos de tupla.
+    Signal s = request.security(symbol, "5", f_engine(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=2500)
+    bool available = not na(s) and not na(s.phase)
+    int st = available ? s.phase : 0
+    int dr = available ? s.direction : 0
+    int id = available and not na(s.c1Start) ? s.c1Start : 0
+    int m5t = available and not na(s.m5At) ? s.m5At : 0
+    int m15t = available and not na(s.m15At) ? s.m15At : 0
+    array.set(statuses, i, st)
+    array.set(directions, i, dr)
+    array.set(c1IDs, i, id)
+    array.set(m5Flags, i, m5t > 0 ? 1 : 0)
+    array.set(m15Flags, i, m15t > 0 ? 1 : 0)
+    array.set(m5Times, i, m5t)
+    array.set(m15Times, i, m15t)
+    string hStatus = available ? s.pdhStatus : "N/D"
+    string lStatus = available ? s.pdlStatus : "N/D"
+    array.set(pdhFlags, i, hStatus == "N/D" ? -1 : hStatus == "TAKEN" ? 1 : 0)
+    array.set(pdlFlags, i, lStatus == "N/D" ? -1 : lStatus == "TAKEN" ? 1 : 0)
+    array.set(pdhTexts, i, available ? f_liqText(hStatus, s.pdhSweepAt, s.pdhSweepStage, s.pdhSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+    array.set(pdlTexts, i, available ? f_liqText(lStatus, s.pdlSweepAt, s.pdlSweepStage, s.pdlSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+    if not available
+        missing += 1
+    else
+        checked += 1
+    if st > 0
+        found += 1
+        if m5t > 0
+            with5 += 1
