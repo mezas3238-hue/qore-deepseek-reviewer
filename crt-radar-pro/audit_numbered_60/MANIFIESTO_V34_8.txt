@@ -1,0 +1,24 @@
+CRT RADAR PRO — MANIFIESTO V34_8
+ARCHIVO COMPLETO: 1065 lineas.
+SHA256 del contenido RAW de GitHub (sin salto final): a287a41f9919d5a0c57369b3c1fff0afabae91ee507d69555383d46d5cd3c630
+Cada archivo posee 1 a 60 lineas, con la numeracion ABSOLUTA original al inicio de cada renglon (NNNN | codigo). Ese prefijo NO pertenece al codigo Pine.
+Lee TODOS los enlaces en orden; no infieras un total a partir de la cantidad de lineas que muestra tu visor.
+
+1-60: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0001-0060.txt
+61-120: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0061-0120.txt
+121-180: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0121-0180.txt
+181-240: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0181-0240.txt
+241-300: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0241-0300.txt
+301-360: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0301-0360.txt
+361-420: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0361-0420.txt
+421-480: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0421-0480.txt
+481-540: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0481-0540.txt
+541-600: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0541-0600.txt
+601-660: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0601-0660.txt
+661-720: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0661-0720.txt
+721-780: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0721-0780.txt
+781-840: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0781-0840.txt
+841-900: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0841-0900.txt
+901-960: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0901-0960.txt
+961-1020: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L0961-1020.txt
+1021-1065: https://raw.githubusercontent.com/mezas3238-hue/qore-deepseek-reviewer/review/crt-radar-audit-numbered-60-20261031/crt-radar-pro/audit_numbered_60/V34_8_L1021-1065.txt
