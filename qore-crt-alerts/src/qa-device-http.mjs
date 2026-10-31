@@ -44,6 +44,7 @@ const status=(s)=>{
      s==="QA_REGISTRATION_REFRESHED"||s==="QA_REVOKED"||
      s==="QA_NOT_FOUND"||s==="QA_REGISTRATIONS")return 200;
   if(s==="QA_DATABASE_UNAVAILABLE")return 503;
+  if(s==="QA_CONFLICT_HELD")return 409;
   if(s==="AUTHENTICATION_REQUIRED"||s==="APP_CHECK_REQUIRED"||
      s==="APP_CHECK_INVALID")return 401;
   return 422;

@@ -92,3 +92,20 @@ test("mock cannot trick registry into positive delivery state",async()=>{
   result:{state:"READY_TO_SEND",revision:1}}]})});
  assert.equal((await r.register(req)).state,"QA_DATABASE_UNAVAILABLE");
 });
+
+test("known CAS SQLSTATE conflict becomes non-leaking QA_CONFLICT_HELD",async()=>{
+ const db={query:async()=>{throw Object.assign(
+  Error("QA_DEVICE_STALE_REVISION_OR_WRONG_OWNER"),{code:"23514"})}};
+ const r=create(db);
+ const result=await r.register({...req,expectedRevision:1});
+ assert.equal(result.state,"QA_CONFLICT_HELD");
+ assert.equal(result.sendPush,false);
+ assert.equal(result.deliveryState,"BLOCKED_NOT_CERTIFIED");
+ assert.equal(JSON.stringify(result).includes("WRONG_OWNER"),false);
+});
+test("unrecognized SQL error cannot masquerade as expected CAS conflict",async()=>{
+ const db={query:async()=>{throw Object.assign(
+  Error("dangerous internal SQL details"),{code:"23514"})}};
+ const r=create(db);
+ assert.equal((await r.register(req)).state,"QA_DATABASE_UNAVAILABLE");
+});

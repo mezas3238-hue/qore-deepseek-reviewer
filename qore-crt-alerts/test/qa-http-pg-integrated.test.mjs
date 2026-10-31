@@ -25,11 +25,12 @@ function qaDb(){
        return {rows:[{result:{state:"QA_DEVICE_REGISTERED",revision:1}}]};
      }
      if(expected===0){
-       if(old.installation!==installation||!old.active)throw Error("immutable conflict");
+       if(old.installation!==installation||!old.active)
+         throw Object.assign(Error("QA_DEVICE_CONFLICT_OR_REVOKED"),{code:"23514"});
        return {rows:[{result:{state:"QA_DEVICE_DUPLICATE",revision:old.revision}}]};
      }
      if(expected!==old.revision||old.scope!==scope||!old.active)
-       throw Error("stale CAS");
+       throw Object.assign(Error("QA_DEVICE_STALE_REVISION_OR_WRONG_OWNER"),{code:"23514"});
      old.installation=installation;old.revision++;
      return {rows:[{result:{state:"QA_DEVICE_ROTATED_OR_REFRESHED",
        revision:old.revision}}]};
@@ -38,7 +39,7 @@ function qaDb(){
      const [handle,scope,expected]=p;
      const old=records.get(handle);
      if(!old||old.scope!==scope||old.revision!==expected||!old.active)
-       throw Error("revocation conflict");
+       throw Object.assign(Error("QA_DEVICE_REVOCATION_CONFLICT"),{code:"23514"});
      old.active=false;old.revision++;
      return {rows:[{result:{state:"QA_DEVICE_REVOKED",revision:old.revision}}]};
    }
@@ -94,8 +95,8 @@ test("full local HTTP -> SQL adapter -> CAS rotate -> revoke, no FCM",async()=>{
    assert.equal(next.body.revision,2);
    assert.equal(s.db.records.size,1);
    const stale=await s.call("POST",{...first,expectedRevision:1});
-   assert.equal(stale.status,503);
-   assert.equal(stale.body.state,"QA_DATABASE_UNAVAILABLE");
+   assert.equal(stale.status,409);
+   assert.equal(stale.body.state,"QA_CONFLICT_HELD");
    assert.equal((await s.call("GET")).body.registrations[0].revision,2);
    const revoked=await s.call("DELETE",{
      deviceSlot:first.deviceSlot,expectedRevision:2});
@@ -114,7 +115,8 @@ test("HTTP bearer subject never trusts body, cannot list other user's device",as
   assert.equal((await s.call("GET",null,"bearer-bob-verified-123")).body.count,0);
   const denied=await s.call("DELETE",{
     deviceSlot:first.deviceSlot,expectedRevision:1},"bearer-bob-verified-123");
-  assert.equal(denied.status,503);
+  assert.equal(denied.status,409);
+  assert.equal(denied.body.state,"QA_CONFLICT_HELD");
   assert.equal(s.db.records.size,1);
  }finally{await s.close();}
 });

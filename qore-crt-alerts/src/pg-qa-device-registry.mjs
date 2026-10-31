@@ -10,6 +10,18 @@ const digest=(secret,parts)=>createHmac("sha256",secret)
 const reply=(state,more={})=>Object.freeze({state,environment:"OFFLINE_REPLAY",
  actionable:false,sendPush:false,deliveryState:"BLOCKED_NOT_CERTIFIED",...more});
 const revision=x=>Number.isSafeInteger(x)&&x>=0;
+// Only these explicitly whitelisted, non-sensitive PostgreSQL SQLSTATE
+// 23514 conditions map to HTTP 409. All other DB failures are 503.
+const conflictCodes=new Set([
+ "QA_DEVICE_STALE_REVISION_OR_WRONG_OWNER",
+ "QA_DEVICE_CONFLICT_OR_REVOKED",
+ "QA_DEVICE_REVOCATION_CONFLICT"
+]);
+const failed=(error)=>{
+ if(error?.code==="23514"&&conflictCodes.has(error?.message))
+   return reply("QA_CONFLICT_HELD");
+ return reply("QA_DATABASE_UNAVAILABLE");
+};
 export class PgQaDeviceRegistry{
  #db;#auth;#check;#secret;#project;#firebase;
  constructor({db,verifyAuth,verifyAppCheck,hashSecret,
@@ -60,7 +72,7 @@ export class PgQaDeviceRegistry{
      };
      if(!states[data.state])return reply("QA_DATABASE_UNAVAILABLE");
      return reply(states[data.state],{handle,revision:Number(data.revision)});
-   }catch{return reply("QA_DATABASE_UNAVAILABLE");}
+   }catch(error){return failed(error);}
  }
  async revoke({credential,deviceSlot,expectedRevision}={}){
    const user=await this.#user(credential);
@@ -76,7 +88,7 @@ export class PgQaDeviceRegistry{
      if(data?.state!=="QA_DEVICE_REVOKED"||!revision(Number(data.revision)))
        return reply("QA_DATABASE_UNAVAILABLE");
      return reply("QA_REVOKED",{handle,revision:Number(data.revision)});
-   }catch{return reply("QA_DATABASE_UNAVAILABLE");}
+   }catch(error){return failed(error);}
  }
  async list({credential}={}){
    const user=await this.#user(credential);
@@ -97,6 +109,6 @@ export class PgQaDeviceRegistry{
        !revision(x.revision)||!Number.isSafeInteger(x.expiresAt)))
        return reply("QA_DATABASE_UNAVAILABLE");
      return reply("QA_REGISTRATIONS",{registrations:Object.freeze(data),count:data.length});
-   }catch{return reply("QA_DATABASE_UNAVAILABLE");}
+   }catch(error){return failed(error);}
  }
 }

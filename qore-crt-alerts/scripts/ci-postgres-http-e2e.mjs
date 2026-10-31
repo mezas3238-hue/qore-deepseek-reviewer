@@ -74,7 +74,7 @@ try{
   request("POST",{...original,installationId:"ci-fid-rotated-b-1234567",expectedRevision:1})
  ]);
  check("concurrent compare-and-swap exactly one winner",()=>{
-  assert.deepEqual(concurrent.map(x=>x.status).sort(),[200,503]);
+  assert.deepEqual(concurrent.map(x=>x.status).sort(),[200,409]);
   assert.equal(concurrent.filter(x=>x.data.revision===2).length,1);
  });
  const other=await request("GET",null,"ci-auth-user-b");
@@ -83,7 +83,10 @@ try{
  });
  const wrong=await request("DELETE",{
   deviceSlot:original.deviceSlot,expectedRevision:2},"ci-auth-user-b");
- check("other principal cannot revoke",()=>assert.equal(wrong.status,503));
+ check("other principal cannot revoke",()=>{
+  assert.equal(wrong.status,409);
+  assert.equal(wrong.data.state,"QA_CONFLICT_HELD");
+});
  const blocked=await request("POST",{...original,
   installationId:"ci-fid-new-12345678",expectedRevision:2},
   "ci-auth-user-a","invalid-app-check");
@@ -101,7 +104,8 @@ try{
  const replay=await request("POST",{...original,
   installationId:"ci-fid-after-revoke-123456",expectedRevision:3});
  check("revoked handle cannot be silently resurrected",()=>{
-  assert.equal(replay.status,503);
+  assert.equal(replay.status,409);
+  assert.equal(replay.data.state,"QA_CONFLICT_HELD");
   assert.equal(replay.data.sendPush,false);
  });
  const verified=await pool.query(
