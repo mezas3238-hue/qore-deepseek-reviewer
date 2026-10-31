@@ -1,0 +1,60 @@
+0301 | 
+0302 |     // C3 ratificada: los MSS de C2 se heredan, los faltantes se esperan en C3.
+0303 |     var bool c3Active = false
+0304 |     var int c3Start = na
+0305 |     var int c1Start3 = na
+0306 |     var float c1High3 = na
+0307 |     var float c1Low3 = na
+0308 |     var int c3Dir = 0
+0309 |     var int c3SweepEnd = na
+0310 |     var float c3Pivot5 = na
+0311 |     var float c3Pivot15 = na
+0312 |     var int c3Pivot5At = na
+0313 |     var int c3Pivot15At = na
+0314 |     var int c3M5At = na
+0315 |     var int c3M15At = na
+0316 |     var float c3Invalidation = na
+0317 |     // Metadatos del CRT ratificado que se encuentra en C3.
+0318 |     var string c3ModelKind = "NONE"
+0319 |     var bool c3PatternValid = false
+0320 |     var int c3ModelC1 = na
+0321 |     var int c3C2Start = na // Solo metadato para asociar PDH/PDL, sin alterar MSS.
+0322 | 
+0323 |     // Clasificacion diagnostica del ultimo cierre C2, aun si no es operativo.
+0324 |     var string last2CClassification = "NONE"
+0325 |     var int last2CClassificationAt = na
+0326 | 
+0327 |     // Memoria controlada del ULTIMO CRT realmente ratificado, NO de
+0328 |     // cualquier MSS aislado. Los flags se copian desde C2/C3 y no se
+0329 |     // inventan desde eventos antiguos no vinculados al ciclo.
+0330 |     var int lastC1 = na
+0331 |     var int lastDir = 0
+0332 |     var int lastConfirmedAt = na
+0333 |     var float lastHi = na
+0334 |     var float lastLo = na
+0335 |     var int lastSweepAt = na
+0336 |     var int lastM5 = na
+0337 |     var int lastM15 = na
+0338 |     var float lastM5Level = na
+0339 |     var float lastM15Level = na
+0340 |     var int lastM5PivotAt = na
+0341 |     var int lastM15PivotAt = na
+0342 |     var string lastModelKind = "NONE"
+0343 |     var bool lastPatternValid = false
+0344 |     var int lastModelC1 = na
+0345 |     var int lastC2Start = na // Memoria del mismo CRT ratificado.
+0346 | 
+0347 |     // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
+0348 |     // f_engine() debe evaluarse incondicionalmente en cada barra M5.
+0349 |     int bucket15 = time("15")[1]
+0350 |     int bucketH4 = isIndex ? time("240", "0200-0200:1234567", TZ)[1] : time("240", "0100-0100:1234567", TZ)[1]
+0351 | 
+0352 |     // ---- CERRAR M15 ANTERIOR ----
+0353 |     if not na(barT) and not na(bucket15)
+0354 |         bool next15 = not na(m15Bucket) and bucket15 != m15Bucket
+0355 |         if next15
+0356 |             if m15Count == 3 and m15LastEnd == bucket15
+0357 |                 array.push(highs15, m15High)
+0358 |                 array.push(lows15, m15Low)
+0359 |                 array.push(times15, m15Start)
+0360 |                 if array.size(highs15) > 48
