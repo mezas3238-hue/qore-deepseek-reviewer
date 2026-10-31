@@ -36,6 +36,11 @@ delivery. Android QA intentionally rejects all notifications by build flag.
 - src/parity-audit.mjs: exact 12-field Pine QA Data Window comparison
   with M5 SHA-256 integrity, strict source identity and fail-closed
   missing/mismatched evidence; never calls itself certified.
+- src/device-registration.mjs: offline registration with injected
+  server-side Auth and App Check verifiers, HMAC device handles, explicit
+  opt-in, FID rotation, revocation, server-clock expiry and no push transport.
+- src/fcm-delivery-policy.mjs: pure offline classification of FCM failures,
+  exponential/quota retry planning and permanent delivery blocking.
 - src/notification-preview.mjs: deterministic backend-to-Android
   envelope for a quarantined observation; OFFLINE_REPLAY, certified=false,
   transport DISABLED, never includes an FCM token or send operation.
@@ -53,7 +58,7 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **120/120 offline Node tests PASS**.
+Evidence as of 31 Oct 2026: **139/139 offline Node tests EXPECTED, subject to CI**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 An additional GitHub Actions job uses a disposable PostgreSQL 16 container,
 NOT a real Supabase instance, to test the schema, RLS, deduplication and

@@ -4,6 +4,11 @@
     <application android:label="QORE CRT Alerts QA"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- No auto registration before explicit consent and approved backend. -->
+        <meta-data android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+        <meta-data android:name="firebase_analytics_collection_enabled"
+            android:value="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -5,9 +5,12 @@ const NOW=Date.parse("2026-10-31T15:00:00Z"),PROJECT="qore-crt-qa-project";
 const verifyAuth=async credential=>
   credential==="alice-valid"?{verified:true,subject:"user-alice-qa-123"}:
   credential==="bob-valid"?{verified:true,subject:"user-bob-qa-123"}:null;
-const make=()=>new QaDeviceRegistry({verifyAuth,projectId:PROJECT,
+const verifyAppCheck=async token=>token==="app-check-valid"?
+  {verified:true,projectId:PROJECT,appId:"com.qore.crtalerts.qa"}:null;
+const make=(now=()=>NOW)=>new QaDeviceRegistry({verifyAuth,verifyAppCheck,
+  now,projectId:PROJECT,
   hashSecret:"fixture-only-secret-not-valid-for-prod-1234567890"});
-const input={credential:"alice-valid",projectId:PROJECT,
+const input={credential:"alice-valid",appCheckToken:"app-check-valid",projectId:PROJECT,
   deviceSlot:"slot-android-qa-001",installationId:"fid-android-qa-1234567890",
   optedIn:true,observedAt:NOW};
 test("verified backend identity and same Firebase project are required",async()=>{
@@ -32,7 +35,7 @@ test("QA registration gives only hashed device handle, no raw FID or user",async
  assert.ok(!JSON.stringify(list).includes("user-alice"));
 });
 test("rotating installation identifier replaces existing device slot",async()=>{
- const r=make();await r.register(input);
+ let tick=NOW;const r=make(()=>tick);await r.register(input);tick+=300000;
  assert.equal((await r.register({...input,installationId:"fid-android-qa-new-123456",
   observedAt:NOW+300000})).state,"QA_INSTALLATION_ROTATED");
  assert.equal(r.size,1);
@@ -43,8 +46,10 @@ test("duplicate registration refresh retains same handle",async()=>{
  assert.equal(b.state,"QA_REGISTRATION_REFRESHED");
 });
 test("stale rotation and replay are rejected without overwriting",async()=>{
- const r=make();await r.register(input);
+ let tick=NOW;const r=make(()=>tick);await r.register(input);
+ tick+=500000;
  await r.register({...input,installationId:"fid-android-qa-new-123456",observedAt:NOW+500000});
+ tick-=400000;
  assert.equal((await r.register({...input,observedAt:NOW+100000})).state,
  "STALE_ROTATION_IGNORED");
 });
@@ -70,6 +75,26 @@ test("do not accept client verified flag or weak secrets",async()=>{
  const r=make();
  assert.equal((await r.register({...input,credential:"bad",verified:true})).state,
  "AUTHENTICATION_REQUIRED");
- assert.throws(()=>new QaDeviceRegistry({verifyAuth,projectId:PROJECT,
+ assert.throws(()=>new QaDeviceRegistry({verifyAuth,verifyAppCheck,projectId:PROJECT,
   hashSecret:"weak"}),/secret/);
+});
+
+test("App Check attestation is mandatory in addition to user authentication",async()=>{
+ const r=make();
+ assert.equal((await r.register({...input,appCheckToken:undefined})).state,
+  "APP_CHECK_REQUIRED");
+ assert.equal((await r.register({...input,appCheckToken:"forged"})).state,
+  "APP_CHECK_INVALID");
+ assert.equal(r.size,0);
+});
+test("wrong Firebase App Check project or app never enrolls",async()=>{
+ const r=new QaDeviceRegistry({verifyAuth,projectId:PROJECT,
+   now:()=>NOW,hashSecret:"fixture-secret-not-usable-in-any-environment-123456",
+   verifyAppCheck:async()=>({verified:true,projectId:PROJECT,
+     appId:"com.unauthorized.app"})});
+ assert.equal((await r.register(input)).state,"APP_CHECK_INVALID");
+});
+test("client-supplied timestamp cannot extend registration expiry",async()=>{
+ const r=make(),result=await r.register({...input,observedAt:NOW+1000*24*60*60*1000});
+ assert.equal(result.expiresAt,NOW+30*24*60*60*1000);
 });

@@ -8,6 +8,9 @@ or live device token registration, and no network transmission is enabled.
 - Firebase Android BoM 35.1.0 and firebase-messaging main module.
 - MainActivity explicitly shows notifications are disabled.
 - FirebaseMessagingService is registered, with BUILD-TIME hard lock FALSE.
+- Manifest disables FCM auto initialization AND Analytics collection,
+  preventing premature FID registration until authorized consent and
+  explicit app configuration are reviewed.
 - onNewToken intentionally never logs or uploads FCM credentials.
 - Android 13+ POST_NOTIFICATIONS is declared, not yet requested since QA
   cannot post notifications.
