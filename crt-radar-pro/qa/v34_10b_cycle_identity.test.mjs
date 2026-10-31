@@ -21,7 +21,7 @@ test("STATIC: no new requests, inputs, or drawings",()=>{
 });
 const fields=["c1Start","crtC2Start","crtRatifiedAt","sweepAt","m5Level","m5PivotAt","m5At","m15Level","m15PivotAt","m15At"];
 for(const field of fields)test("STATIC: QA cycle exports same Signal field "+field,()=>{
- assert.equal(plots.filter(p=>p.includes("own."+field)),1);
+ assert.equal(plots.filter(p=>p.includes("own."+field)).length,1);
 });
 test("STATIC: all timestamp plots express minutes, MSS levels retain price",()=>{
  const t=plots.filter(p=>/UTC min/.test(p));
