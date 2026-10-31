@@ -1,0 +1,60 @@
+0541 |                 string classified2C = "NONE"
+0542 |                 if validC2Data and strictSingleSweep
+0543 |                     if inside and c2Returned
+0544 |                         classified2C := "CRT_2C_RETURN"
+0545 |                     else if expansionBull or expansionBear
+0546 |                         classified2C := "CRT_2C_EXPANSION"  // Solo diagnostico, NUNCA ratificado
+0547 |                 last2CClassification := classified2C
+0548 |                 last2CClassificationAt := bucketH4
+0549 |                 bool validRange = classified2C == "CRT_2C_RETURN"
+0550 |                 bool exactHour3 = hour(bucketH4, TZ) == ((hour(c1Start2, TZ) + 8) % 24)
+0551 |                 if validRange and exactHour3
+0552 |                     // Registrar el CRT al CIERRE H4 de C2. M5/M15 se
+0553 |                     // conservan solo si ya se confirmaron en esa C2.
+0554 |                     lastC1 := c1Start2
+0555 |                     lastDir := c2Dir
+0556 |                     lastConfirmedAt := bucketH4
+0557 |                     lastHi := c1High2
+0558 |                     lastLo := c1Low2
+0559 |                     lastSweepAt := c2SweepEnd
+0560 |                     lastM5 := c2M5At
+0561 |                     lastM15 := c2M15At
+0562 |                     lastM5Level := c2Pivot5
+0563 |                     lastM15Level := c2Pivot15
+0564 |                     lastM5PivotAt := c2Pivot5At
+0565 |                     lastM15PivotAt := c2Pivot15At
+0566 |                     lastModelKind := classified2C
+0567 |                     lastPatternValid := true
+0568 |                     lastModelC1 := c1Start2
+0569 |                     lastC2Start := c2Start
+0570 |                     c3ModelKind := classified2C
+0571 |                     c3PatternValid := true
+0572 |                     c3ModelC1 := c1Start2
+0573 |                     c3C2Start := c2Start
+0574 |                     c3Active := true
+0575 |                     c3Start := bucketH4
+0576 |                     c1Start3 := c1Start2
+0577 |                     c1High3 := c1High2
+0578 |                     c1Low3 := c1Low2
+0579 |                     c3Dir := c2Dir
+0580 |                     c3SweepEnd := c2SweepEnd
+0581 |                     c3Pivot5 := c2Pivot5
+0582 |                     c3Pivot15 := c2Pivot15
+0583 |                     c3Pivot5At := c2Pivot5At
+0584 |                     c3Pivot15At := c2Pivot15At
+0585 |                     c3M5At := c2M5At
+0586 |                     c3M15At := c2M15At
+0587 |                     c3Invalidation := c2Dir == 1 ? h4Low : h4High
+0588 |                 c2Active := false
+0589 | 
+0590 |             // La H4 que acaba de cerrar puede ser C1 del SIGUIENTE ciclo,
+0591 |             // incluso si la H4 nueva ya es C3 de un ciclo anterior.
+0592 |             c2Active := false
+0593 |             c2Dir := 0
+0594 |             c2StrictSweep := false
+0595 |             c2Double := false
+0596 |             c2Returned := false
+0597 |             c2SweepEnd := na
+0598 |             c2M5At := na
+0599 |             c2M15At := na
+0600 |             c2Pivot5 := na
