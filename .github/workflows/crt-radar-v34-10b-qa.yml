@@ -1,0 +1,27 @@
+name: CRT RADAR PRO V34.10b QA (offline only)
+on:
+  push:
+    branches:
+      - 'review/crt-radar-v34-10b-qa-strict-*'
+    paths:
+      - 'crt-radar-pro/**'
+      - '.github/workflows/crt-radar-v34-10b-qa.yml'
+  pull_request:
+    paths:
+      - 'crt-radar-pro/**'
+      - '.github/workflows/crt-radar-v34-10b-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  m5b-offline-regression:
+    name: M5B rule mirror and source non-regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Offline M5B regression (does NOT compile Pine)
+        run: node --test crt-radar-pro/qa/v34_10b_m5b_qa.test.mjs
