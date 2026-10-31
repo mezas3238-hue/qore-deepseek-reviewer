@@ -3,7 +3,7 @@
 This is an executable backend **replay laboratory** with a native Kotlin
 Android QA source project. It is NOT a functioning real-time signal or push
 service. It has no live market feed, external database connection, Railway
-deployment, configured Firebase project, device registration, or real FCM
+deployment, configured Firebase project, real device registration, or real FCM
 delivery. Android QA intentionally rejects all notifications by build flag.
 
 ## Existing isolated modules
@@ -30,6 +30,9 @@ delivery. Android QA intentionally rejects all notifications by build flag.
   quarantine and fail-closed bounded memory. No live feed connection.
 - src/observation-ledger.mjs: immutable replay-only confluence records,
   deterministic fingerprint, deduplication and conflicting-OHLC hold.
+- sql/003_qa_device_revision.sql: UNAPPLIED PostgreSQL revision-based
+  compare-and-swap for device updates/revocation, preventing stale
+  rotations and requiring server-verified consent. CI validates SQL.
 - sql/002_qa_devices_blocked.sql: UNAPPLIED PostgreSQL QA table for
   HMAC handles, server-side consent, rotation, opt-out, 30-day expiry and
   permanently BLOCKED_NOT_CERTIFIED delivery. RLS denies client access.
@@ -42,6 +45,15 @@ delivery. Android QA intentionally rejects all notifications by build flag.
 - src/device-registration.mjs: offline registration with injected
   server-side Auth and App Check verifiers, HMAC device handles, explicit
   opt-in, FID rotation, revocation, server-clock expiry and no push transport.
+- src/firebase-admin-verifiers.mjs: injected real Firebase Admin
+  Auth / App Check verifier adapter, including revoked ID tokens and
+  consumed limited-use App Check tokens, tested with mocks (no credentials).
+- src/qa-device-http.mjs: loopback-only HTTP QA service (not started or
+  deployed automatically): GET/POST/DELETE device registration, consent,
+  App Check, strict JSON size, rate limits, no FCM or send route.
+- src/pg-qa-device-registry.mjs: parametrized PostgreSQL backend adapter
+  for Auth/App Check, pseudonymous device handles, compare-and-swap,
+  revocation and authenticated listing (no live database connection).
 - src/fcm-delivery-policy.mjs: pure offline classification of FCM failures,
   exponential/quota retry planning and permanent delivery blocking.
 - src/notification-preview.mjs: deterministic backend-to-Android
@@ -61,11 +73,11 @@ With Node.js 22+: cd qore-crt-alerts && npm test
 
 GitHub Actions: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/workflows/qore-crt-alerts-foundation.yml
 
-Evidence as of 31 Oct 2026: **141/141 offline Node tests PASS**.
+Evidence as of 31 Oct 2026: **168/168 offline Node tests PASS**.
 Tests are fixture-based and do NOT compile Pine or establish runtime equivalence.
 An additional GitHub Actions job uses a disposable PostgreSQL 16 container,
-NOT a real Supabase instance, to test the schema, RLS, deduplication and
-conflicting OHLC rejection. See .github/workflows/qore-crt-alerts-postgres-offline.yml.
+NOT a real Supabase instance, to test the schema, RLS, deduplication,
+conflicting OHLC rejection, revision-based rotation and revocation. See .github/workflows/qore-crt-alerts-postgres-offline.yml.
 
 ## Important restrictions
 
@@ -89,12 +101,27 @@ conflicting OHLC rejection. See .github/workflows/qore-crt-alerts-postgres-offli
    Compare using the strict offline runner (instructions:
    docs/PINE_PARITY_CAPTURE.md). A passing synthetic test is NOT Pine parity.
 3. Finish FVG/PDH/PDL contextual modules without making them CRT filters.
-4. Connect this quarantined event model to an explicitly approved staging
-   PostgreSQL instance with credentials, audit and transactional retry. A
-   real authenticated device API, App Check verifier, persistent outbox,
-   FCM send service, and working Android receipt are NOT implemented.
+4. Deploy a separately approved STAGING PostgreSQL and connect real
+   Firebase Auth / App Check credentials through a secure TLS API gateway.
+   The loopback-only HTTP and injected PostgreSQL adapters are implemented
+   in QA but NOT deployed or connected to real Firebase or database. A
+   persistent notification outbox, real FCM sender and authenticated Android
+   registration remain NOT implemented.
 5. Finish Firebase project configuration, authenticated device enrollment,
    Android notification permission UI, FCM server adapter and physical-device
    E2E. Android source exists but all notifications remain blocked.
 6. Real TradingView compilation, replay parity, and physical-device E2E
    must pass before declaring any product certified.
+
+## Latest verified CI (31 Oct 2026)
+
+- Node.js 22 offline suite: **168 PASS / 0 FAIL**:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41240129771
+- PostgreSQL 16 ephemeral transactional CAS & RLS: **SUCCESS**:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41239931334
+- Android Kotlin QA compilation (prior verified): **SUCCESS**:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41228916649
+- HTTP contract: docs/QA_DEVICE_HTTP.md
+- PostgreSQL adapter: docs/PG_DEVICE_REGISTRY.md
+
+No real device, Firebase project or market feed was accessed.
