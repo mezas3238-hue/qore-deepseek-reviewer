@@ -54,7 +54,7 @@ test("M5 cannot give an MSS during the sweep candle",()=>{
 });
 test("C3 M5 confirmation recorded in C3 and not invented in C2",()=>{
   const s=scenario({stage:"C3"});
-  assert.equal(run(s).state,"MSS_NOT_CONFIRMED");
+  assert.equal(run(s).state,"MSS_CONFIRMED_C3");
   assert.equal(run(s,s.c3).state,"MSS_CONFIRMED_C3");
 });
 test("M5 MSS from C2 remains tied to original C1 during C3",()=>{

@@ -63,7 +63,10 @@ export function inspectMssM5({candlesM5,c1,c2,c3=null,family,
     // Pine guard: previous M5 ends exactly when current M5 begins.
     if(current.openedAt!==prior.closedAt || current.openedAt<sweep.closedAt)continue;
     const inC2=current.openedAt>=c2.openedAt&&current.closedAt<=c2.closedAt;
-    const inC3=!!c3&&current.openedAt>=c3.openedAt&&current.closedAt<=c3.closedAt;
+    // A closed M5 within the active C3 window is eligible even when
+    // C3 H4 is still forming. H4-close invalidation stays separate.
+    const c3Start=c2.closedAt,c3End=c3?.closedAt??(c3Start+14400000);
+    const inC3=current.openedAt>=c3Start&&current.closedAt<=c3End;
     if(!inC2&&!inC3)continue;
     const cross=crt.direction===1?
       prior.close<=pivot.price&&current.close>pivot.price:

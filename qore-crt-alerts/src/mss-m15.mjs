@@ -81,7 +81,11 @@ export function inspectMssM15({candlesM5,c1,c2,c3=null,family,
     const prev=m15[i-1],bar=m15[i];
     if(prev.closedAt!==bar.openedAt||bar.closedAt<=sweepEnd)continue;
     const inC2=bar.openedAt>=c2.openedAt&&bar.closedAt<=c2.closedAt;
-    const inC3=!!c3&&bar.openedAt>=c3.openedAt&&bar.closedAt<=c3.closedAt;
+    // C3 can confirm MSS on completed M15 before its H4 has finished.
+    // An absent c3 means its H4 is not yet fully closed; it does NOT
+    // prohibit confirmed M15 events from the 4h C3 window.
+    const c3Start=c2.closedAt,c3End=c3?.closedAt??(c3Start+14400000);
+    const inC3=bar.openedAt>=c3Start&&bar.closedAt<=c3End;
     if(!inC2&&!inC3)continue;
     if(!crossing(prev.close,bar.close,pivot.price,crt.direction))continue;
     if(crt.state==="C3_INVALIDATED")

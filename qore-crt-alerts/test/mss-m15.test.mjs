@@ -69,9 +69,9 @@ test("MSS can first confirm in C3 without pretending it was C2",()=>{
   assert.equal(r.state,"MSS_CONFIRMED_C3");
   assert.equal(r.mssAt,s.c3.openedAt+900000);
 });
-test("No C3 supplied means no future C3 MSS leak",()=>{
+test("C3 MSS remains observable from CLOSED M15 data before its H4 closure",()=>{
   const s=scenario({mssStage:"C3"});
-  assert.equal(evalMSS(s).state,"MSS_NOT_CONFIRMED");
+  assert.equal(evalMSS(s).state,"MSS_CONFIRMED_C3");
 });
 test("C3 H4 invalidation suppresses confirmed operational MSS",()=>{
   const s=scenario();
