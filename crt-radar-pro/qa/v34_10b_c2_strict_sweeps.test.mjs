@@ -10,10 +10,16 @@ const nameBefore='indicator("CRT + MSS M5/M15 | V34.10b QA FVG OBSERVABILIDAD NO
 const nameAfter='indicator("CRT + MSS M5/M15 | V34.10b QA BARRIDA ESTRICTA NO INTEGRADO", shorttitle="CRT MSS QA C2"';
 const removeQaCrtCycle = s => s.replace(/\n\/\/ QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos\.[\s\S]*?\n\/\/ FIN QA CRT CICLO/, "");
 const m15Block=s=>s.split("    // ---- CERRAR M15 ANTERIOR ----")[1].split("    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----")[0];
-test("REGRESSION: only C2 strict sweep, M15 continuity and QA trace blocks change",()=>{
+const previousBarBlock=s=>s.split("    int previousBarEnd = time_close[2]")[1].split("    // M4A:")[0];
+const bucketBlock=s=>s.split('    int bucketH4 = isIndex ? time("240"')[1].split("    // ---- CERRAR M15 ANTERIOR ----")[0];
+test("REGRESSION: only C2 sweep, M15 continuity, M5 gap guards and QA trace changes",()=>{
  const expected=original.replace(nameBefore,nameAfter)
     .replace(block(original),block(fixed))
     .replace(m15Block(original),m15Block(fixed))
+    .replace(previousBarBlock(original),previousBarBlock(fixed))
+    .replace(bucketBlock(original),bucketBlock(fixed))
+    .replace("if c3Active and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3",
+             "if c3Active and previousM5Continuous and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3")
     .replace("    var float prev15Close = na", "    var float prev15Close = na\\n    // QA: solo comparar cierres M15 consecutivos completos (no saltar sesiones).\\n    var int prev15End = na".replaceAll("\\n", String.fromCharCode(10)));
  assert.equal(expected,removeQaCrtCycle(fixed));
 });
@@ -44,7 +50,7 @@ test("REGRESSION: true double sweeps only; touching one limit must not set c2Dou
 test("REGRESSION: no MSS granted from boundary touch only",()=>{
  const b=block(fixed);
  assert.ok(b.indexOf("if firstStrictSweep") < b.indexOf("c2StrictSweep := true"));
- assert.ok(b.includes("if c2StrictSweep and barT >= c2SweepEnd and cross5 and na(c2M5At)"));
+ assert.ok(b.includes("if c2StrictSweep and previousM5Continuous and barT >= c2SweepEnd and cross5 and na(c2M5At)"));
 });
 function state(o={}){return {dir:0,strict:false,double:false,sweepEnd:null,returned:false, ...o};}
 function step(s,{lo=104,hi=106,close=105,bar=0,allowTouches=true},range={lo:100,hi:110}){
