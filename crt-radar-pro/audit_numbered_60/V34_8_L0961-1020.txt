@@ -1,0 +1,60 @@
+0961 |             if na(m5Line)
+0962 |                 m5Line := line.new(own.m5PivotAt,own.m5Level,own.m5At,own.m5Level,xloc=xloc.bar_time,color=color.teal,style=line.style_dashed,width=2)
+0963 |             line.set_xy1(m5Line,own.m5PivotAt,own.m5Level)
+0964 |             line.set_xy2(m5Line,own.m5At,own.m5Level)
+0965 |         else if not na(m5Line)
+0966 |             line.delete(m5Line)
+0967 |             m5Line := na
+0968 |         if showMssLines and not na(own.m15At) and not na(own.m15PivotAt) and own.m15PivotAt < own.m15At and not na(own.m15Level)
+0969 |             if na(m15Line)
+0970 |                 m15Line := line.new(own.m15PivotAt,own.m15Level,own.m15At,own.m15Level,xloc=xloc.bar_time,color=color.blue,style=line.style_dashed,width=2)
+0971 |             line.set_xy1(m15Line,own.m15PivotAt,own.m15Level)
+0972 |             line.set_xy2(m15Line,own.m15At,own.m15Level)
+0973 |         else if not na(m15Line)
+0974 |             line.delete(m15Line)
+0975 |             m15Line := na
+0976 |     else
+0977 |         if not na(hiLine)
+0978 |             line.delete(hiLine)
+0979 |             hiLine := na
+0980 |         if not na(loLine)
+0981 |             line.delete(loLine)
+0982 |             loLine := na
+0983 |         if not na(m5Line)
+0984 |             line.delete(m5Line)
+0985 |             m5Line := na
+0986 |         if not na(m15Line)
+0987 |             line.delete(m15Line)
+0988 |             m15Line := na
+0989 |         if not na(hiLabel)
+0990 |             label.delete(hiLabel)
+0991 |             hiLabel := na
+0992 |         if not na(loLabel)
+0993 |             label.delete(loLabel)
+0994 |             loLabel := na
+0995 | 
+0996 | // ---- DASHBOARD M4B: FILA DEL GRAFICO, PAGINACION Y MSS CONSERVADOS ----
+0997 | // Seis columnas; 15 filas reservadas (encabezado, 12 datos, 2 pies).
+0998 | var table board = table.new(position.top_right,6,15,frame_color=color.new(color.gray,70),frame_width=1,border_width=0)
+0999 | color navy = color.rgb(24,36,56)
+1000 | color shade = color.rgb(33,44,62)
+1001 | color posInk = color.rgb(65,190,138)
+1002 | color negInk = color.rgb(240,113,108)
+1003 | if barstate.islast
+1004 |     table.clear(board,0,0,5,14)
+1005 |     if showDashboard
+1006 |         table.cell(board,0,0,"ACTIVO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1007 |         table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1008 |         table.cell(board,2,0,"PDH",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1009 |         table.cell(board,3,0,"PDL",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1010 |         table.cell(board,4,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1011 |         table.cell(board,5,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+1012 |         bool allMode = modeDashboard == "Todos los instrumentos"
+1013 |         // Activo abierto SIEMPRE en la primera fila, sin duplicados.
+1014 |         int ownDir = chartActive ? own.direction : 0
+1015 |         string ownState = chartActive ? (ownDir > 0 ? "BULLISH" : "BEARISH") : "—"
+1016 |         color ownInk = chartActive ? (own.phase == 3 ? color.silver : ownDir > 0 ? posInk : negInk) : color.gray
+1017 |         string ownPDH = chartAvailable ? f_liqText(own.pdhStatus,own.pdhSweepAt,own.pdhSweepStage,own.pdhSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+1018 |         string ownPDL = chartAvailable ? f_liqText(own.pdlStatus,own.pdlSweepAt,own.pdlSweepStage,own.pdlSweepC1,own.c1Start,own.crtC2Start) : "N/D"
+1019 |         table.cell(board,0,1,openName+" [G]",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+1020 |         table.cell(board,1,1,ownState+(chartActive and own.phase == 1 ? "*" : ""),bgcolor=shade,text_color=ownInk,text_size=size.tiny)
