@@ -1178,6 +1178,19 @@ var label loLabel = na
 plot(not na(own) ? own.phase : na, title="AUDIT estado CRT grafico (1=provisional 2=activo 3=ultimo)", display=display.data_window)
 plot(not na(own) ? own.direction : na, title="AUDIT direccion CRT grafico (+1/-1)", display=display.data_window)
 plot(not na(own) ? own.c1Start : na, title="AUDIT ID C1 (timestamp)", display=display.data_window)
+// QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos.
+// Los timestamps son minutos UTC desde 1970; multiplicar por 60000 para milisegundos.
+plot(chartAvailable and not na(own.c1Start) ? own.c1Start / 60000.0 : na, title="QA CRT C1 inicio UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.crtC2Start) ? own.crtC2Start / 60000.0 : na, title="QA CRT C2 inicio UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.crtRatifiedAt) ? own.crtRatifiedAt / 60000.0 : na, title="QA CRT C2 ratificacion UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.sweepAt) ? own.sweepAt / 60000.0 : na, title="QA CRT barrida C2 fin UTC min", display=display.data_window)
+plot(chartAvailable ? own.m5Level : na, title="QA CRT MSS M5 pivote precio", display=display.data_window)
+plot(chartAvailable and not na(own.m5PivotAt) ? own.m5PivotAt / 60000.0 : na, title="QA CRT MSS M5 pivote UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.m5At) ? own.m5At / 60000.0 : na, title="QA CRT MSS M5 ruptura UTC min", display=display.data_window)
+plot(chartAvailable ? own.m15Level : na, title="QA CRT MSS M15 pivote precio", display=display.data_window)
+plot(chartAvailable and not na(own.m15PivotAt) ? own.m15PivotAt / 60000.0 : na, title="QA CRT MSS M15 pivote UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.m15At) ? own.m15At / 60000.0 : na, title="QA CRT MSS M15 ruptura UTC min", display=display.data_window)
+// FIN QA CRT CICLO
 // QA SOLO: valores exportables en ventana de datos; sin nuevos dibujos de chart.
 // Estados -1=ausente, 0=INTACTO, 1=PARCIAL, 2=LLENADO_TOTAL, 3=INVALIDADO, 4=DATOS_INCOMPLETOS.
 plot(showFvgAudit and chartAvailable ? own.fvgH1Count : na, title="QA FVG H1 cantidad", display=display.data_window)
