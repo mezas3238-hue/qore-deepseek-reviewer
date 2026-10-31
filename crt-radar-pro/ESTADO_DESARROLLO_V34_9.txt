@@ -1,0 +1,9 @@
+CRT RADAR PRO V34.9 — INTEGRACION OFICIAL DE DESARROLLO
+Aprobación expresa recibida 31-10-2026.
+Version oficial local y de esta rama: CRT_RADAR_PRO_V34_9_MODULO5A_INTEGRADO.pine (1163 lineas).
+Base V34.8 preservada (1065 lineas).
+Cambio funcional respecto V34.8: solo agregados de detector FVG H1/H4 de contexto; sin modificaciones al CRT/MSS/PDH/PDL/Inside/dashboard.
+A partir del candidato V34.9 auditado cambiaron unicamente identificador de version, shorttitle y comentarios de estado.
+Verificaciones locales: 46/46 satisfactorias, incluyendo simulaciones independientes de formulas y continuidad. No son pruebas de TradingView.
+No hay compilacion Pine Editor confirmada, ni pruebas reales 34 activos, DST / sesiones especiales.
+No se ha modificado main, no merge, no producción.
