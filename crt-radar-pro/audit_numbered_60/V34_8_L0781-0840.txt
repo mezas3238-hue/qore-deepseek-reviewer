@@ -1,0 +1,60 @@
+0781 |     string outModel = c3IdentityOK ? c3ModelKind : outPhase == 1 ? "PENDING" : lastIdentityOK ? lastModelKind : rejectedRecent ? "CRT_2C_EXPANSION" : "NONE"
+0782 |     bool outValid = c3IdentityOK ? c3PatternValid : lastIdentityOK ? lastPatternValid : false
+0783 |     string outPdhStatus = hasLiquidityRef ? (pdhTaken ? "TAKEN" : "INTACTO") : "N/D"
+0784 |     string outPdlStatus = hasLiquidityRef ? (pdlTaken ? "TAKEN" : "INTACTO") : "N/D"
+0785 |     bool pdhInDisplayedCRT = pdhTaken and outPhase > 0 and pdhSweepC1 == outC1 and (pdhSweepStage == 2 or pdhSweepStage == 3)
+0786 |     bool pdlInDisplayedCRT = pdlTaken and outPhase > 0 and pdlSweepC1 == outC1 and (pdlSweepStage == 2 or pdlSweepStage == 3)
+0787 |     Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, outM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT)
+0788 | 
+0789 | // M4B: texto compacto y explicitamente vinculado al CRT MOSTRADO.
+0790 | // PRE = primera barrida previa al comienzo de C2; OTR = fuera del
+0791 | // ciclo C2/C3 mostrado. Evita atribuir al CRT una barrida ajena.
+0792 | f_liqText(string status, int sweepAt, int stage, int sweepC1, int shownC1, int shownC2) =>
+0793 |     string result = status == "N/D" ? "N/D" : status == "INTACTO" ? "INT" : "T OTR"
+0794 |     if status == "TAKEN"
+0795 |         if not na(shownC1) and sweepC1 == shownC1 and stage == 2
+0796 |             result := "T C2"
+0797 |         else if not na(shownC1) and sweepC1 == shownC1 and stage == 3
+0798 |             result := "T C3"
+0799 |         else if not na(shownC2) and not na(sweepAt) and sweepAt <= shownC2
+0800 |             result := "T PRE"
+0801 |     result
+0802 | 
+0803 | f_liqColor(string status) =>
+0804 |     status == "TAKEN" ? color.rgb(237, 164, 83) : status == "INTACTO" ? color.rgb(97, 192, 152) : color.gray
+0805 | 
+0806 | // ---- 34 activos: una sola peticion 5m por activo ----
+0807 | s01 = input.symbol("IC:AUDJPY", "AUDJPY", group="Activos 1")
+0808 | s02 = input.symbol("IC:GBPUSD", "GBPUSD", group="Activos 1")
+0809 | s03 = input.symbol("IC:GBPJPY", "GBPJPY", group="Activos 1")
+0810 | s04 = input.symbol("IC:XAUUSD", "XAUUSD", group="Activos 1")
+0811 | s05 = input.symbol("OANDA:NAS100USD", "NDX100", group="Activos 1")
+0812 | s06 = input.symbol("IC:US500", "SPX500", group="Activos 1")
+0813 | s07 = input.symbol("IC:US30", "US30", group="Activos 1")
+0814 | s08 = input.symbol("IC:BTCUSD", "BTCUSD", group="Activos 1")
+0815 | s09 = input.symbol("IC:AUDUSD", "AUDUSD", group="Activos 1")
+0816 | s10 = input.symbol("IC:USDCAD", "USDCAD", group="Activos 1")
+0817 | s11 = input.symbol("IC:USDJPY", "USDJPY", group="Activos 1")
+0818 | s12 = input.symbol("IC:EURUSD", "EURUSD", group="Activos 1")
+0819 | s13 = input.symbol("IC:USDCHF", "USDCHF", group="Activos 2")
+0820 | s14 = input.symbol("IC:NZDUSD", "NZDUSD", group="Activos 2")
+0821 | s15 = input.symbol("IC:NZDJPY", "NZDJPY", group="Activos 2")
+0822 | s16 = input.symbol("IC:NZDCHF", "NZDCHF", group="Activos 2")
+0823 | s17 = input.symbol("IC:XAGUSD", "XAGUSD", group="Activos 2")
+0824 | s18 = input.symbol("IC:AUDCAD", "AUDCAD", group="Activos 2")
+0825 | s19 = input.symbol("IC:AUDCHF", "AUDCHF", group="Activos 2")
+0826 | s20 = input.symbol("IC:AUDNZD", "AUDNZD", group="Activos 2")
+0827 | s21 = input.symbol("IC:CADCHF", "CADCHF", group="Activos 2")
+0828 | s22 = input.symbol("IC:CADJPY", "CADJPY", group="Activos 2")
+0829 | s23 = input.symbol("IC:CHFJPY", "CHFJPY", group="Activos 2")
+0830 | s24 = input.symbol("IC:EURAUD", "EURAUD", group="Activos 2")
+0831 | s25 = input.symbol("IC:EURCAD", "EURCAD", group="Activos 3")
+0832 | s26 = input.symbol("OANDA:EURCHF", "EURCHF", group="Activos 3")
+0833 | s27 = input.symbol("OANDA:EURGBP", "EURGBP", group="Activos 3")
+0834 | s28 = input.symbol("IC:EURJPY", "EURJPY", group="Activos 3")
+0835 | s29 = input.symbol("OANDA:EURNZD", "EURNZD", group="Activos 3")
+0836 | s30 = input.symbol("IC:GBPAUD", "GBPAUD", group="Activos 3")
+0837 | s31 = input.symbol("IC:GBPCAD", "GBPCAD", group="Activos 3")
+0838 | s32 = input.symbol("OANDA:GBPCHF", "GBPCHF", group="Activos 3")
+0839 | s33 = input.symbol("IC:GBPNZD", "GBPNZD", group="Activos 3")
+0840 | s34 = input.symbol("IC:NZDCAD", "NZDCAD", group="Activos 3")
