@@ -43,6 +43,7 @@ const status=(s)=>{
   if(s==="QA_REGISTERED"||s==="QA_INSTALLATION_ROTATED"||
      s==="QA_REGISTRATION_REFRESHED"||s==="QA_REVOKED"||
      s==="QA_NOT_FOUND"||s==="QA_REGISTRATIONS")return 200;
+  if(s==="QA_DATABASE_UNAVAILABLE")return 503;
   if(s==="AUTHENTICATION_REQUIRED"||s==="APP_CHECK_REQUIRED"||
      s==="APP_CHECK_INVALID")return 401;
   return 422;
@@ -127,8 +128,9 @@ export function createQaDeviceHttpServer({
       const outcome=req.method==="POST"?
         await registry.register({credential,appCheckToken:check,projectId,
           deviceSlot:data.deviceSlot,installationId:data.installationId,
-          optedIn:data.optedIn}):
-        await registry.revoke({credential,deviceSlot:data.deviceSlot});
+          optedIn:data.optedIn,expectedRevision:data.expectedRevision}):
+        await registry.revoke({credential,deviceSlot:data.deviceSlot,
+          expectedRevision:data.expectedRevision});
       return reply(res,status(outcome.state),outcome);
     }catch{
       return reply(res,503,{state:"QA_SERVICE_UNAVAILABLE"});
