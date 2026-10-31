@@ -1,0 +1,60 @@
+0721 |                 c2StrictSweep := true
+0722 |                 c2SweepEnd := barEnd
+0723 |                 c2Returned := false
+0724 |                 bool lowSide = c2Dir == 1
+0725 |                 bool fresh5 = lowSide ? (not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000) : (not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000)
+0726 |                 bool fresh15 = lowSide ? (not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000) : (not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000)
+0727 |                 c2Pivot5 := fresh5 ? (lowSide ? lastHigh5 : lastLow5) : na
+0728 |                 c2Pivot15 := fresh15 ? (lowSide ? lastHigh15 : lastLow15) : na
+0729 |                 c2Pivot5At := fresh5 ? (lowSide ? lastHigh5At : lastLow5At) : na
+0730 |                 c2Pivot15At := fresh15 ? (lowSide ? lastHigh15At : lastLow15At) : na
+0731 |             bool compareOther = allowTouches
+0732 |             c2Double := c2Double or (c2Dir == 1 and (compareOther ? bH >= c1High2 : bH > c1High2)) or (c2Dir == -1 and (compareOther ? bL <= c1Low2 : bL < c1Low2))
+0733 |             if not c2Double
+0734 |                 c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
+0735 |                 // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
+0736 |                 bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
+0737 |                 if c2StrictSweep and barT >= c2SweepEnd and cross5 and na(c2M5At)
+0738 |                     c2M5At := barEnd
+0739 | 
+0740 |     // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
+0741 |     if c3Active and not na(barT) and bucketH4 == c3Start
+0742 |         // No invalidar aqui por una vela M5. Solo el cierre H4 completo
+0743 |         // de C3 puede atravesar la mecha de C2 para invalidar el CRT.
+0744 |         bool cross5c3 = c3Dir == 1 ? (not na(c3Pivot5) and bC > c3Pivot5 and prevClose <= c3Pivot5) : (not na(c3Pivot5) and bC < c3Pivot5 and prevClose >= c3Pivot5)
+0745 |         if c3Active and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
+0746 |             c3M5At := barEnd
+0747 |             if lastC1 == c1Start3
+0748 |                 lastM5 := barEnd
+0749 | 
+0750 |     // Actualizar swing M5 DESPUES de la barrida: no congelar un pivot que
+0751 |     // acababa de confirmarse simultaneamente con la vela de manipulacion.
+0752 |     if not na(pH5)
+0753 |         lastHigh5 := pH5
+0754 |         lastHigh5At := time[right5 + 1]
+0755 |     if not na(pL5)
+0756 |         lastLow5 := pL5
+0757 |         lastLow5At := time[right5 + 1]
+0758 | 
+0759 |     // Priorizar el CRT ratificado en C3 sobre una NUEVA C2 provisional
+0760 |     // superpuesta. La nueva C2 permanece registrada internamente y se
+0761 |     // mostrara cuando termine la C3, si aun continua vigente.
+0762 |     bool partial = showCandidate and c2Active and c2Dir != 0 and not c2Double and (showAtSweep or c2Returned)
+0763 |     bool recent = keepLastCRT and not na(lastConfirmedAt) and barEnd >= lastConfirmedAt and barEnd - lastConfirmedAt <= keepHours * 3600000
+0764 |     int outPhase = c3Active ? 2 : partial ? 1 : recent ? 3 : 0
+0765 |     int outDir = outPhase == 2 ? c3Dir : outPhase == 1 ? c2Dir : outPhase == 3 ? lastDir : 0
+0766 |     int outC1 = outPhase == 2 ? c1Start3 : outPhase == 1 ? c1Start2 : outPhase == 3 ? lastC1 : na
+0767 |     int outC2Start = outPhase == 2 ? c3C2Start : outPhase == 1 ? c2Start : outPhase == 3 ? lastC2Start : na
+0768 |     float outHi = outPhase == 2 ? c1High3 : outPhase == 1 ? c1High2 : outPhase == 3 ? lastHi : na
+0769 |     float outLo = outPhase == 2 ? c1Low3 : outPhase == 1 ? c1Low2 : outPhase == 3 ? lastLo : na
+0770 |     int outSweep = outPhase == 2 ? c3SweepEnd : outPhase == 1 ? c2SweepEnd : outPhase == 3 ? lastSweepAt : na
+0771 |     int outM5At = outPhase == 2 ? c3M5At : outPhase == 1 ? c2M5At : outPhase == 3 ? lastM5 : na
+0772 |     int outM15At = outPhase == 2 ? c3M15At : outPhase == 1 ? c2M15At : outPhase == 3 ? lastM15 : na
+0773 |     float outM5Level = outPhase == 2 ? c3Pivot5 : outPhase == 1 ? c2Pivot5 : outPhase == 3 ? lastM5Level : na
+0774 |     float outM15Level = outPhase == 2 ? c3Pivot15 : outPhase == 1 ? c2Pivot15 : outPhase == 3 ? lastM15Level : na
+0775 |     int outM5PivotAt = outPhase == 2 ? c3Pivot5At : outPhase == 1 ? c2Pivot5At : outPhase == 3 ? lastM5PivotAt : na
+0776 |     int outM15PivotAt = outPhase == 2 ? c3Pivot15At : outPhase == 1 ? c2Pivot15At : outPhase == 3 ? lastM15PivotAt : na
+0777 |     // El modelo es metadato independiente; phase y ticks MSS no cambian.
+0778 |     bool c3IdentityOK = outPhase == 2 and c3ModelC1 == outC1
+0779 |     bool lastIdentityOK = outPhase == 3 and lastModelC1 == outC1
+0780 |     bool rejectedRecent = outPhase == 0 and last2CClassification == "CRT_2C_EXPANSION" and not na(last2CClassificationAt) and barEnd >= last2CClassificationAt and barEnd - last2CClassificationAt < H4MS
