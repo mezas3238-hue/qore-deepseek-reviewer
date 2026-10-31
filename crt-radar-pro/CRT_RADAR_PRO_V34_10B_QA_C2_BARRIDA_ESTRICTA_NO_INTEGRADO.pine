@@ -262,6 +262,9 @@ f_engine() =>
     bool lastSession5 = session.islastbar[1]
     bool previousSessionLast5 = session.islastbar[2]
     int previousBarEnd = time_close[2]
+    // QA: la M5 previa debe finalizar exactamente donde inicia la actual.
+    // Pine [2] recorre barras, no garantiza ausencia de huecos temporales.
+    bool previousM5Continuous = not na(barT) and not na(previousBarEnd) and barT == previousBarEnd
 
     // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
     // prev_valid solo significa que la ULTIMA sesion finalizada paso control
@@ -478,6 +481,24 @@ f_engine() =>
     int bucketH1 = time("60")[1]
     int bucket15 = time("15")[1]
     int bucketH4 = isIndex ? time("240", "0200-0200:1234567", TZ)[1] : time("240", "0100-0100:1234567", TZ)[1]
+
+    // QA: al aparecer una nueva M5 despues de un hueco, descartar
+    // acumuladores y swings M15 de la cadena anterior. No permitir que
+    // pivotes confirmados con barras discontinuas crucen a un nuevo CRT.
+    if not previousM5Continuous and not na(barT)
+        m15Bucket := na
+        m15Count := 0
+        m15LastEnd := na
+        m15Start := na
+        prev15Close := na
+        prev15End := na
+        array.clear(highs15)
+        array.clear(lows15)
+        array.clear(times15)
+        lastHigh15 := na
+        lastLow15 := na
+        lastHigh15At := na
+        lastLow15At := na
 
     // ---- CERRAR M15 ANTERIOR ----
     if not na(barT) and not na(bucket15)
@@ -964,7 +985,7 @@ f_engine() =>
                 c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
                 // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
                 bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
-                if c2StrictSweep and barT >= c2SweepEnd and cross5 and na(c2M5At)
+                if c2StrictSweep and previousM5Continuous and barT >= c2SweepEnd and cross5 and na(c2M5At)
                     c2M5At := barEnd
 
     // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
@@ -972,7 +993,7 @@ f_engine() =>
         // No invalidar aqui por una vela M5. Solo el cierre H4 completo
         // de C3 puede atravesar la mecha de C2 para invalidar el CRT.
         bool cross5c3 = c3Dir == 1 ? (not na(c3Pivot5) and bC > c3Pivot5 and prevClose <= c3Pivot5) : (not na(c3Pivot5) and bC < c3Pivot5 and prevClose >= c3Pivot5)
-        if c3Active and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
+        if c3Active and previousM5Continuous and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
             c3M5At := barEnd
             if lastC1 == c1Start3
                 lastM5 := barEnd
