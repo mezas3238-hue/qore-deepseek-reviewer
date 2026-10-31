@@ -10,8 +10,8 @@ const nameBefore='indicator("CRT + MSS M5/M15 | V34.10b QA FVG OBSERVABILIDAD NO
 const nameAfter='indicator("CRT + MSS M5/M15 | V34.10b QA BARRIDA ESTRICTA NO INTEGRADO", shorttitle="CRT MSS QA C2"';
 const removeQaCrtCycle = s => s.replace(/\n\/\/ QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos\.[\s\S]*?\n\/\/ FIN QA CRT CICLO/, "");
 const m15Block=s=>s.split("    // ---- CERRAR M15 ANTERIOR ----")[1].split("    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----")[0];
-const previousBarBlock=s=>s.split("    int previousBarEnd = time_close[2]")[1].split("    // M4A:")[0];
-const bucketBlock=s=>s.split('    int bucketH4 = isIndex ? time("240"')[1].split("    // ---- CERRAR M15 ANTERIOR ----")[0];
+const previousBarBlock=s=>s.slice(s.indexOf("    int previousBarEnd = time_close[2]"),s.indexOf("    // M4A: PDH",s.indexOf("    int previousBarEnd = time_close[2]")));
+const bucketBlock=s=>s.slice(s.indexOf('    int bucketH4 = isIndex ? time("240"'),s.indexOf("    // ---- CERRAR M15 ANTERIOR ----",s.indexOf('    int bucketH4 = isIndex ? time("240"')));
 test("REGRESSION: only C2 sweep, M15 continuity, M5 gap guards and QA trace changes",()=>{
  const expected=original.replace(nameBefore,nameAfter)
     .replace(block(original),block(fixed))
