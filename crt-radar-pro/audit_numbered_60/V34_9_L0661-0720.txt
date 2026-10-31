@@ -1,0 +1,60 @@
+0661 |                     lastM15Level := c2Pivot15
+0662 |                     lastM5PivotAt := c2Pivot5At
+0663 |                     lastM15PivotAt := c2Pivot15At
+0664 |                     lastModelKind := classified2C
+0665 |                     lastPatternValid := true
+0666 |                     lastModelC1 := c1Start2
+0667 |                     lastC2Start := c2Start
+0668 |                     c3ModelKind := classified2C
+0669 |                     c3PatternValid := true
+0670 |                     c3ModelC1 := c1Start2
+0671 |                     c3C2Start := c2Start
+0672 |                     c3Active := true
+0673 |                     c3Start := bucketH4
+0674 |                     c1Start3 := c1Start2
+0675 |                     c1High3 := c1High2
+0676 |                     c1Low3 := c1Low2
+0677 |                     c3Dir := c2Dir
+0678 |                     c3SweepEnd := c2SweepEnd
+0679 |                     c3Pivot5 := c2Pivot5
+0680 |                     c3Pivot15 := c2Pivot15
+0681 |                     c3Pivot5At := c2Pivot5At
+0682 |                     c3Pivot15At := c2Pivot15At
+0683 |                     c3M5At := c2M5At
+0684 |                     c3M15At := c2M15At
+0685 |                     c3Invalidation := c2Dir == 1 ? h4Low : h4High
+0686 |                 c2Active := false
+0687 | 
+0688 |             // La H4 que acaba de cerrar puede ser C1 del SIGUIENTE ciclo,
+0689 |             // incluso si la H4 nueva ya es C3 de un ciclo anterior.
+0690 |             c2Active := false
+0691 |             c2Dir := 0
+0692 |             c2StrictSweep := false
+0693 |             c2Double := false
+0694 |             c2Returned := false
+0695 |             c2SweepEnd := na
+0696 |             c2M5At := na
+0697 |             c2M15At := na
+0698 |             c2Pivot5 := na
+0699 |             c2Pivot15 := na
+0700 |             c2Pivot5At := na
+0701 |             c2Pivot15At := na
+0702 |             int lastC1Hour = hour(h4Bucket, TZ)
+0703 |             int expectedC2 = (lastC1Hour + 4) % 24
+0704 |             if f_allowed(lastC1Hour, isIndex) and hour(bucketH4, TZ) == expectedC2 and h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC1 and h4High > h4Low
+0705 |                 c2Active := true
+0706 |                 c2Start := bucketH4
+0707 |                 c1Start2 := h4Bucket
+0708 |                 c1High2 := h4High
+0709 |                 c1Low2 := h4Low
+0710 | 
+0711 |             h4Bucket := bucketH4
+0712 |             h4High := bH
+0713 |             h4Low := bL
+0714 |             h4Close := bC
+0715 |             h4Count := 1
+0716 |             h4FirstT := barT
+0717 |             h4LastEnd := barEnd
+0718 |             h4Continuous := true
+0719 |         else if na(h4Bucket)
+0720 |             h4Bucket := bucketH4
