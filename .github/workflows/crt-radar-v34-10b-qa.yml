@@ -24,4 +24,4 @@ jobs:
         with:
           node-version: '22'
       - name: Offline M5B regression (does NOT compile Pine)
-        run: node --test crt-radar-pro/qa/v34_10b_m5b_qa.test.mjs
+        run: node --test crt-radar-pro/qa/*.test.mjs
