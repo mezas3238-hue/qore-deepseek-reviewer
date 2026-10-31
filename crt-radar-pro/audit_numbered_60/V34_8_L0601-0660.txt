@@ -1,0 +1,60 @@
+0601 |             c2Pivot15 := na
+0602 |             c2Pivot5At := na
+0603 |             c2Pivot15At := na
+0604 |             int lastC1Hour = hour(h4Bucket, TZ)
+0605 |             int expectedC2 = (lastC1Hour + 4) % 24
+0606 |             if f_allowed(lastC1Hour, isIndex) and hour(bucketH4, TZ) == expectedC2 and h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count >= minBarsC1 and h4High > h4Low
+0607 |                 c2Active := true
+0608 |                 c2Start := bucketH4
+0609 |                 c1Start2 := h4Bucket
+0610 |                 c1High2 := h4High
+0611 |                 c1Low2 := h4Low
+0612 | 
+0613 |             h4Bucket := bucketH4
+0614 |             h4High := bH
+0615 |             h4Low := bL
+0616 |             h4Close := bC
+0617 |             h4Count := 1
+0618 |             h4FirstT := barT
+0619 |             h4LastEnd := barEnd
+0620 |             h4Continuous := true
+0621 |         else if na(h4Bucket)
+0622 |             h4Bucket := bucketH4
+0623 |             h4High := bH
+0624 |             h4Low := bL
+0625 |             h4Close := bC
+0626 |             h4Count := 1
+0627 |             h4FirstT := barT
+0628 |             h4LastEnd := barEnd
+0629 |             h4Continuous := true
+0630 |         else
+0631 |             h4Continuous := h4Continuous and barT == h4LastEnd
+0632 |             h4High := math.max(h4High, bH)
+0633 |             h4Low := math.min(h4Low, bL)
+0634 |             h4Close := bC
+0635 |             h4Count += 1
+0636 |             h4LastEnd := barEnd
+0637 | 
+0638 |     // ---- M4B: ESTADO DE LIQUIDEZ DE LA SESION DE REFERENCIA ----
+0639 |     // M4A ya procesó esta M5 cerrada. Después del cambio H4,
+0640 |     // c2Active/c3Active corresponden al H4 actual, incluso en su primera M5.
+0641 |     bool hasLiquidityRef = prev_valid and not na(prev_timestamp) and not na(prev_PDH) and not na(prev_PDL)
+0642 |     if not hasLiquidityRef
+0643 |         liquidityRefAt := na
+0644 |         pdhTaken := false
+0645 |         pdlTaken := false
+0646 |         pdhSweepAt := na
+0647 |         pdlSweepAt := na
+0648 |         pdhSweepStage := 0
+0649 |         pdlSweepStage := 0
+0650 |         pdhSweepC1 := na
+0651 |         pdlSweepC1 := na
+0652 |     else
+0653 |         if na(liquidityRefAt) or liquidityRefAt != prev_timestamp
+0654 |             liquidityRefAt := prev_timestamp
+0655 |             pdhTaken := false
+0656 |             pdlTaken := false
+0657 |             pdhSweepAt := na
+0658 |             pdlSweepAt := na
+0659 |             pdhSweepStage := 0
+0660 |             pdlSweepStage := 0
