@@ -1524,6 +1524,7 @@ if barstate.islast
         table.cell(board,4,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,5,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         bool allMode = modeDashboard == "Todos los instrumentos"
+        bool m15CRTConfirmed = chartActive and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         // Activo abierto SIEMPRE en la primera fila, sin duplicados.
         int ownDir = chartActive ? own.direction : 0
         string ownState = chartActive ? (ownDir > 0 ? "BULLISH" : "BEARISH") : "—"
@@ -1572,13 +1573,12 @@ if barstate.islast
         string dChartClose = chartPrevDAvailable ? str.format_time(chartPrevDCloseAt, "dd/MM HH:mm", syminfo.timezone) : "N/D"
         // MSS M5 y M15 son cadenas DISTINTAS. Mostrar espera hasta
         // que se complete una M15 y ROMPA el swing congelado previo C2.
-        bool m15CRTConfirmed = chartActive and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         table.cell(board,0,7,"BTC MSS QA",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,7,chartActive and not na(own.m5At) ? "M5 OK" : "M5 ESP",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,2,7,m15CRTConfirmed ? "M15 OK" : "M15 ESP",bgcolor=shade,text_color=m15CRTConfirmed ? posInk : color.orange,text_size=size.tiny)
         table.cell(board,3,7,chartAvailable and not na(own.m15Level) ? "PIV:"+str.tostring(own.m15Level, format.mintick) : "PIV:N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,4,7,chartAvailable and not na(own.qaLastClosedM15At) ? str.format_time(own.qaLastClosedM15At, "dd/MM HH:mm", TZ) : "M15:N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
-        table.cell(board,5,7,"COINBASE=CHART",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+        table.cell(board,5,7,"MISMO FEED",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         // QA CRT: conteo de C1 completas y C2 ratificadas en M5 cargadas.
         string crtGateQA = chartAvailable ? own.qaLastC2Gate : "SIN M5"
         table.cell(board,0,8,"BTC CRT QA",bgcolor=navy,text_color=color.white,text_size=size.tiny)
