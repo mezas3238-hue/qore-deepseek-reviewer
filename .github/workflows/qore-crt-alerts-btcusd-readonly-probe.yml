@@ -1,0 +1,40 @@
+name: QORE CRT ALERTS BTCUSD read-only public M5 probe (NO LIVE signals)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'feature/qore-crt-alerts-contract-*'
+    paths:
+      - 'qore-crt-alerts/src/btcusd-coinbase-m5.mjs'
+      - 'qore-crt-alerts/src/crypto-aggregate.mjs'
+      - 'qore-crt-alerts/scripts/btcusd-readonly-market-probe.mjs'
+      - 'qore-crt-alerts/scripts/btcusd-parity-export.mjs'
+      - 'qore-crt-alerts/src/btcusd-parity-bundle.mjs'
+      - '.github/workflows/qore-crt-alerts-btcusd-readonly-probe.yml'
+permissions:
+  contents: read
+jobs:
+  btcusd-public-ohlc-readonly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: One-shot public Coinbase BTC-USD 5m OHLC (no credentials, no notifications)
+        run: node qore-crt-alerts/scripts/btcusd-readonly-market-probe.mjs
+      - name: Generate immutable-source BTCUSD M5 parity evidence packet (NOT certified)
+        run: node qore-crt-alerts/scripts/btcusd-parity-export.mjs
+      - name: Archive M5 source and unverified Pine template for reproducible QA
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: btcusd-parity-evidence-NOT-CERTIFIED
+          path: qore-crt-alerts/parity-artifacts/*.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Enforce no Firebase, market alerts or trade execution in this workflow
+        run: |
+          test ! -f qore-crt-alerts/android/app/google-services.json
+          echo "Public read-only BTC market parity packet; owner-approved NY C1 01/05/21; no live alerts."

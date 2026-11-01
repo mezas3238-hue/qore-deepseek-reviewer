@@ -1,0 +1,44 @@
+name: QORE CRT ALERTS Android QA compilation
+on:
+  push:
+    paths:
+      - "qore-crt-alerts/android/**"
+      - ".github/workflows/qore-crt-alerts-android-qa.yml"
+  pull_request:
+    paths:
+      - "qore-crt-alerts/android/**"
+      - ".github/workflows/qore-crt-alerts-android-qa.yml"
+permissions:
+  contents: read
+jobs:
+  android-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Use Android SDK preinstalled on GitHub ubuntu runner
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "9.6.0"
+      - name: Android QA unit tests and compilation
+        run: gradle -p qore-crt-alerts/android :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify production notification guard and no Firebase config
+        run: |
+          grep -F 'buildConfigField("boolean", "STAGING_NOTIFICATIONS_ENABLED", "false")' qore-crt-alerts/android/app/build.gradle.kts
+          test ! -f qore-crt-alerts/android/app/google-services.json
+      - name: Archive Android LOCAL QA-only debug build (FCM disabled)
+        uses: actions/upload-artifact@v4
+        with:
+          name: QORE-CRT-ANDROID-LOCAL-QA-NO-FCM-NO-SIGNALS
+          path: qore-crt-alerts/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
