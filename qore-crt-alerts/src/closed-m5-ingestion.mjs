@@ -13,7 +13,7 @@ export class ClosedM5Ingestion{
     mode="OFFLINE_REPLAY",finalityLagMs=0,maxBars=4096}){
     const instrument=instrumentById(instrumentId);
     if(mode!=="OFFLINE_REPLAY")throw Error("live feed ingestion is forbidden until certification");
-    if(!instrument||!["forex","index"].includes(instrument.family))
+    if(!instrument||!["forex","index","crypto"].includes(instrument.family))
       throw Error("instrument unsupported/unmapped family");
     if(!str(provider)||!str(feedSymbol)||feedSymbol===instrument.tvSymbol)
       throw Error("explicit provider/native feed mapping required; TV id not backend API");
