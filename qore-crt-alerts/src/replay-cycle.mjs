@@ -5,6 +5,7 @@ import {inspectMssM5} from "./mss-m5.mjs";
 import {inspectMssM15} from "./mss-m15.mjs";
 import {classifyReplayConfluence} from "./signal-gate.mjs";
 import {classifyCrtEntryModels} from "./crt-entry-model-catalog.mjs";
+import {detectFourCandleCrt,detectPostMssM15Retest} from "./crt-auxiliary-models.mjs";
 
 // Deterministic offline integration harness. Does not call external APIs.
 // Given one completed C1, derives C2/C3 from the SAME series of closed M5.
@@ -32,7 +33,25 @@ export function replayCycle({candlesM5,c1Start,family}){
   const mssM5=inspectMssM5(args);
   const mssM15=inspectMssM15(args);
   const confluence=classifyReplayConfluence({crt,mssM15,mssM5});
-  const modelCatalog=classifyCrtEntryModels({crt,mssM15,confluence});
+  // New diagnostic families use the SAME closed M5 source and the
+  // exact completed 4 H4 starting at this C1, not unrelated history.
+  const familyH4=candles.filter(x=>x.openedAt>=c1.openedAt).slice(0,4);
+  const multi4=detectFourCandleCrt({h4:familyH4,family});
+  const m15Bars=(crypto?
+    aggregateClosedCryptoM5(candlesM5,{timeframe:"M15"}):
+    aggregateClosedM5(candlesM5,{timeframe:"M15",family})).complete;
+  const mssConfirmed=["MSS_CONFIRMED_C2","MSS_CONFIRMED_C3"].includes(mssM15.state);
+  const retestM15=mssConfirmed?detectPostMssM15Retest({
+    closedM15:m15Bars,provider:c1.provider,instrumentId:c1.instrumentId,
+    cycleId:mssM15.cycleId,direction:crt.direction,
+    mssAt:mssM15.mssAt,pivotPrice:mssM15.pivotPrice
+  }):null;
+  const modelCatalog=classifyCrtEntryModels({crt,mssM15,confluence,
+    multicandle:multi4.state==="MULTI4_BULL_QA"||multi4.state==="MULTI4_BEAR_QA"?
+      multi4:null,
+    retestM15:retestM15?.state==="RETEST_M15_OBSERVED_QA"?retestM15:null
+  });
   return Object.freeze({state:"REPLAY_EVALUATED",...cryptoMeta,actionable:false,sendPush:false,
-    c1Start,crt,mssM5,mssM15,confluence,modelCatalog});
+    c1Start,crt,mssM5,mssM15,confluence,modelCatalog,
+    auxiliaryModels:Object.freeze({multi4,retestM15})});
 }
