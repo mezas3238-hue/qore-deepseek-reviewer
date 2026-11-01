@@ -15,9 +15,12 @@ test("34 exact Pine inventory slots with no invented feed mapping",()=>{
   assert.equal(INSTRUMENTS[29].id,"GBPAUD");
   assert.ok(INSTRUMENTS.every(x=>x.feedSymbol===null&&x.feedStatus==="UNVERIFIED"));
 });
-test("BTCUSD is NOT silently assigned a forex H4 timetable",()=>{
+test("BTCUSD explicitly uses owner-approved NY Forex C1 01/05/21",()=>{
   assert.equal(INSTRUMENTS[7].family,"crypto");
-  assert.throws(()=>bucketNY(at("2026-10-30T05:00:00Z"),"H4","crypto"),/unsupported family/);
+  assert.deepEqual(C1_HOURS.crypto,[1,5,21]);
+  const utc=at("2026-10-30T05:00:00Z");
+  assert.deepEqual(bucketNY(utc,"H4","crypto"),bucketNY(utc,"H4","forex"));
+  assert.equal(bucketNY(utc,"H4","crypto").allowedC1,true);
 });
 test("M5 shape, alignment and OHLC are strictly validated",()=>{
   const b=candle(at("2026-10-30T05:00:00Z"));
