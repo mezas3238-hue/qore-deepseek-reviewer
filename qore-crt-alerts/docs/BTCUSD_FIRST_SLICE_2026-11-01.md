@@ -1,94 +1,76 @@
-# BTCUSD FIRST SLICE — 2026-11-01 (NO LIVE, no Android push)
+# BTCUSD FIRST — Owner-approved Forex CRT NY sessions (2026-11-01)
 
-## Scope
+**PR #55 · OFFLINE_REPLAY / STAGING development only · NO LIVE / NO MERGE**
 
-Owner selected **BTCUSD** as the first instrument. This does NOT
-authorize a crypto CRT C1 schedule, real-money signals, external Firebase,
-or merge. Do not copy the Forex C1 hours to BTC without TradingView
-Pine-v6 equivalence evidence and owner approval.
+## Authority: new Owner decision
 
-The existing 34-symbol inventory is preserved. Existing EURUSD/XAUUSD
-tests and the V34.9 Pine official source remain unchanged.
+Owner explicitly approved that **BTCUSD uses the exact same three H4
+CRT cycles as Forex**, for the full seven-day BTC trading week:
 
-## New implementation
+| C1 NY | C2 NY | C3 NY |
+| --- | --- | --- |
+| 01:00 | 05:00 | 09:00 |
+| 05:00 | 09:00 | 13:00 |
+| 21:00 | 01:00 (next day) | 05:00 (next day) |
 
-- `src/closed-m5-ingestion.mjs` accepts BTCUSD family `crypto` in
-  `OFFLINE_REPLAY` only, with explicit native feed mapping and finality.
-- `src/btcusd-coinbase-m5.mjs` reads public, read-only Coinbase
-  **BTC-USD spot** M5 candles, rejects unclosed/invalid rows and keeps
-  provider identity distinct from `IC:BTCUSD` and FundedNext MT5.
-- Official API endpoint:
-  https://docs.cdp.coinbase.com/api-reference/advanced-trade-api/rest-api/public/get-public-product-candles
-  Endpoint fixed to
-  `https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD/candles`,
-  `granularity=FIVE_MINUTE`. Max window is bounded to 300 M5 bars.
-  No secrets, user IDs, orders, persistent connection or notifications.
-- `src/crypto-aggregate.mjs` reconstructs contiguous BTC M15 and
-  H4 with UTC-00 exploratory boundaries. This is a **candidate time
-  anchor for inspecting OHLC only**, NOT an accepted CRT schedule.
-  All derived H4 objects have `allowedC1:false`,
-  `c1Schedule:NOT_APPROVED`, `sendPush:false`.
-- `scripts/btcusd-readonly-market-probe.mjs` performs a single
-  read-only 16-hour M5 sample, hashes closed data and reports gaps/H4.
-- `.github/workflows/qore-crt-alerts-btcusd-readonly-probe.yml`
-  runs the read-only public-market probe on branch changes or manually.
-  No cloud DB, Firebase or Android distribution is involved.
-- `test/btcusd-coinbase-m5.test.mjs` and `test/crypto-aggregate.test.mjs`
-  cover timestamp finality, ordered OHLC, malformed prices, missing bars,
-  dedup, provider identity, DST fallback and no certified BTC CRT.
+Time zone: **America/New_York**, IANA DST-aware (NOT fixed UTC,
+NOT UTC-midnight anchor). H4 C1 and C2 must be fully closed;
+C3 close beyond C2 wick invalidates. The required confirmation is
+**MSS M15**, swing left/right=2 with frozen pre-sweep pivot, same cycle.
+MSS M5 remains context. This is an owner APPROVAL OF SCHEDULE only,
+NOT a Pine/market parity certificate or authorization to send pushes.
 
-## Validation and operational blockers
+## Implemented on the existing PR, without changing Pine V34.9
 
-1. GitHub Node fixture tests must pass. The real public-API probe must
-   succeed separately before claiming that Coinbase was contacted.
-2. Align TradingView chart/exports to the SAME provider (Coinbase BTCUSD)
-   to assess parity; the current `IC:BTCUSD` CFD differs. Obtain real
-   Pine Editor compilation and Data Window evidence.
-3. **Mandatory C1 decision:** owner must approve a specific BTC 24/7 H4
-   session and C1 three-slot rule in America/New_York, including DST
-   convention, or an explicitly authorized alternate anchor. Do not
-   pretend UTC-00 equals the existing forex/index schedule.
-4. After C1 selection, implement BTC-specific CRT H4 and MSS M15
-   same-cycle confirmation with three consecutive H4 and prove anti-repaint.
-   Until then `inspectCrtH4({family:"crypto"})` returns
-   `UNSUPPORTED_FAMILY` and cannot trigger an alert.
-5. Firebase STAGING Auth+App Check+FCM, external PostgreSQL 16,
-   HTTPS outbox, installed Android app and physical test are STILL
-   missing. Delivery flags MUST remain disabled before certifications.
-6. Verify public data usage terms/commercial redistribution rights
-   before integrating a real hosted always-on feed.
+1. `src/ny-clock.mjs`: explicit `crypto:[1,5,21]`, NY origin 01
+   like FX. `index` retains 02 origin. Weekend is included automatically.
+2. `src/aggregate.mjs`: accepts `crypto`, with strict 48×M5 H4,
+   3×M5 M15 completeness and DST-fold exclusion. Never fabricates bars.
+3. `src/crypto-aggregate.mjs`: changed exploratory UTC-00 OHLC clock
+   to owner-approved **NY Forex clock**. Keeps `sendPush:false`,
+   `actionable:false`, `marketEquivalence:UNVERIFIED`,
+   `certification:PINE_PARITY_PENDING`.
+4. `src/crt-h4.mjs`: allows `crypto` but restricts crypto identifier
+   to BTCUSD. Same H4 strict sweep and C3 close invalidation as FX.
+5. `src/replay-cycle.mjs`: BTCUSD now runs the existing
+   CRT H4 -> MSS M5/M15 -> confluence evaluation based on the SAME M5
+   observations. Any confluence is `OFFLINE_REPLAY` and NOT SENDABLE.
+6. `src/btcusd-coinbase-m5.mjs`: Coinbase public **BTC-USD spot** M5
+   adapter. Validates timestamps, OHLC, finality, no gaps, exact provider
+   identity; excludes and counts out-of-window boundary candles.
+7. `scripts/btcusd-readonly-market-probe.mjs` and
+   `.github/workflows/qore-crt-alerts-btcusd-readonly-probe.yml`:
+   one-shot actual public HTTPS candles, no authentication, no trading,
+   no Firebase, no Android push.
+8. Updated tests: BTC schedule, summer/winter DST, weekend cycles,
+   valid three H4 + mandatory frozen MSS M15, C3 invalidation,
+   partial/gapped M5, mixed-provider restrictions.
 
-## How to run
+## Actual market smoke evidence
 
-```sh
-cd qore-crt-alerts
-npm test
-node scripts/btcusd-readonly-market-probe.mjs
-```
+Real GitHub Action: https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41308599396
 
-The second command makes a ONE-TIME external HTTPS GET for public
-BTC-USD OHLC; it prints a SHA256 and diagnostics, **never a market alert**.
-A failed read or missing M5 holds observations; it does not backfill
-with fabricated prices or silently substitute another exchange.
+The initial Coinbase 16h read had a missing boundary bucket; after
+explicitly ignoring provider extras and asking for two margin buckets,
+the second probe returned **192/192 M5**; 3 complete H4 and 63 M15,
+with partial window groups rejected. SHA256:
+`5fbefa559d94f17bd343c3556f9823646c23813f8ab160d8bc8c163b43c0af3b`.
+This is a **one-shot live market data READ**, not a real-time alert feed.
 
-**PROGRESS DEFINITION:** BTC M5 intake + offline UTC H4 math works
-after tests, but `BTCUSD READY FOR LIVE PUSH` is **FALSE** until
-the entire same-feed Pine parity + real FCM phone path is verified.
+## Gating/remaining work
 
-## Real GitHub Actions evidence (UTC 2026-11-01)
-
-- One-shot BTC public API actual HTTPS request succeeded:
-  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41308599396
-- Retrieved **192/192 closed M5** (16 hours, UTC 2026-10-31 20:50
-  to 2026-11-01 12:50), intake state `BTC_M5_PROBE_STAGED`,
-  **3 completed H4**, 63 completed M15; partial edge groups rejected.
-- Coinbase sent 1 out-of-window boundary bucket; the adapter explicitly
-  counted/omitted it. A first smoke failed on this case; the corrected
-  probe succeeded WITHOUT fabricating M5 data.
-- SHA256 closed bars:
-  `5fbefa559d94f17bd343c3556f9823646c23813f8ab160d8bc8c163b43c0af3b`
-- The BTC replay returns `CRYPTO_C1_NOT_APPROVED`; the signal gate
-  remains nonactionable. Distinguish the Coinbase live market **read**
-  from **LIVE alerts**, which remain prohibited.
-- Node.js fixture suite **193/193 PASS**, no fail:
-  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41308605374
+- Coinbase `BTC-USD` **spot** is NOT `IC:BTCUSD` TradingView CFD nor
+  FundedNext MT5, and their OHLC cannot be presumed identical.
+  Align chart source to Coinbase, then compare exact candle timestamps,
+  ranges and MSS with Pine Editor compilation and Pine references.
+- DST fallback 01 local is ambiguous (01 repeats); reject an ambiguous
+  or incomplete H4 rather than issue a false CRT. Spring transition
+  gaps also fail-closed.
+- Real continuous licensed M5 feed/subscriber, persistence, restart and
+  backfill still missing. The one-shot public endpoint is QA only.
+- Real external Firebase Auth/App Check/FCM, HTTPS backend, PostgreSQL
+  STAGING and physical Android end-to-end notification test still
+  **NOT CERTIFIED**.
+- No FCM sender may be enabled merely because a BTC replay returns
+  `REPLAY_CRT_M15_CONFLUENCE`; blocked delivery outbox remains blocked.
+- Keep PR #55 DRAFT; do not merge or deploy LIVE until explicit authority.
