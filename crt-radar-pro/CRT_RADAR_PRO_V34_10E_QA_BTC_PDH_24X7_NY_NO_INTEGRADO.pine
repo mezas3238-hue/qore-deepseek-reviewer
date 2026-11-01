@@ -325,6 +325,12 @@ f_engine() =>
             int startNY = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 0, 0)
             int endNY = timestamp(TZ, year(barEnd, TZ), month(barEnd, TZ), dayofmonth(barEnd, TZ), 0, 0)
             int dayKey = year(barT, TZ) * 10000 + month(barT, TZ) * 100 + dayofmonth(barT, TZ)
+            // Si faltó un día completo de mercado, no comparar contra
+            // un PDH viejo (debe ser EXACTAMENTE el día NY anterior).
+            if prev_valid and not na(prev_timestamp)
+                int refDayKey = year(prev_timestamp, TZ) * 10000 + month(prev_timestamp, TZ) * 100 + dayofmonth(prev_timestamp, TZ)
+                if refDayKey != dayKey
+                    prev_valid := false
             if na(curr_sess_id) or curr_sess_id != dayKey
                 if not na(curr_sess_id)
                     prev_valid := false
