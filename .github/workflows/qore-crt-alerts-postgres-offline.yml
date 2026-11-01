@@ -53,3 +53,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/003_qa_device_revision.sql
       - name: Test concurrent safety, stale rotations and SQL revocation
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_device_revision.sql
+
+      - name: Provision persistent QA-only delivery intentions (never FCM)
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/005_qa_blocked_delivery_intents.sql
+      - name: Verify event/device idempotency, revocation, expiry and RLS
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_blocked_delivery_intents.sql
