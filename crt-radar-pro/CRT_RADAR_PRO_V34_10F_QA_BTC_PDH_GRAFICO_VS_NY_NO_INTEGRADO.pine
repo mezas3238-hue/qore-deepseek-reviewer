@@ -1288,7 +1288,8 @@ Signal own = request.security(syminfo.tickerid, "5", f_engine_snapshot(), lookah
 // Una sola solicitud tuple, independiente de los 34 instrumentos.
 [chartPrevDHigh, chartPrevDLow, chartPrevDOpenAt, chartPrevDCloseAt] = request.security(syminfo.tickerid, "D", [high[1], low[1], time[1], time_close[1]], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true, calc_bars_count=7)
 bool chartBtcSymbol = str.upper(syminfo.ticker) == "BTCUSD"
-bool chartPrevDAvailable = chartBtcSymbol and not na(chartPrevDHigh) and not na(chartPrevDLow) and not na(chartPrevDOpenAt) and not na(chartPrevDCloseAt) and chartPrevDHigh >= chartPrevDLow
+bool chartTfForDailyComparison = timeframe.isintraday or (timeframe.isdaily and timeframe.multiplier == 1)
+bool chartPrevDAvailable = chartBtcSymbol and chartTfForDailyComparison and not na(chartPrevDHigh) and not na(chartPrevDLow) and not na(chartPrevDOpenAt) and not na(chartPrevDCloseAt) and chartPrevDHigh >= chartPrevDLow
 // El simbolo abierto NUNCA se ignora: se calcula aunque no pertenezca a
 // los 34 feeds. Si ya existe con el mismo proveedor, no se muestra duplicado.
 string ownStd = ticker.standard(syminfo.tickerid)
