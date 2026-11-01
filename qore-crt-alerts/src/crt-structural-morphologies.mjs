@@ -204,6 +204,11 @@ export function verifyMssM15ForFamily(entry,mss){
     mss?.cycleId === [entry.provider,entry.instrumentId,entry.c1Start,entry.direction].join("|") &&
     Number.isSafeInteger(mss?.observedUntil) &&
     Number.isSafeInteger(mss?.sweepAt) &&
+    Number.isSafeInteger(entry.ratifiedAt) &&
+    Number.isSafeInteger(entry.model==="CRT_2C_RETURN" || entry.model==="CRT_3C_REVERSAL" ? entry.c2End : entry.sweepH4End) &&
+    mss.sweepAt >= (entry.model==="CRT_2C_RETURN" || entry.model==="CRT_3C_REVERSAL" ? entry.c2End : entry.sweepH4End)-H4 &&
+    mss.sweepAt < entry.ratifiedAt &&
+    mss.mssAt <= entry.ratifiedAt+H4 &&
     Number.isSafeInteger(mss?.pivotAt) &&
     Number.isSafeInteger(mss?.mssAt) &&
     mss.pivotAt<mss.sweepAt && mss.sweepAt<mss.mssAt &&
