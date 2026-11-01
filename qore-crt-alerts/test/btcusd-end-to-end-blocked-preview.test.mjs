@@ -45,6 +45,11 @@ test("BTC 24x7: 100 M5 -> CRT C2 -> MSS M15 -> audit -> ledger -> Android blocke
  assert.equal(replay.crt.state,"C2_RATIFIED_AWAITING_C3");
  assert.equal(replay.mssM15.state,"MSS_CONFIRMED_C2");
  assert.equal(replay.confluence.state,"REPLAY_CRT_M15_CONFLUENCE");
+ assert.equal(replay.modelCatalog.primary.id,"CRT_3C_REVERSAL");
+ assert.equal(replay.modelCatalog.primary.state,"QA_CONFIRMED_M15");
+ assert.equal(replay.modelCatalog.primary.stage,"C2");
+ assert.equal(replay.modelCatalog.actionable,false);
+ assert.equal(replay.modelCatalog.sendPush,false);
  assert.equal(audit.status,"READY_FOR_PINE_REFERENCE");
  assert.equal(audit.family,"crypto");
  const observation=createReplayObservation({replay,audit});
