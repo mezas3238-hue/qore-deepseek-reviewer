@@ -89,3 +89,36 @@ Consulta:
 
 **Los tests de GitHub para V34.10c son ESTÁTICOS. NO compilan Pine en
 TradingView ni demuestran que el fallo de memoria haya desaparecido.**
+
+## EVIDENCIA REAL TRADINGVIEW ANDROID — V34.10c, 1 Nov 2026
+
+El propietario remitió una segunda captura del gráfico **BTCUSD H4**
+después de instalar la versión optimizada. Ahora se observa el
+dashboard **BTC QA 1/34** y NO aparece el anterior error
+`Memory limits exceeded`. Lectura visual exacta:
+
+- `BTCUSD [G]` en fila del gráfico, H4;
+- `BTC QA 1/34`: modo de único instrumento;
+- `OK:1 SD:0`: un feed disponible, cero feeds ausentes en modo QA;
+- `CRT:0`, `M5:0`, `M15:0`: ningún evento activo en esa captura;
+- No se ve signo de error de ejecución ni banner de memoria.
+
+**Evaluación:** `BTC_H4_MEMORY_RUNTIME_SMOKE_PASS_VISUAL`,
+con **alcance limitado** a esta captura del gráfico H4 y modo BTC
+de un solo instrumento. Esto **no** demuestra: ausencia de errores
+en M5, sesiones históricas, funcionamiento estable tras varios ciclos,
+escaneo 34/34, identidad del proveedor del gráfico, paridad de OHLC o
+de MSS M15, ni certificación para alertas externas. No asumir
+`COINBASE:BTCUSD` a partir de un título que solo indica `BTCUSD`.
+
+**Próximo control irremplazable:** abrir detalles del símbolo BTCUSD
+para documentar proveedor/mercado; pasar al gráfico M5, comparar un
+ciclo C1/C2/C3 con 48 M5 por H4 y una barrida confirmada, capturar
+la ventana de datos y el resultado del Pine V34.10c. El archivo de
+evidencia de la imagen permanece en el chat, no se ha subido ni
+autocertificado en GitHub. Mantener `useAlerts=false` y FCM OFF.
+
+**CI del código de esta versión:** el HEAD `7173e8565a726690cf81611067a70c61e29cc4d0`
+presenta seis workflows SUCCESS en GitHub, incluida compilación
+Android, PG16, HTTP-PG16 y Node. Esta evidencia es independiente
+de la captura de TradingView.
