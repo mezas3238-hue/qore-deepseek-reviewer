@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {createHash} from "node:crypto";
 import {auditBtcNyDailyLiquidity} from "../src/btcusd-ny-daily-liquidity.mjs";
+import {PINE_QA_BLOB_SHA_BTC_PDH} from "../src/parity-audit.mjs";
 const FIVE=300000,provider="BTC_TEST_PROBE";
 const source=readFileSync(new URL("../../crt-radar-pro/CRT_RADAR_PRO_V34_10E_QA_BTC_PDH_24X7_NY_NO_INTEGRADO.pine",import.meta.url),"utf8");
 const day=(start,n,mutator=()=>({}))=>Array.from({length:n},(_,i)=>({
@@ -102,4 +103,15 @@ test("candidate source unchanged behind its exact Git blob SHA",()=>{
  ).digest("hex");
  assert.match(sha,/^[a-f0-9]{40}$/);
  assert.notEqual(sha,"31e91681dcbc19592cd346b3127b398bc4fedaff");
+ assert.equal(sha,PINE_QA_BLOB_SHA_BTC_PDH);
+ assert.equal(sha,"3c51656418313fb51172e03657eed3bf37b0e4e1");
+});
+
+test("BTC loses stale PDH if another NY calendar day passed without data",()=>{
+ const fri=day(friday,288);
+ const sun=day(sunday,300);
+ const r=auditBtcNyDailyLiquidity([...fri,...sun]);
+ assert.equal(r.records[1].pdhStatus,"N/D");
+ assert.equal(r.records[1].pdhLevel,null);
+ assert.match(source,/refDayKey != dayKey/);
 });
