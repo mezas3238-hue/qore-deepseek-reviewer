@@ -32,6 +32,15 @@ test("window validation, positive OHLC and no silent interpolated candles",()=>{
  assert.equal(state.state,"GAP_HELD_FOR_BACKFILL");
  assert.equal(state.sendPush,false);
 });
+test("public API boundary extras are omitted and audited, never counted as M5",()=>{
+ const p=normalizeCoinbaseBtcM5({candles:[
+  candle(-1),...payload(3).candles,candle(3)
+ ]},args());
+ assert.equal(p.bars.length,3);
+ assert.equal(p.completeWindow,true);
+ assert.equal(p.outOfWindowOmitted,2);
+ assert.equal(p.sendPush,false);
+});
 test("partially forming M5 cannot enter a CRT candidate",()=>{
  const p=normalizeCoinbaseBtcM5({candles:[candle(0),candle(1)]},{
   ...args(2),receivedAt:START+2*FIVE+1000});
