@@ -47,6 +47,15 @@ test("time/window audit separately exposes M5 event and M15 close and pivot",()=
  assert.match(pine,/qaLastClosedM15At/);
  assert.match(pine,/if not previousM5Continuous and not na\(barT\)\s+lastCompleteM15CloseAt := na/);
 });
+test("pending M15 displays its own frozen swing, never an early M15 check",()=>{
+ assert.match(pine,/bool m15SwingAvailable = showMssLines and own\.phase == 2 and not na\(own\.m15PivotAt\)/);
+ assert.match(pine,/own\.m15PivotAt < own\.sweepAt/);
+ assert.match(pine,/bool m15BreakConfirmed = m15SwingAvailable and not na\(own\.m15At\)/);
+ assert.match(pine,/int lineEndM15 = m15BreakConfirmed \? own\.m15At : time_close/);
+ assert.match(pine,/color m15Ink = m15BreakConfirmed \? color\.blue : color\.orange/);
+ assert.match(pine,/line\.set_xy1\(m15Line,own\.m15PivotAt,own\.m15Level\)/);
+ assert.match(pine,/line\.set_xy2\(m15Line,lineEndM15,own\.m15Level\)/);
+});
 test("full BTC CRT H4 schedule, PDH provider D, 34 slots and alert gate preserved",()=>{
  assert.match(pine,/f_btc_crt_h4_ny\(int t\)/);
  assert.match(pine,/int bucketH4 = isBTC \? f_btc_crt_h4_ny\(barT\)/);
