@@ -29,14 +29,18 @@ export function normalizeCoinbaseBtcM5(payload,{startMs,endMs,receivedAt,finalit
   if(!payload||!Array.isArray(payload.candles)||payload.candles.length>350)
     throw Error("INVALID_COINBASE_RESPONSE");
   const accepted=[];
-  let formingOmitted=0;
+  let formingOmitted=0,outOfWindowOmitted=0;
   for(const raw of payload.candles){
     if(!raw||typeof raw!=="object"||Array.isArray(raw)||
        typeof raw.start!=="string"||!/^(0|[1-9][0-9]*)$/.test(raw.start))
       throw Error("INVALID_COINBASE_CANDLE");
     const seconds=Number(raw.start),openedAt=seconds*1000,closedAt=openedAt+M5_MS;
-    if(!validMs(openedAt)||openedAt<startMs||openedAt>=endMs)
-      throw Error("OUT_OF_WINDOW_COINBASE_CANDLE");
+    if(!validMs(openedAt))throw Error("INVALID_COINBASE_CANDLE_TIME");
+    // Coinbase can include a boundary/extra bucket outside the requested
+    // window. Count/omit it, NEVER treat it as continuity or a closed bar.
+    if(openedAt<startMs||openedAt>=endMs){
+      outOfWindowOmitted++;continue;
+    }
     const candle=validateClosedM5({
       provider:BTC_PROBE.provider,instrumentId:"BTCUSD",
       openedAt,closedAt,
@@ -55,7 +59,8 @@ export function normalizeCoinbaseBtcM5(payload,{startMs,endMs,receivedAt,finalit
   return Object.freeze({
     ...BTC_PROBE,state:"BTC_M5_PROBE_ONLY",
     bars:Object.freeze(bars),returned:payload.candles.length,
-    formingOmitted,expected,completeWindow:bars.length===expected,
+    formingOmitted,outOfWindowOmitted,
+    expected,completeWindow:bars.length===expected,
     requiresTradingViewParity:true
   });
 }
