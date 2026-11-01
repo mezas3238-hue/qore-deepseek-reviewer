@@ -19,7 +19,7 @@ test("Coinbase public 5-minute spot candles normalized UTC, sorted and immutable
  assert.equal(p.bars.length,3);assert.equal(p.bars[0].openedAt,START);
  assert.equal(p.bars[0].high,70125.5);assert.equal(p.bars[0].low,70090);
  assert.ok(Object.isFrozen(p.bars));assert.ok(Object.isFrozen(p.bars[0]));
- assert.equal(p.sendPush,false);assert.equal(p.crtSchedule,"NOT_APPROVED");
+ assert.equal(p.sendPush,false);assert.equal(p.crtSchedule,"FOREX_NY_OWNER_APPROVED");
 });
 test("window validation, positive OHLC and no silent interpolated candles",()=>{
  assert.throws(()=>normalizeCoinbaseBtcM5(payload(),{
