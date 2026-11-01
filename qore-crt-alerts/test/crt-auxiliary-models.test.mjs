@@ -50,7 +50,7 @@ test("MULTI4 rejects double sweeps or non-return",()=>{
  assert.equal(r(escaped).state,"MULTI4_REJECTED_SWEEP_OR_RETURN");
 });
 test("MULTI4 no reversal if final H4 fails distribution",()=>{
- const x=fourBull.map((b,i)=>i===3?{...b,close:100}:b);
+ const x=fourBull.map((b,i)=>i===3?{...b,close:102}:b);
  assert.equal(r(x).state,"MULTI4_DISTRIBUTION_NOT_CONFIRMED");
 });
 test("MULTI4 never authorizes an independent entry or live push",()=>{
