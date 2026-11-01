@@ -77,7 +77,10 @@ export function detectPostMssM15Retest({
   if(touched)return out("RETEST_M15_OBSERVED_QA",{
     provider,instrumentId,cycleId,direction,pivotPrice,
     mssAt,retestAt:bar.closedAt,
-    model:"CRT_M15_RETEST",noIndependentEntry:true
+    // Same completed M15 whose high/low touched the frozen pivot
+    // and whose close independently ratified the return.
+    retestHigh:bar.high,retestLow:bar.low,retestClose:bar.close,
+    timeframe:"M15",model:"CRT_M15_RETEST",noIndependentEntry:true
   });
  }
  return out("RETEST_PENDING");
