@@ -79,7 +79,9 @@ export async function fetchCoinbaseBtcM5({
   const query=new URLSearchParams({
     start:String(startMs/1000),end:String(endMs/1000),
     granularity:"FIVE_MINUTE",
-    limit:String((endMs-startMs)/M5_MS)
+    // Request extra buckets for Coinbase's inclusive boundary responses.
+    // Outside-window bars are explicitly counted/ignored by the normalizer.
+    limit:String((endMs-startMs)/M5_MS+2)
   });
   let response;
   try{
