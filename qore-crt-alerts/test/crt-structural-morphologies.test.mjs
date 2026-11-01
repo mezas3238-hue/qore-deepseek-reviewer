@@ -41,10 +41,11 @@ test("3C uses SAME C1/C2 ratification and only checks C3 invalidation at its H4 
  const invalidated=bar(2,104,108,96,97);
  const good=get([c1,bullC2,passed]),bad=get([c1,bullC2,invalidated]);
  assert.equal(signal(good,"CRT_3C_REVERSAL")[0].state,"RATIFIED_H4_QA");
- assert.equal(signal(bad,"CRT_3C_REVERSAL")[0].state,"INVALIDATED");
+ assert.equal(signal(bad,"CRT_3C_REVERSAL").length,0);
  assert.equal(signal(good,"CRT_3C_REVERSAL")[0].ratifiedAt,bullC2.closedAt);
- assert.equal(signal(good,"CRT_3C_REVERSAL")[0].sameStructuralCycleId,signal(good,"CRT_2C_RETURN")[0].id);
- assert.equal(signal(bad,"CRT_2C_RETURN").length,1); // C2 was valid historically
+ assert.equal(signal(good,"CRT_2C_RETURN").length,0); // same C1, no double count
+ assert.equal(signal(bad,"CRT_2C_RETURN").length,0); // C3 invalidates the live cycle
+ assert.equal(diag(bad,"CRT_3C_REVERSAL")[0].state,"C3_INVALIDATED");
 });
 test("double sweep and touch-only must never create a structural CRT",()=>{
  assert.equal(signal(get([c1,bar(1,105,112,98,106)]),"CRT_2C_RETURN").length,0);
@@ -136,6 +137,15 @@ test("MSS M15 confirms only same cycle, provider, direction and closed timeframe
  ]){
   assert.equal(verifyMssM15ForFamily(entry,bad).state,"AWAITING_OR_REJECTED_MSS_M15");
  }
+});
+test("historical ratifications expire and do not masquerade as live CRT",()=>{
+ const oldCrt=bar(2,104,117,101,111);
+ const later=bar(3,111,116,109,112);
+ const stillLater=bar(4,112,114,108,111);
+ const snap=get([c1,bullC2,oldCrt]);
+ assert.equal(signal(snap,"CRT_3C_REVERSAL").length,1);
+ assert.equal(signal(get([c1,bullC2,oldCrt,later]),"CRT_3C_REVERSAL").length,0);
+ assert.equal(signal(get([c1,bullC2,oldCrt,later,stillLater]),"CRT_3C_REVERSAL").length,0);
 });
 test("no emitted family event can trigger a real trade or push",()=>{
  const inputs=[[c1,bullC2],[c1,bearC2],
