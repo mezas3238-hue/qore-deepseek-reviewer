@@ -1509,13 +1509,22 @@ if barstate.islast
         // Una referencia de NY y una de 1D pueden tener precios distintos.
         string dChartStart = chartPrevDAvailable ? str.format_time(chartPrevDOpenAt, "dd/MM HH:mm", syminfo.timezone) : "N/D"
         string dChartClose = chartPrevDAvailable ? str.format_time(chartPrevDCloseAt, "dd/MM HH:mm", syminfo.timezone) : "N/D"
+        // Referencia diaria del proveedor confirmada: fechas de la vela 1D.
+        table.cell(board,0,9,"D PROVEEDOR",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,9,dChartStart,bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,9,"→",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,3,9,dChartClose,bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,4,9,"D CERRADA",bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,5,9,chartDayAuditReady ? "M5 OK" : "M5 N/D",bgcolor=navy,text_color=chartDayAuditReady ? posInk : color.gray,text_size=size.tiny)
         table.cell(board,0,10,"PDH 1D OFIC",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,10,chartPrevDAvailable ? str.tostring(chartPrevDHigh,format.mintick) : "N/D",bgcolor=shade,text_color=color.aqua,text_size=size.tiny)
         table.cell(board,2,10,"PDL 1D OFIC",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,3,10,chartPrevDAvailable ? str.tostring(chartPrevDLow,format.mintick) : "N/D",bgcolor=shade,text_color=color.aqua,text_size=size.tiny)
         table.cell(board,4,10,chartPdhState == "TAKEN" ? "PDH TOM" : chartPdhState == "INTACTO" ? "PDH INT" : "PDH N/D",bgcolor=shade,text_color=f_liqColor(chartPdhState),text_size=size.tiny)
         table.cell(board,5,10,chartPdlState == "TAKEN" ? "PDL TOM" : chartPdlState == "INTACTO" ? "PDL INT" : "PDL N/D",bgcolor=shade,text_color=f_liqColor(chartPdlState),text_size=size.tiny)
-        // Fila 11: NY SOLO QA, no usar sus estados para señales 1D.\n        // La fila 10 muestra estados PDH/PDL del proveedor.\n        // Fila 11: PDH NY - sesion de referencia distinta de la vela D.
+        // Fila 11: NY SOLO QA, no usar sus estados para señales 1D.
+        // La fila 10 muestra estados PDH/PDL del proveedor.
+        // Fila 11: PDH NY - sesion de referencia distinta de la vela D.
         // mostrar niveles exactos del dia NY anterior (no inferir
         // PDH/PDL desde una H4 de exchange con diferente ancla).
         string refNY = chartAvailable and not na(own.nyPDHReferenceAt) ? str.format_time(own.nyPDHReferenceAt, "dd/MM HH:mm", TZ) : "N/D"
