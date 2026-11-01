@@ -9,7 +9,7 @@ export const PINE_QA_BLOB_SHA=PINESHA;
 export const PINE_QA_BLOB_SHA_BTC_MEMORY="3406fa3301ac7b4a65e7db5d02c14773b8c63739";
 // Separate owner-approved NY BTC H4 clock QA with strict 48-M5 DST gate.
 // Exact source SHA only; NOT proof of compilation or event parity.
-export const PINE_QA_BLOB_SHA_BTC_NY="d2862daec6774b525df8a3e1ced14de06d4f93a5";
+export const PINE_QA_BLOB_SHA_BTC_NY="31e91681dcbc19592cd346b3127b398bc4fedaff";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
