@@ -16,6 +16,10 @@ export const PINE_QA_BLOB_SHA_BTC_PDH="3c51656418313fb51172e03657eed3bf37b0e4e1"
 // QA chart-side previous confirmed D OHLC vs independent NY calendar-day
 // audit. Exact source identity only, NOT Pine runtime/market certification.
 export const PINE_QA_BLOB_SHA_BTC_CHART_D="e164e05b81059d6aa234d239f3cb29b1c74974e6";
+// V34.10g: for BTC chart the operational previous-day high/low comes from
+// the confirmed provider D candle; NY midnight liquidity remains QA-only.
+// SHA pins source, not an approved external compilation or signal sender.
+export const PINE_QA_BLOB_SHA_BTC_D_OFFICIAL="48de848a550ac2b9d222a554a640164774b932e9";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
@@ -100,8 +104,8 @@ export const PINE_DATA_WINDOW_LABELS=PINE_LABELS;
 export function normalizePineCapture(capture){
   if(!capture||capture.schema!==PARITY_SCHEMA||
      capture.engine!=="TRADINGVIEW_PINE_EDITOR_CAPTURE"||
-     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D].includes(capture.pineBlobSha)||
-     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D].includes(capture.pineBlobSha)&&
+     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL].includes(capture.pineBlobSha)||
+     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL].includes(capture.pineBlobSha)&&
        capture.instrumentId!=="BTCUSD")||
      capture.verifiedOnTradingView!==true)
     throw Error("authentic Pine Editor capture provenance and candidate SHA required");
