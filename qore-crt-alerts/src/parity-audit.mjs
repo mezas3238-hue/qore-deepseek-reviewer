@@ -7,6 +7,9 @@ export const PINE_QA_BLOB_SHA=PINESHA;
 // Candidate V34.10c is BTCUSD-only memory QA. It has NOT been
 // compiled or certified by TradingView; this SHA only pins exact source.
 export const PINE_QA_BLOB_SHA_BTC_MEMORY="3406fa3301ac7b4a65e7db5d02c14773b8c63739";
+// Separate owner-approved NY BTC H4 clock QA with strict 48-M5 DST gate.
+// Exact source SHA only; NOT proof of compilation or event parity.
+export const PINE_QA_BLOB_SHA_BTC_NY="d2862daec6774b525df8a3e1ced14de06d4f93a5";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
@@ -91,8 +94,8 @@ export const PINE_DATA_WINDOW_LABELS=PINE_LABELS;
 export function normalizePineCapture(capture){
   if(!capture||capture.schema!==PARITY_SCHEMA||
      capture.engine!=="TRADINGVIEW_PINE_EDITOR_CAPTURE"||
-     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY].includes(capture.pineBlobSha)||
-     (capture.pineBlobSha===PINE_QA_BLOB_SHA_BTC_MEMORY&&
+     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY].includes(capture.pineBlobSha)||
+     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY].includes(capture.pineBlobSha)&&
        capture.instrumentId!=="BTCUSD")||
      capture.verifiedOnTradingView!==true)
     throw Error("authentic Pine Editor capture provenance and candidate SHA required");
