@@ -73,6 +73,7 @@ export function inspectCrtMorphologies({
     throw Error("invalid family scanner input");
   // NEVER sort across providers/sessions and thereby manufacture continuity.
   const bars=closedH4;
+  const asOf=bars.length ? bars[bars.length-1].closedAt : 0;
   const signals=[],diagnostics=[];
   for(let i=0;i<bars.length;i++){
     const c1=bars[i];
@@ -85,19 +86,28 @@ export function inspectCrtMorphologies({
       const two=event(c1,"CRT_2C_RETURN",dir2,c2.closedAt,{
         c2End:c2.closedAt,c2Wick:dir2>0?c2.low:c2.high,
         distribution:"NOT_REQUIRED_2C"});
-      signals.push(two);
-      // 3C is the evolution of the SAME C1/C2 event, never a second
-      // standalone alert or a second ticker row.
+      // Emit exactly ONE current representation of each C1/C2 cycle.
+      // Once C3 closes, the 2C state has evolved into 3C or invalidated;
+      // keeping both live would double-count a ticker and retain bad CRT.
       if(validSpan(bars,i,3)){
         const c3=bars[i+2];
         const invalid=dir2===1?c3.close<c2.low:c3.close>c2.high;
-        signals.push(event(c1,"CRT_3C_REVERSAL",dir2,c2.closedAt,{
+        const three=event(c1,"CRT_3C_REVERSAL",dir2,c2.closedAt,{
           c2End:c2.closedAt,c3End:c3.closedAt,
           c2Wick:dir2>0?c2.low:c2.high,
           distribution:invalid?"C3_INVALIDATED":"C3_CLOSED_VALID",
           state:invalid?"INVALIDATED":"RATIFIED_H4_QA",
           sameStructuralCycleId:two.id
+        });
+        if(invalid)diagnostics.push(Object.freeze({
+          model:"CRT_3C_REVERSAL",state:"C3_INVALIDATED",
+          provider:c1.provider,instrumentId:c1.instrumentId,
+          c1Start:c1.openedAt,invalidatedAt:c3.closedAt,
+          previous2CId:two.id,actionable:false
         }));
+        else if(asOf>=c3.closedAt && asOf-c3.closedAt<H4)signals.push(three);
+      }else if(asOf>=c2.closedAt && asOf-c2.closedAt<H4){
+        signals.push(two);
       }
     }else{
       const dirSweep=sweep(c1,c2);
@@ -126,7 +136,7 @@ export function inspectCrtMorphologies({
         }
         const closesWithinC2=manipulation.close>=c2.low&&manipulation.close<=c2.high;
         const closesWithinC1=manipulation.close>=c1.low&&manipulation.close<=c1.high;
-        if(closesWithinC2){
+        if(closesWithinC2 && asOf>=manipulation.closedAt && asOf-manipulation.closedAt<H4){
           signals.push(event(c1,"CRT_INSIDE_BAR",dir,manipulation.closedAt,{
             insideVariant:"RETURN_STRICT_C2",
             c2End:c2.closedAt,sweepH4End:manipulation.closedAt}));
@@ -151,7 +161,8 @@ export function inspectCrtMorphologies({
       const middle=bars.slice(i+1,i+1+count);
       if(!middle.every(b=>b.high<c1.high&&b.low>c1.low))break;
       const final=bars[i+1+count],dir=sweep(c1,final);
-      if(dir!==0 && final.close>=c1.low&&final.close<=c1.high){
+      if(dir!==0 && final.close>=c1.low&&final.close<=c1.high &&
+         asOf>=final.closedAt && asOf-final.closedAt<H4){
         signals.push(event(c1,"CRT_MULTICANDLE",dir,final.closedAt,{
           multiVariant:"CONSOLIDATION_THEN_SWEEP_QA",
           consolidationBars:count,sweepH4End:final.closedAt}));
