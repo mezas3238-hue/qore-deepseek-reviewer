@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import {createHash} from "node:crypto";
+import {PINE_QA_BLOB_SHA_BTC_MEMORY} from "../src/parity-audit.mjs";
 const legacy=readFileSync(new URL("../../crt-radar-pro/CRT_RADAR_PRO_V34_10B_QA_C2_BARRIDA_ESTRICTA_NO_INTEGRADO.pine",import.meta.url),"utf8");
 const candidate=readFileSync(new URL("../../crt-radar-pro/CRT_RADAR_PRO_V34_10C_QA_MEMORIA_BTCUSD_NO_INTEGRADO.pine",import.meta.url),"utf8");
 const extractSlots=s=>[...s.matchAll(/^s([0-9]{2})\s*=\s*input\.symbol\(/gm)].map(x=>x[1]);
@@ -37,4 +39,12 @@ test("full original 34 request source not silently edited and new candidate is s
  assert.match(legacy,/V34\.10b QA BARRIDA ESTRICTA NO INTEGRADO/);
  assert.match(legacy,/Signal s = request\.security\(symbol, "5", f_engine\(\),/);
  assert.doesNotMatch(legacy,/memoryScan\s*=/);
+});
+
+test("BTC memory candidate exact Git blob SHA matches parity schema; not compiled",()=>{
+ const sha=createHash("sha1").update(
+   "blob "+Buffer.byteLength(candidate,"utf8")+"\\0"+candidate
+ ).digest("hex");
+ assert.equal(sha,PINE_QA_BLOB_SHA_BTC_MEMORY);
+ assert.equal(sha,"3406fa3301ac7b4a65e7db5d02c14773b8c63739");
 });
