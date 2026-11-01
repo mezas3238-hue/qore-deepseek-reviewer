@@ -46,7 +46,7 @@ test("nonconsecutive H4 or unauthorized C1 NY hour rejected",()=>{
 });
 test("missing or incomplete H4 cannot become a CRT",()=>{
   assert.equal(evalCRT({...c2bull,closedAt:c2bull.closedAt-1}).state,"INCOMPLETE_H4");
-  assert.equal(inspectCrtH4({c1,c2:c2bull,c3:null,family:"crypto"}).state,"UNSUPPORTED_FAMILY");
+  assert.equal(inspectCrtH4({c1,c2:c2bull,c3:null,family:"crypto"}).state,"INVALID_CRYPTO_INSTRUMENT");
 });
 test("mixing different providers or symbols is prohibited",()=>{
   assert.equal(evalCRT({...c2bull,provider:"OTHER"}).state,"INVALID_CYCLE");
