@@ -53,7 +53,7 @@ test("weekend BTC incomplete history cannot fake confirmed C3",()=>{
 test("no C1/C2 source, wrong C1 hour, and market opening gaps fail safely",()=>{
  const r=replayCycle({candlesM5:bars(47),c1Start:START,family:"crypto"});
  assert.equal(r.state,"INCOMPLETE_C1_C2");assert.equal(r.sendPush,false);
- const bad=replayCycle({candlesM5:bars(),c1Start:START+4*60*FIVE,
+ const bad=replayCycle({candlesM5:bars(240),c1Start:START+96*FIVE,
    family:"crypto"});
  assert.equal(bad.crt?.state??bad.state,"INVALID_CYCLE");
  const hole=bars().filter((_,i)=>i!==54);
