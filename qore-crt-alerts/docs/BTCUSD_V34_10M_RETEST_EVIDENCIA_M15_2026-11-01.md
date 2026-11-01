@@ -30,3 +30,8 @@ TradingView real compilación V34.10m: pendiente de ejecución humana.
 Paridad M5 proveedor Pine↔backend: pendiente; 34 feeds: no homologados.
 FCM Android real y pruebas STAGING E2E: pendientes; BuildConfig deshabilita notificaciones.
 No LIVE, no merge, no señales operativas.
+
+## Backend espejo QA (replay, sin feed real)
+- El detector existente `detectPostMssM15Retest` devuelve ahora `retestHigh`, `retestLow`, `retestClose` y `timeframe:M15`, asociados al cierre `retestAt` del **primer M15** que validó la condición. No devuelve valores de la última vela.
+- Test `crt-m15-retest-evidence.test.mjs`: retest alcista/bajista, primera vela correcta, cierre fallido, hueco y proveedor ajeno.
+- Se necesitan datos OHLC M5 del mismo proveedor de TradingView y exportación Pine con C1/MSS/retest para demostrar paridad real. Estas simulaciones son equivalencia de reglas propuesta, no certificación externa.
