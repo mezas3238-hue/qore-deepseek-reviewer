@@ -23,6 +23,9 @@ export const PINE_QA_BLOB_SHA_BTC_D_OFFICIAL="48de848a550ac2b9d222a554a640164774
 // BTC 01/05/21 NY H4 anchor rebuilt from individual M5 NY hour,
 // not time(240) on the DST fallback weekend. Source identity only.
 export const PINE_QA_BLOB_SHA_BTC_CRT_CLOCK="d254ff36c735ce071b46dc744e241ed25fb2b1ae";
+// BTC: single chart-provider feed and closed M15 MSS independent of M5.
+// Git source identity only; REAL TradingView runtime parity still required.
+export const PINE_QA_BLOB_SHA_BTC_MSS15="7b568a074e49399584b23c3d7c58db81a5ecb26c";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
@@ -107,8 +110,8 @@ export const PINE_DATA_WINDOW_LABELS=PINE_LABELS;
 export function normalizePineCapture(capture){
   if(!capture||capture.schema!==PARITY_SCHEMA||
      capture.engine!=="TRADINGVIEW_PINE_EDITOR_CAPTURE"||
-     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK].includes(capture.pineBlobSha)||
-     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK].includes(capture.pineBlobSha)&&
+     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15].includes(capture.pineBlobSha)||
+     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15].includes(capture.pineBlobSha)&&
        capture.instrumentId!=="BTCUSD")||
      capture.verifiedOnTradingView!==true)
     throw Error("authentic Pine Editor capture provenance and candidate SHA required");
