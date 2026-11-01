@@ -6,6 +6,7 @@ import {ClosedM5Ingestion} from "../src/closed-m5-ingestion.mjs";
 import {BTC_PROBE,fetchCoinbaseBtcM5,stageBtcProbeM5}
  from "../src/btcusd-coinbase-m5.mjs";
 import {aggregateClosedCryptoM5} from "../src/crypto-aggregate.mjs";
+import {replayCycle} from "../src/replay-cycle.mjs";
 const FIVE=300000,now=Date.now();
 const endMs=Math.floor((now-60000)/FIVE)*FIVE;
 const startMs=endMs-192*FIVE;
@@ -19,6 +20,9 @@ try{
   });
   const staged=stageBtcProbeM5(intake,data,{receivedAt:now});
   const aggregate=aggregateClosedCryptoM5(intake.snapshot(),{timeframe:"H4"});
+  const m15=aggregateClosedCryptoM5(intake.snapshot(),{timeframe:"M15"});
+  const replay=replayCycle({candlesM5:intake.snapshot(),
+    c1Start:aggregate.complete[0]?.openedAt??startMs,family:"crypto"});
   const sha=createHash("sha256").update(JSON.stringify(data.bars))
     .digest("hex");
   console.log(JSON.stringify({
@@ -29,6 +33,9 @@ try{
     completeWindow:data.completeWindow,
     intakeState:staged.state,accepted:staged.accepted,
     completeH4:aggregate.complete.length,rejectedH4:aggregate.rejected.length,
+    completeM15:m15.complete.length,rejectedM15:m15.rejected.length,
+    outOfWindowOmitted:data.outOfWindowOmitted,
+    replayState:replay.state,
     candleSha256:sha,crtSchedule:"NOT_APPROVED",
     marketEquivalence:"UNVERIFIED",sendPush:false,actionable:false
   }));
