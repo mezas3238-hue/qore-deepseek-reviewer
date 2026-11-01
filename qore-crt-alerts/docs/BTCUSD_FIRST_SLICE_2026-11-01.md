@@ -74,3 +74,21 @@ with fabricated prices or silently substitute another exchange.
 **PROGRESS DEFINITION:** BTC M5 intake + offline UTC H4 math works
 after tests, but `BTCUSD READY FOR LIVE PUSH` is **FALSE** until
 the entire same-feed Pine parity + real FCM phone path is verified.
+
+## Real GitHub Actions evidence (UTC 2026-11-01)
+
+- One-shot BTC public API actual HTTPS request succeeded:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41308599396
+- Retrieved **192/192 closed M5** (16 hours, UTC 2026-10-31 20:50
+  to 2026-11-01 12:50), intake state `BTC_M5_PROBE_STAGED`,
+  **3 completed H4**, 63 completed M15; partial edge groups rejected.
+- Coinbase sent 1 out-of-window boundary bucket; the adapter explicitly
+  counted/omitted it. A first smoke failed on this case; the corrected
+  probe succeeded WITHOUT fabricating M5 data.
+- SHA256 closed bars:
+  `5fbefa559d94f17bd343c3556f9823646c23813f8ab160d8bc8c163b43c0af3b`
+- The BTC replay returns `CRYPTO_C1_NOT_APPROVED`; the signal gate
+  remains nonactionable. Distinguish the Coinbase live market **read**
+  from **LIVE alerts**, which remain prohibited.
+- Node.js fixture suite **193/193 PASS**, no fail:
+  https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41308605374
