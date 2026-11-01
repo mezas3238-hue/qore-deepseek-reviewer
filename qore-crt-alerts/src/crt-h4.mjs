@@ -13,12 +13,16 @@ function validBar(b){
 const same=(x,y)=>x.provider===y.provider&&x.instrumentId===y.instrumentId;
 const consecutive=(x,y)=>x.closedAt===y.openedAt &&
   y.nyHour===(x.nyHour+4)%24;
-// Requires output from aggregateClosedM5 and an authorized FX/index timetable.
+// Requires output from aggregateClosedM5 and an owner-approved NY schedule.
+// BTCUSD crypto explicitly shares Forex C1 hours but not feed equivalence.
 // A single boundary touch does NOT constitute a strict sweep.
 // C3 invalidates only on its CLOSED H4 candle, not an M5 wick.
 export function inspectCrtH4({c1,c2,c3=null,family}){
   if(!C1_HOURS[family])return result("UNSUPPORTED_FAMILY");
   if(!validBar(c1)||!validBar(c2))return result("INCOMPLETE_H4");
+  if(family==="crypto"&&(c1.instrumentId!=="BTCUSD"||
+     c2.instrumentId!=="BTCUSD"||(c3&&c3.instrumentId!=="BTCUSD")))
+    return result("INVALID_CRYPTO_INSTRUMENT");
   if(!same(c1,c2)||!C1_HOURS[family].includes(c1.nyHour)||
      c1.allowedC1!==true||!consecutive(c1,c2))
     return result("INVALID_CYCLE");
