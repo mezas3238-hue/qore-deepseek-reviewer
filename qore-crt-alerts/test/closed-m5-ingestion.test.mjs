@@ -57,11 +57,19 @@ test("feed symbol aliases do not become implicitly approved providers",()=>{
  assert.equal(ing.ingest(bar(0,{provider:"SOMEONE_ELSE"}),{
   receivedAt:START+FIVE+1000}).state,"SOURCE_MAPPING_REJECTED");
 });
-test("reject LIVE mode and an unsupported crypto ticker without fabricated schedule",()=>{
+test("reject LIVE mode; BTCUSD M5 probe accepted without pretending a CRT session",()=>{
  assert.throws(()=>new ClosedM5Ingestion({provider:"X",instrumentId:"EURUSD",
   feedSymbol:"EURUSD.REAL",mode:"LIVE"}),/forbidden/);
- assert.throws(()=>new ClosedM5Ingestion({provider:"X",instrumentId:"BTCUSD",
-  feedSymbol:"BTCUSD.TEST"}),/unsupported/);
+ const btc=new ClosedM5Ingestion({provider:"COINBASE_SPOT_PROBE",
+  instrumentId:"BTCUSD",feedSymbol:"BTC-USD",maxBars:48});
+ const t=Date.parse("2026-10-31T00:00:00Z");
+ const out=btc.ingest({provider:"COINBASE_SPOT_PROBE",instrumentId:"BTCUSD",
+   feedSymbol:"BTC-USD",openedAt:t,closedAt:t+FIVE,
+   open:70000,high:70001,low:69999,close:70000},
+   {receivedAt:t+FIVE+1000});
+ assert.equal(out.state,"CLOSED_M5_ACCEPTED");
+ assert.equal(btc.health().family,"crypto");
+ assert.equal(btc.health().sendPush,false);
 });
 test("never accept an ordinary TradingView symbol as native backend feed mapping",()=>{
  assert.throws(()=>new ClosedM5Ingestion({provider:"X",instrumentId:"EURUSD",
