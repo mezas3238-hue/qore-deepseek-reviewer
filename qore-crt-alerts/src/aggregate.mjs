@@ -3,7 +3,7 @@ import {bucketNY,nyParts} from "./ny-clock.mjs";
 // Deliberately fail closed on missing bars, session gaps, or DST folds.
 // Never synthesize a closed candle from an incomplete group.
 export function aggregateClosedM5(input,{timeframe,family}){
-  if(!["H4","M15"].includes(timeframe)||!["forex","index"].includes(family))
+  if(!["H4","M15"].includes(timeframe)||!["forex","index","crypto"].includes(family))
     throw Error("unsupported aggregate request");
   const bars=deduplicateM5(input);
   if(!bars.length)return {complete:[],rejected:[]};
