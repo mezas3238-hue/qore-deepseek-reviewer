@@ -43,7 +43,7 @@ test("full original 34 request source not silently edited and new candidate is s
 
 test("BTC memory candidate exact Git blob SHA matches parity schema; not compiled",()=>{
  const sha=createHash("sha1").update(
-   "blob "+Buffer.byteLength(candidate,"utf8")+"\\0"+candidate
+   "blob "+Buffer.byteLength(candidate,"utf8")+String.fromCharCode(0)+candidate
  ).digest("hex");
  assert.equal(sha,PINE_QA_BLOB_SHA_BTC_MEMORY);
  assert.equal(sha,"3406fa3301ac7b4a65e7db5d02c14773b8c63739");
