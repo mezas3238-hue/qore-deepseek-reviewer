@@ -4,6 +4,7 @@ import {inspectCrtH4} from "./crt-h4.mjs";
 import {inspectMssM5} from "./mss-m5.mjs";
 import {inspectMssM15} from "./mss-m15.mjs";
 import {classifyReplayConfluence} from "./signal-gate.mjs";
+import {classifyCrtEntryModels} from "./crt-entry-model-catalog.mjs";
 
 // Deterministic offline integration harness. Does not call external APIs.
 // Given one completed C1, derives C2/C3 from the SAME series of closed M5.
@@ -31,6 +32,7 @@ export function replayCycle({candlesM5,c1Start,family}){
   const mssM5=inspectMssM5(args);
   const mssM15=inspectMssM15(args);
   const confluence=classifyReplayConfluence({crt,mssM15,mssM5});
+  const modelCatalog=classifyCrtEntryModels({crt,mssM15,confluence});
   return Object.freeze({state:"REPLAY_EVALUATED",...cryptoMeta,actionable:false,sendPush:false,
-    c1Start,crt,mssM5,mssM15,confluence});
+    c1Start,crt,mssM5,mssM15,confluence,modelCatalog});
 }
