@@ -25,7 +25,7 @@ export const PINE_QA_BLOB_SHA_BTC_D_OFFICIAL="48de848a550ac2b9d222a554a640164774
 export const PINE_QA_BLOB_SHA_BTC_CRT_CLOCK="d254ff36c735ce071b46dc744e241ed25fb2b1ae";
 // BTC: single chart-provider feed and closed M15 MSS independent of M5.
 // Git source identity only; REAL TradingView runtime parity still required.
-export const PINE_QA_BLOB_SHA_BTC_MSS15="7b568a074e49399584b23c3d7c58db81a5ecb26c";
+export const PINE_QA_BLOB_SHA_BTC_MSS15="e817b887a7ac9445cbee1576d07991b6972a9e96";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
