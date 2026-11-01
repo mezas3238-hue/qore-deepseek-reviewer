@@ -1,7 +1,13 @@
 const formatter=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",
   hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",
   hour:"2-digit",minute:"2-digit"});
-export const C1_HOURS=Object.freeze({forex:[1,5,21],index:[2,6,22]});
+// Owner-approved: BTCUSD runs the identical C1 clock as Forex in New York,
+// including weekends; DST is determined by America/New_York IANA rules.
+export const C1_HOURS=Object.freeze({
+  forex:Object.freeze([1,5,21]),
+  crypto:Object.freeze([1,5,21]),
+  index:Object.freeze([2,6,22])
+});
 export function nyParts(ms){
   if(!Number.isSafeInteger(ms)||ms<0)throw Error("invalid UTC milliseconds");
   const p=Object.fromEntries(formatter.formatToParts(new Date(ms))
@@ -11,7 +17,7 @@ export function nyParts(ms){
 export function bucketNY(ms,tf,family){
   if(tf!=="H4"&&tf!=="M15")throw Error("unsupported timeframe");
   if(!C1_HOURS[family])throw Error("unsupported family");
-  const p=nyParts(ms),origin=family==="forex"?1:2;
+  const p=nyParts(ms),origin=family==="index"?2:1;
   let hour,minute,day=Date.UTC(p.year,p.month-1,p.day);
   if(tf==="H4"){
     hour=(origin+4*Math.floor(((p.hour-origin+24)%24)/4))%24;
