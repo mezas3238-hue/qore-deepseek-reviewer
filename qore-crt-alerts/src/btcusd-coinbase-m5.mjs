@@ -7,7 +7,7 @@ import {M5_MS,validateClosedM5,deduplicateM5} from "./contracts.mjs";
 export const BTC_PROBE=Object.freeze({
   provider:"COINBASE_SPOT_PROBE",instrumentId:"BTCUSD",
   feedSymbol:"BTC-USD",family:"crypto",environment:"OFFLINE_REPLAY",
-  marketEquivalence:"UNVERIFIED",crtSchedule:"NOT_APPROVED",
+  marketEquivalence:"UNVERIFIED",crtSchedule:"FOREX_NY_OWNER_APPROVED",
   sendPush:false,actionable:false
 });
 const URL="https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD/candles";
