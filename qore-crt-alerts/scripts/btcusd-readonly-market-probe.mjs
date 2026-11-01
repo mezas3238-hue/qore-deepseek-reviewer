@@ -36,7 +36,7 @@ try{
     completeM15:m15.complete.length,rejectedM15:m15.rejected.length,
     outOfWindowOmitted:data.outOfWindowOmitted,
     replayState:replay.state,
-    candleSha256:sha,crtSchedule:"NOT_APPROVED",
+    candleSha256:sha,crtSchedule:"FOREX_NY_OWNER_APPROVED",
     marketEquivalence:"UNVERIFIED",sendPush:false,actionable:false
   }));
 }catch(e){
