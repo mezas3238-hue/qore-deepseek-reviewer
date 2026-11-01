@@ -28,8 +28,23 @@ internal object NotificationPolicy {
             return Decision(false, "INVALID_DIRECTION")
         if (!digest.matches(data["ohlcSha256"] ?: ""))
             return Decision(false, "MISSING_DATA_PROOF")
-        if ((data["mssAtMs"]?.toLongOrNull() ?: 0L) <= 0L)
+        val mssAt = data["mssAtMs"]?.toLongOrNull()
+            ?: return Decision(false, "INVALID_TIME")
+        if (mssAt <= 0L || mssAt % 900_000L != 0L)
             return Decision(false, "INVALID_TIME")
+        // This checks payload coherence only; untrusted FCM fields cannot
+        // attest to genuine market data or replace authenticated enrollment.
+        val parts = eventId.split('|')
+        val c1Start = parts.getOrNull(2)?.toLongOrNull()
+        val cycleElapsed = if (c1Start != null && c1Start > 0L && c1Start < mssAt)
+            mssAt - c1Start else -1L
+        if (parts.size != 6 || parts[0].isBlank() ||
+            parts[1] != instrument ||
+            parts[3] != (if (direction == "BULLISH") "1" else "-1") ||
+            parts[4] != "MSS_M15" ||
+            parts[5] != mssAt.toString() ||
+            cycleElapsed <= 14_400_000L || cycleElapsed > 43_200_000L)
+            return Decision(false, "EVENT_ID_MISMATCH")
         return Decision(true, "STAGING_POLICY_PASS", eventId, instrument, direction)
     }
 }
