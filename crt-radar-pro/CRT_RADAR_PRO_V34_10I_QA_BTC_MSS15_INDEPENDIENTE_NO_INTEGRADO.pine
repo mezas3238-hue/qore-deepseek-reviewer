@@ -1479,11 +1479,19 @@ if barstate.islast
         else if not na(m5Line)
             line.delete(m5Line)
             m5Line := na
-        if showMssLines and not na(own.m15At) and not na(own.m15PivotAt) and own.m15PivotAt < own.m15At and not na(own.m15Level)
+        // Visual independiente: nivel de swing M15 ya CONFIRMADO
+        // y congelado ANTES de la barrida C2. Dibujar en naranja
+        // mientras espera ruptura por CIERRE M15; no inventar check ✓.
+        bool m15SwingAvailable = showMssLines and own.phase == 2 and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt
+        bool m15BreakConfirmed = m15SwingAvailable and not na(own.m15At) and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
+        if m15SwingAvailable
+            int lineEndM15 = m15BreakConfirmed ? own.m15At : time_close
+            color m15Ink = m15BreakConfirmed ? color.blue : color.orange
             if na(m15Line)
-                m15Line := line.new(own.m15PivotAt,own.m15Level,own.m15At,own.m15Level,xloc=xloc.bar_time,color=color.blue,style=line.style_dashed,width=2)
+                m15Line := line.new(own.m15PivotAt,own.m15Level,lineEndM15,own.m15Level,xloc=xloc.bar_time,color=m15Ink,style=line.style_dashed,width=2)
             line.set_xy1(m15Line,own.m15PivotAt,own.m15Level)
-            line.set_xy2(m15Line,own.m15At,own.m15Level)
+            line.set_xy2(m15Line,lineEndM15,own.m15Level)
+            line.set_color(m15Line,m15Ink)
         else if not na(m15Line)
             line.delete(m15Line)
             m15Line := na
