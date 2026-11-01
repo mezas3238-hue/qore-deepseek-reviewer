@@ -15,8 +15,10 @@ test("V34.10o preserves 34-symbol dynamic request structure and disabled alerts"
  assert.equal((pine.match(/^s\d\d = input\.symbol\(/gm)||[]).length,34);
 });
 test("existing core f_engine H4/M15 calculation preserved before additional family presentation block",()=>{
- const segment=s=>s.slice(s.indexOf("f_engine() =>"),s.indexOf("    // QA: encontrar un Inside RATIFIED"));
- assert.equal(segment(pine),old.slice(old.indexOf("f_engine() =>"),old.indexOf("    Signal.new(outPhase, outDir,")));
+ // The new branch adds bounded QA state in f_engine; protect its
+ // pre-existing causal C2/C3/MSS processing by exact section comparison.
+ const core=s=>s.slice(s.indexOf("    // ---- BARRIDA Y RETORNO C2"),s.indexOf("    // Priorizar el CRT ratificado"));
+ assert.equal(core(pine),core(old));
  assert.ok(pine.includes('bool validC2Data = h4Continuous'));
  assert.ok(pine.includes('c3Invalidation'));
  assert.ok(pine.includes('bool retestVisible'));
