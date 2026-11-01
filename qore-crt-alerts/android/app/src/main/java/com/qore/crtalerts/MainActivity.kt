@@ -1,6 +1,12 @@
 package com.qore.crtalerts
 
 import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
@@ -13,10 +19,14 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 
-// QA shell: locally stores user preference only, never requests a token,
-// Android notification permission, or any Firebase/network enrollment.
-// Explicit backend and TradingView certifications remain unavailable.
+// QA shell: stores only a local preference, never requests an FCM token or
+// authenticates/enrolls a device. A deliberately separate, user-tapped
+// local demonstration may request Android POST_NOTIFICATIONS. It can
+// display only a clearly labeled non-market, non-Firebase test notice.
+// It does NOT enable CRT market notifications or change the QA build lock.
 class MainActivity : Activity() {
+    private val DEMO_PERMISSION_REQUEST = 4801
+    private var demoStatus: TextView? = null
     private val navy = Color.rgb(10, 21, 35)
     private val card = Color.rgb(21, 35, 54)
     private val muted = Color.rgb(154, 175, 194)
@@ -119,7 +129,22 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 20 })
 
-        root.addView(label("Cobertura prevista: 34 instrumentos · feed pendiente", 13f, muted)
+        root.addView(label("BTCUSD · primera prueba", 19f, Color.WHITE, true).apply {
+            setPadding(0, 30, 0, 8)
+        })
+        root.addView(label("CRT H4 NY: 01→05→09, 05→09→13, 21→01→05. " +
+            "MSS M15 obligatorio. Coinbase M5 solo lectura: verificado en GitHub, " +
+            "no conectado a este teléfono.", 14f, muted))
+        val demoButton = Button(this).apply {
+            text = "Mostrar notificación LOCAL de prueba"
+            isAllCaps = false
+            setOnClickListener { requestLocalDemoOnly() }
+        }
+        root.addView(demoButton)
+        demoStatus = label("Solo prueba manual, sin señales, Firebase ni servidor.", 13f, amber)
+        root.addView(demoStatus)
+
+        root.addView(label("Cobertura prevista: 34 instrumentos · feed continuo pendiente", 13f, muted)
             .apply { setPadding(0, 34, 0, 0) })
         root.addView(label(
             "Para habilitar cualquier entrega se requieren Firebase Auth/App Check " +
@@ -131,5 +156,58 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { isFillViewport = true }
         scroll.addView(root)
         setContentView(scroll)
+    }
+
+    private fun requestLocalDemoOnly() {
+        // This button NEVER calls QoreMessagingService, requests an FCM token,
+        // activates Firebase auto-init, or changes any consent/certification.
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+            demoStatus?.text = "Permiso Android requerido solo para la prueba local."
+            requestPermissions(
+                arrayOf(Manifest.permission.POST_NOTIFICATIONS), DEMO_PERMISSION_REQUEST
+            )
+            return
+        }
+        postExplicitLocalDemo()
+    }
+
+    private fun postExplicitLocalDemo() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) return
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "qore_crt_local_demo_only"
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(NotificationChannel(
+                channelId, "Pruebas locales QORE CRT",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ))
+        }
+        val notification = if (Build.VERSION.SDK_INT >= 26)
+            Notification.Builder(this, channelId) else Notification.Builder(this)
+        val built = notification
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("BTCUSD · PRUEBA LOCAL")
+            .setContentText("Simulada. No es una señal CRT ni proviene de Firebase.")
+            .setAutoCancel(true).build()
+        manager.notify(4801, built)
+        demoStatus?.text = "Prueba LOCAL solicitada. Alertas del mercado: BLOQUEADAS."
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != DEMO_PERMISSION_REQUEST) return
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            postExplicitLocalDemo()
+        } else {
+            demoStatus?.text = "Permiso denegado. Sin notificación de prueba."
+        }
     }
 }
