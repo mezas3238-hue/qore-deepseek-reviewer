@@ -141,8 +141,9 @@ class MainActivity : Activity() {
             setOnClickListener { requestLocalDemoOnly() }
         }
         root.addView(demoButton)
-        demoStatus = label("Solo prueba manual, sin señales, Firebase ni servidor.", 13f, amber)
-        root.addView(demoStatus)
+        val localDemoStatus = label("Solo prueba manual, sin señales, Firebase ni servidor.", 13f, amber)
+        demoStatus = localDemoStatus
+        root.addView(localDemoStatus)
 
         root.addView(label("Cobertura prevista: 34 instrumentos · feed continuo pendiente", 13f, muted)
             .apply { setPadding(0, 34, 0, 0) })
