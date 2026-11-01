@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {hashM5,buildBackendAudit,normalizePineCapture,
   comparePineToBackend,PINE_QA_BLOB_SHA,PINE_DATA_WINDOW_LABELS,
-  PARITY_SCHEMA,AUDIT_FIELDS} from "../src/parity-audit.mjs";
+  PARITY_SCHEMA,AUDIT_FIELDS,PINE_QA_BLOB_SHA_BTC_MEMORY} from "../src/parity-audit.mjs";
 const MS=300000,START=Date.parse("2026-10-30T05:00:00Z");
 function dataset(){
   const candlesM5=Array.from({length:96},(_,i)=>{
@@ -135,4 +135,18 @@ test("post-C3 full H4 snapshot blocks parity until phase semantics are modeled",
   const result=buildBackendAudit(d);
   assert.equal(result.status,"BACKEND_INCOMPLETE");
   assert.equal(result.reason,"POST_C3_CLOSE_PHASE_NOT_MODELED");
+});
+
+test("V34.10c BTC memory QA candidate accepts only genuine BTC TradingView attestation",()=>{
+ const {pine}=pair();
+ const candidate={...pine,instrumentId:"BTCUSD",
+   pineBlobSha:PINE_QA_BLOB_SHA_BTC_MEMORY};
+ const normalized=normalizePineCapture(candidate);
+ assert.equal(normalized.instrumentId,"BTCUSD");
+ assert.throws(()=>normalizePineCapture({...candidate,
+   verifiedOnTradingView:false}),/provenance/);
+ assert.throws(()=>normalizePineCapture({...candidate,
+   instrumentId:"EURUSD"}),/provenance/);
+ assert.throws(()=>normalizePineCapture({...candidate,
+   pineBlobSha:"abcdef"}),/provenance/);
 });
