@@ -29,6 +29,9 @@ export const PINE_QA_BLOB_SHA_BTC_MSS15="e817b887a7ac9445cbee1576d07991b6972a9e9
 // V34.10j: seven-family CRT catalog; still H4+closed M15 as sole entry gate.
 // Source fingerprint only; not real TradingView parity or live alert approval.
 export const PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG="feebb0850e2c34a6a3b6b16c1cebd45591e56665";
+// V34.10k adds H4 4-candle & post-MSS M15 retest diagnostics only.
+// Exact source fingerprint, NOT Pine compilation or alerts certification.
+export const PINE_QA_BLOB_SHA_BTC_MULTI4_RETEST="92af8c5a85141ada91dfa139548b62b0d9fa9dd9";
 export const PARITY_SCHEMA="QORE_CRT_PARITY_V1";
 const FIELDS=Object.freeze(["phase","direction","c1StartMs","c2StartMs",
   "ratifiedAtMs","sweepEndMs","m5PivotPrice","m5PivotAtMs",
@@ -113,8 +116,8 @@ export const PINE_DATA_WINDOW_LABELS=PINE_LABELS;
 export function normalizePineCapture(capture){
   if(!capture||capture.schema!==PARITY_SCHEMA||
      capture.engine!=="TRADINGVIEW_PINE_EDITOR_CAPTURE"||
-     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15,PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG].includes(capture.pineBlobSha)||
-     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15,PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG].includes(capture.pineBlobSha)&&
+     ![PINESHA,PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15,PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG,PINE_QA_BLOB_SHA_BTC_MULTI4_RETEST].includes(capture.pineBlobSha)||
+     ([PINE_QA_BLOB_SHA_BTC_MEMORY,PINE_QA_BLOB_SHA_BTC_NY,PINE_QA_BLOB_SHA_BTC_PDH,PINE_QA_BLOB_SHA_BTC_CHART_D,PINE_QA_BLOB_SHA_BTC_D_OFFICIAL,PINE_QA_BLOB_SHA_BTC_CRT_CLOCK,PINE_QA_BLOB_SHA_BTC_MSS15,PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG,PINE_QA_BLOB_SHA_BTC_MULTI4_RETEST].includes(capture.pineBlobSha)&&
        capture.instrumentId!=="BTCUSD")||
      capture.verifiedOnTradingView!==true)
     throw Error("authentic Pine Editor capture provenance and candidate SHA required");
