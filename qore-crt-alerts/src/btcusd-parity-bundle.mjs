@@ -1,4 +1,4 @@
-import {hashM5,buildBackendAudit,PINE_QA_BLOB_SHA_BTC_MSS15,
+import {hashM5,buildBackendAudit,PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG,
   PARITY_SCHEMA,PINE_DATA_WINDOW_LABELS} from "./parity-audit.mjs";
 import {aggregateClosedCryptoM5} from "./crypto-aggregate.mjs";
 import {BTC_PROBE} from "./btcusd-coinbase-m5.mjs";
@@ -10,7 +10,7 @@ const blocked=Object.freeze({actionable:false,sendPush:false,
 const captureTemplate=({sourceId,candleSha256,c1Start})=>
   Object.freeze({
     schema:PARITY_SCHEMA,engine:"TRADINGVIEW_PINE_EDITOR_CAPTURE",
-    pineBlobSha:PINE_QA_BLOB_SHA_BTC_MSS15,verifiedOnTradingView:false,
+    pineBlobSha:PINE_QA_BLOB_SHA_BTC_MODEL_CATALOG,verifiedOnTradingView:false,
     sourceId,candleSha256,instrumentId:"BTCUSD",provider:BTC_PROBE.provider,
     c1Start,evidenceLocator:null,
     dataWindow:Object.fromEntries(
