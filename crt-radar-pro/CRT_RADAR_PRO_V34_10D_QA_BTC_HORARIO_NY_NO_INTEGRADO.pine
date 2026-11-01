@@ -1404,8 +1404,9 @@ if barstate.islast
         // Fila 12: calendario del motor M5, NO la apertura H4 del broker.
         string nyAnchor = chartAvailable and not na(own.nyH4Start) ? str.format_time(own.nyH4Start, "dd/MM HH:mm", TZ) : "N/D"
         bool btcScope = str.upper(syminfo.ticker) == "BTCUSD"
-        bool brokerAligned = chartAvailable and not na(own.nyH4Start) and own.nyH4Start == time
-        string statusNY = not btcScope ? "OTRO" : not chartAvailable ? "SIN M5" : own.nyH4M5Count > 48 ? "H4 EXTRA/DST" : brokerAligned ? "ALINEADA" : "H4 BROKER != NY"
+        bool chartIsH4 = timeframe.isintraday and timeframe.multiplier == 240
+        bool brokerAligned = chartIsH4 and chartAvailable and not na(own.nyH4Start) and own.nyH4Start == time
+        string statusNY = not btcScope ? "OTRO" : not chartAvailable ? "SIN M5" : own.nyH4M5Count > 48 ? "H4 EXTRA/DST" : not chartIsH4 ? "MOTOR M5 NY" : brokerAligned ? "ALINEADA" : "H4 BROKER != NY"
         table.cell(board,0,12,btcScope ? "BTC H4 NY" : "H4 NY QA",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,12,nyAnchor,bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,2,12,"C1:01/05/21",bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
