@@ -10,7 +10,8 @@ test("BTC local Android notification demo is explicit user action, not live FCM"
  assert.match(main,/BTCUSD · PRUEBA LOCAL/);
  assert.match(main,/No es una señal CRT ni proviene de Firebase/);
  assert.match(main,/requestPermissions\(/);
- assert.doesNotMatch(main,/FirebaseMessaging\s*\.|getToken\s*\(|setAutoInitEnabled/);
+ const executable=main.split("\n").filter(line=>!line.trim().startsWith("//")).join("\n");
+ assert.doesNotMatch(executable,/FirebaseMessaging\s*\.|getToken\s*\(|setAutoInitEnabled/);
 });
 test("staging FCM remains compile-time disabled despite local demo",()=>{
  assert.match(gradle,/buildConfigField\("boolean", "STAGING_NOTIFICATIONS_ENABLED", "false"\)/);
