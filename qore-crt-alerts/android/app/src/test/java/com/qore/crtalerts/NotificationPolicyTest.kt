@@ -65,7 +65,7 @@ class NotificationPolicyTest {
                 "FIXTURE|EURUSD|1793336400000|1|MSS_M5|1793351700000"), true).reason)
         assertEquals("EVENT_ID_MISMATCH",
             NotificationPolicy.evaluate(valid() + ("eventId" to
-                "FIXTURE|EURUSD|1793311200000|1|MSS_M15|1793351700000"), true).reason)
+                "FIXTURE|EURUSD|1793304000000|1|MSS_M15|1793351700000"), true).reason)
     }
 
 }
