@@ -59,7 +59,7 @@ test("read-only GET uses fixed provider URL, API FIVE_MINUTE and no credentials"
   assert.equal(u.hostname,"api.coinbase.com");
   assert.equal(u.pathname,"/api/v3/brokerage/market/products/BTC-USD/candles");
   assert.equal(u.searchParams.get("granularity"),"FIVE_MINUTE");
-  assert.equal(u.searchParams.get("limit"),"3");
+  assert.equal(u.searchParams.get("limit"),"5");
   assert.equal(options.method,"GET");assert.equal(options.redirect,"error");
   assert.ok(!Object.keys(options.headers).some(h=>/auth|secret|key/i.test(h)));
   return {ok:true,json:async()=>payload()};
