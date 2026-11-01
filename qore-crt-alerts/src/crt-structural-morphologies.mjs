@@ -60,8 +60,7 @@ function event(b0,model,dir,ratifiedAt,more={}){
 // the completed C2 closing back into the original C1 range.
 function twoC(c1,c2){
   const d=sweep(c1,c2);
-  return d!==0&&inside(c1,{...c2,high:Math.min(c2.high,c1.high),low:Math.max(c2.low,c1.low)}) &&
-    c2.close>=c1.low&&c2.close<=c1.high ? d : 0;
+  return d!==0 && c2.close>=c1.low && c2.close<=c1.high ? d : 0;
 }
 export function inspectCrtMorphologies({
   closedH4=[],family="forex",maxInsideLife=3,maxMultiConsolidation=5,
@@ -102,13 +101,7 @@ export function inspectCrtMorphologies({
       }
     }else{
       const dirSweep=sweep(c1,c2);
-      if(dirSweep!==0 && !inside(c1,{...c2,high:Math.min(c1.high,c2.high),
-        low:Math.max(c1.low,c2.low)}) /* never the gate */) {
-        // Structural expansion can be classified separately, never promoted.
-        diagnostics.push(Object.freeze({model:"CRT_2C_EXPANSION",
-          c1Start:c1.openedAt,at:c2.closedAt,state:"REJECTED_NON_RETURN",
-          provider:c1.provider,instrumentId:c1.instrumentId,actionable:false}));
-      }else if(dirSweep!==0&&(c2.close<c1.low||c2.close>c1.high)){
+      if(dirSweep!==0 && (c2.close<c1.low || c2.close>c1.high)){
         diagnostics.push(Object.freeze({model:"CRT_2C_EXPANSION",
           c1Start:c1.openedAt,at:c2.closedAt,state:"REJECTED_NON_RETURN",
           provider:c1.provider,instrumentId:c1.instrumentId,actionable:false}));
@@ -196,6 +189,9 @@ export function verifyMssM15ForFamily(entry,mss){
     mss?.provider===entry.provider && mss?.instrumentId===entry.instrumentId &&
     mss?.c1Start===entry.c1Start && mss?.direction===entry.direction &&
     mss?.timeframe==="M15" &&
+    ["MSS_CONFIRMED_C2","MSS_CONFIRMED_C3"].includes(mss?.state) &&
+    mss?.cycleId === [entry.provider,entry.instrumentId,entry.c1Start,entry.direction].join("|") &&
+    Number.isSafeInteger(mss?.observedUntil) &&
     Number.isSafeInteger(mss?.sweepAt) &&
     Number.isSafeInteger(mss?.pivotAt) &&
     Number.isSafeInteger(mss?.mssAt) &&
