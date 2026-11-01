@@ -1695,7 +1695,7 @@ if barstate.islast
         table.cell(board,4,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,5,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         bool ownRatified = chartAvailable and f_genuineCRT(own)
-        bool m15CRTConfirmed = chartActive and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
+        bool m15CRTConfirmed = ownRatified and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         // Activo abierto SIEMPRE en la primera fila, sin duplicados.
         int ownDir = chartActive ? own.direction : 0
         string ownState = chartActive ? (ownDir > 0 ? "BULLISH" : "BEARISH") : "—"
@@ -1707,7 +1707,7 @@ if barstate.islast
             table.cell(board,1,1,ownState,bgcolor=shade,text_color=ownInk,text_size=size.tiny)
             table.cell(board,2,1,ownPDH,bgcolor=shade,text_color=chartBtcSymbol ? f_liqColor(chartPdhState) : chartAvailable ? f_liqColor(own.pdhStatus) : color.gray,text_size=size.tiny)
             table.cell(board,3,1,ownPDL,bgcolor=shade,text_color=chartBtcSymbol ? f_liqColor(chartPdlState) : chartAvailable ? f_liqColor(own.pdlStatus) : color.gray,text_size=size.tiny)
-            table.cell(board,4,1,chartActive and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=chartActive and not na(own.m5At) ? posInk : color.gray,text_size=size.small)
+            table.cell(board,4,1,ownRatified and not na(own.m5At) and not na(own.m5PivotAt) and not na(own.sweepAt) and own.m5PivotAt < own.sweepAt and own.m5At > own.sweepAt ? "✓" : "—",bgcolor=shade,text_color=ownRatified and not na(own.m5At) and not na(own.m5PivotAt) and not na(own.sweepAt) and own.m5PivotAt < own.sweepAt and own.m5At > own.sweepAt ? posInk : color.gray,text_size=size.small)
             table.cell(board,5,1,m15CRTConfirmed ? "✓" : "—",bgcolor=shade,text_color=m15CRTConfirmed ? posInk : color.gray,text_size=size.small)
 
         // Evitar choque con RETEST M15 (4), MODELO CRT (5), OTROS CRT QA (6) y auditoria fija (7-14).
@@ -1731,7 +1731,7 @@ if barstate.islast
                     color rowbg = r % 2 == 0 ? navy : shade
                     color dirInk = hasCRT ? (st == 3 ? color.silver : dir > 0 ? posInk : negInk) : color.gray
                     string side = hasCRT ? (dir > 0 ? "BULLISH" : "BEARISH") : "—"
-                    table.cell(board,0,r,array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
+                    table.cell(board,0,r,scanAll ? symbol : array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
                     table.cell(board,1,r,side+(st == 1 ? "*" : ""),bgcolor=rowbg,text_color=dirInk,text_size=size.tiny)
                     int hFlag = array.get(pdhFlags,i)
                     int lFlag = array.get(pdlFlags,i)
@@ -1779,7 +1779,7 @@ if barstate.islast
         // MSS M5 y M15 son cadenas DISTINTAS. Mostrar espera hasta
         // que se complete una M15 y ROMPA el swing congelado previo C2.
         table.cell(board,0,7,"BTC MSS QA",bgcolor=shade,text_color=color.white,text_size=size.tiny)
-        table.cell(board,1,7,chartActive and not na(own.m5At) ? "M5 OK" : "M5 ESP",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,7,ownRatified and not na(own.m5At) and not na(own.m5PivotAt) and not na(own.sweepAt) and own.m5PivotAt < own.sweepAt and own.m5At > own.sweepAt ? "M5 OK" : "M5 ESP",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,2,7,m15CRTConfirmed ? "M15 OK" : "M15 ESP",bgcolor=shade,text_color=m15CRTConfirmed ? posInk : color.orange,text_size=size.tiny)
         table.cell(board,3,7,chartAvailable and not na(own.m15Level) ? "PIV:"+str.tostring(own.m15Level, format.mintick) : "PIV:N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
         table.cell(board,4,7,chartAvailable and not na(own.qaLastClosedM15At) ? str.format_time(own.qaLastClosedM15At, "dd/MM HH:mm", TZ) : "M15:N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
