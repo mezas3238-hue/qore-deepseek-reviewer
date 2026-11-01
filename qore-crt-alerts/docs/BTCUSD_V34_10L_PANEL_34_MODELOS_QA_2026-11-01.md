@@ -33,3 +33,9 @@ Compilación real 10l Pine Editor: PENDIENTE.
 Paridad Pine/backend y 34 feeds: PENDIENTE.
 Android FCM STAGING E2E: PENDIENTE.
 NO habilitar señales, FCM, LIVE, merge ni producción.
+
+## Receptor Android — endurecimiento adicional sin entrega
+- `NotificationPolicy.kt` compara el eventId de seis segmentos con símbolo, dirección, tiempo MSS y C1 del propio evento; impide usar una ruptura M5 como si fuera MSS M15 y exige cierre UTC M15 exacto.
+- La ventana del evento debe estar después de C1+4H y no después de C1+12H. No acredita que exista un ciclo de mercado real.
+- `NotificationPolicyTest.kt` agrega casos de suplantación cruzada, cierre M15 desalineado y ciclo ajeno.
+- BuildConfig `STAGING_NOTIFICATIONS_ENABLED=false`, consentimiento/inscripción no verificados, sin SDK emisor, sin tokens ni push. El endurecimiento de la coherencia de un payload no equivale a autenticación de servidor, evidencia de TradingView ni autorización de LIVE.
