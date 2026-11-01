@@ -46,4 +46,26 @@ class NotificationPolicyTest {
         assertFalse(NotificationPolicy.evaluate(valid() + ("mssAtMs" to "-1"), true).accepted)
         assertFalse(NotificationPolicy.evaluate(valid() + ("direction" to "BUY NOW"), true).accepted)
     }
+    @Test fun forgedSymbolOrDirectionCannotReuseAnotherCycleId() {
+        assertEquals("EVENT_ID_MISMATCH",
+            NotificationPolicy.evaluate(valid() + ("instrumentId" to "GBPUSD"), true).reason)
+        assertEquals("EVENT_ID_MISMATCH",
+            NotificationPolicy.evaluate(valid() + ("direction" to "BEARISH"), true).reason)
+    }
+    @Test fun forgedEventIdAndM15TimestampCannotBeMixed() {
+        val wrongId = "FIXTURE|EURUSD|1793336400000|1|MSS_M15|1793352600000"
+        assertEquals("EVENT_ID_MISMATCH",
+            NotificationPolicy.evaluate(valid() + ("eventId" to wrongId), true).reason)
+        assertEquals("INVALID_TIME",
+            NotificationPolicy.evaluate(valid() + ("mssAtMs" to "1793351700001"), true).reason)
+    }
+    @Test fun M5OrUnrelatedC1CannotPassAsM15Cycle() {
+        assertEquals("EVENT_ID_MISMATCH",
+            NotificationPolicy.evaluate(valid() + ("eventId" to
+                "FIXTURE|EURUSD|1793336400000|1|MSS_M5|1793351700000"), true).reason)
+        assertEquals("EVENT_ID_MISMATCH",
+            NotificationPolicy.evaluate(valid() + ("eventId" to
+                "FIXTURE|EURUSD|1793311200000|1|MSS_M15|1793351700000"), true).reason)
+    }
+
 }
