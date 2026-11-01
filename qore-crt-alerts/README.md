@@ -9,8 +9,8 @@ delivery. Android QA intentionally rejects all notifications by build flag.
 ## Existing isolated modules
 
 - src/instruments.mjs: 34 exact TradingView instrument slots, with
-  **UNVERIFIED** backend feed mappings. BTCUSD has no silently invented
-  FX/index H4 schedule.
+  **UNVERIFIED** backend feed mappings. BTCUSD now has an
+  explicitly OWNER-APPROVED NY Forex-equivalent C1=01/05/21 schedule.
 - src/contracts.mjs: closed M5 UTC OHLC contract, strict validation and
   retransmission deduplication.
 - src/ny-clock.mjs: explicit three C1 NY slots per family, DST-aware.
@@ -63,9 +63,10 @@ delivery. Android QA intentionally rejects all notifications by build flag.
   interest preference, erase control, FirebaseMessagingService, strict
   payload validation and independent consent/enrollment/Pine/permission
   gates. The Gradle build hardcodes STAGING_NOTIFICATIONS_ENABLED=false.
-  No request for Android notification permission, no google-services.json,
-  no Firebase auto-initialization, device registration, or actual delivery.
-  Local preference does NOT authorize signals.
+  No google-services.json, no Firebase auto-initialization, no device
+  registration or real push delivery. A manually tapped local BTCUSD
+  notification DEMO can request Android POST_NOTIFICATIONS; it is simulated
+  and entirely separate from the market-signal FCM lock.
 - src/signal-gate.mjs: only a ratified CRT and same-cycle M15 MSS form an
   offline replay confluence; M5 is optional context, never its substitute.
   All results enforce actionable:false and sendPush:false when present.
@@ -161,3 +162,22 @@ No real device, Firebase project or market feed was accessed.
 - RLS policy trusts a dedicated backend role, not end-user SQL claims:
   never expose this login to Android/anonymous clients. Production-grade
   role credentials, distributed rate limits and audited TLS are pending.
+
+## 1 Nov 2026 BTCUSD checkpoint (supersedes old QA test count)
+
+Owner-approved BTCUSD NY Forex schedule: C1 01/05/21, C2 05/09/01,
+C3 09/13/05, seven days a week, DST-aware. Coinbase public BTC-USD
+spot 192/192 M5 real smoke confirmed; this is not IC:BTCUSD equivalence.
+
+A real read-only market packet and an UNVERIFIED 12-field Pine template
+are exported as a GitHub Actions artifact:
+https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41312593663
+
+Backend BTC M5 -> C2 sweep -> frozen MSS M15 -> SHA audit -> replay
+ledger -> blocked Android notification preview is tested end-to-end
+using LOCAL fixtures (no Firebase). Android's optional local demo is
+explicitly synthetic and does not authorize signal delivery.
+
+Refer to docs/BTCUSD_FIRST_SLICE_2026-11-01.md for the latest
+work and current external certification blockers. Historical tests and
+CI links above are retained as prior evidence only.
