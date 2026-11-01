@@ -68,3 +68,27 @@ test("a valid offline BTC replay stays an immutable, non-sendable observation",(
  assert.equal(r.confluence.actionable,false);
  assert.equal(r.confluence.sendPush,false);
 });
+
+
+test("BTCUSD weekend overnight NY 21 -> 01 -> 05 remains valid and M15-linked",()=>{
+ // Sat Nov 7 21 NY EST -> Sun Nov 8 02:00 UTC, no DST fold.
+ const target=Date.parse("2026-11-08T02:00:00Z");
+ const offset=target-START;
+ const m5=bars().map(b=>({...b,
+   openedAt:b.openedAt+offset,closedAt:b.closedAt+offset}));
+ const r=replayCycle({candlesM5:m5,c1Start:target,family:"crypto"});
+ assert.equal(r.state,"REPLAY_EVALUATED");
+ assert.equal(r.crt.state,"C3_NOT_INVALIDATED");
+ assert.equal(r.mssM15.state,"MSS_CONFIRMED_C2");
+ assert.equal(r.confluence.state,"REPLAY_CRT_M15_CONFLUENCE");
+ assert.equal(r.actionable,false);assert.equal(r.sendPush,false);
+});
+test("ambiguous BTC DST fallback 01 NY cannot produce a CRT replay",()=>{
+ const target=Date.parse("2026-11-01T05:00:00Z");
+ const offset=target-START;
+ const m5=bars(60).map(b=>({...b,
+   openedAt:b.openedAt+offset,closedAt:b.closedAt+offset}));
+ const r=replayCycle({candlesM5:m5,c1Start:target,family:"crypto"});
+ assert.equal(r.state,"INCOMPLETE_C1_C2");
+ assert.equal(r.sendPush,false);
+});
