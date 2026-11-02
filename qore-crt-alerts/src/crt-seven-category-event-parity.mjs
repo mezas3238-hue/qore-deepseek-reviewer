@@ -9,7 +9,8 @@ export const PINE_V34_11C_SOURCE_SHA="3c202bf8ff7eaec8b8f043aad8d0117cccd900ca";
 export const PINE_V34_11D_SOURCE_SHA="d1c26edc67fb6554bc32f71c96c7cbdfdefa6a84";
 export const PINE_V34_11E_SOURCE_SHA="d95872057233e58c128f1c6171c620bdb2524b30";
 export const PINE_V34_11F_SOURCE_SHA="4e0d5541413fa0054c8fad827a8023929d105177";
-const VERIFIED_QA_SOURCE_BLOBS=new Set([PINE_V34_11B_SOURCE_SHA,PINE_V34_11C_SOURCE_SHA,PINE_V34_11D_SOURCE_SHA,PINE_V34_11E_SOURCE_SHA,PINE_V34_11F_SOURCE_SHA]);
+export const PINE_V34_11G_SOURCE_SHA="ea619e19b271bfffed96fe05bc71fa6c584c1316";
+const VERIFIED_QA_SOURCE_BLOBS=new Set([PINE_V34_11B_SOURCE_SHA,PINE_V34_11C_SOURCE_SHA,PINE_V34_11D_SOURCE_SHA,PINE_V34_11E_SOURCE_SHA,PINE_V34_11F_SOURCE_SHA,PINE_V34_11G_SOURCE_SHA]);
 const statusByCategory=Object.freeze({
  CRT_3C_REVERSAL:"RATIFIED",
  CRT_2C_CANDIDATE:"PROVISIONAL",
@@ -96,7 +97,7 @@ function normalize(events,snapshot,feed,asOf){
 }
 export function compareSevenCrtEventTraces34(input={}){
  if(!VERIFIED_QA_SOURCE_BLOBS.has(input.pineSourceBlobSha))
-   throw Error("UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_SOURCE_SHA");
+   throw Error("UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_SOURCE_SHA");
  const base=compareSevenCrtCategories34(input);
  const bySlot=arr=>new Map((arr??[]).map(x=>[x.slot,x]));
  const feeds=bySlot(input.feeds),pines=bySlot(input.pineCaptures),
