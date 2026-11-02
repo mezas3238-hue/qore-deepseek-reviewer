@@ -219,7 +219,7 @@ test("V34.11g 33-market H4 boundary evidence is accepted only as UNCERTIFIED QA"
 });
 
 test("V34.11h source-native 33-market +1min QA cannot certify synthetic parity or send push",()=>{
- const digest="b7696b420b0afd0019d2e54d2388a2641d652230";
+ const digest="638b01991bfce4901dbdfb3b9d640a8cdb896fd1";
  const sources=pine.map(p=>({...p,pineBlobSha:digest}));
  const result=compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:sources,asOf,
