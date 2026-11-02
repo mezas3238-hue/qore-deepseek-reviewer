@@ -47,7 +47,7 @@ test("no M15 confirmation without real crossing AFTER strict sweep",()=>{
 });
 test("rejects pivot formed or confirmed at/after manipulation, opposite direction or double sweep",()=>{
  for(const options of [
-  {pivot:{at:t+M5}},
+  {pivot:{at:t+6*M5}},
   {pivot:{confirmedAt:t+10*M5}},
   {pivot:{provider:"OTHER"}},
   {strictHigh:true},
