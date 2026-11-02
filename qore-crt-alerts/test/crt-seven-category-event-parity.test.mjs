@@ -153,7 +153,7 @@ test("comparison cannot silently accept a different Pine candidate even with sev
  assert.throws(()=>compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
   pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
- }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_SOURCE_SHA/);
+ }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_SOURCE_SHA/);
 });
 
 test("exact V34.11c audit-display candidate can compare traces, without certifying real Pine",()=>{
@@ -203,5 +203,17 @@ test("the exact V34.11f source with isolated BTC + 33-market QA is accepted only
  assert.equal(r.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
  assert.equal(r.certified,false);
  assert.equal(r.actionable,false);
+ assert.equal(r.sendPush,false);
+});
+
+test("V34.11g 33-market H4 boundary evidence is accepted only as UNCERTIFIED QA",()=>{
+ const digest="ea619e19b271bfffed96fe05bc71fa6c584c1316";
+ const captures=pine.map(p=>({...p,pineBlobSha:digest}));
+ const r=compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:captures,asOf,
+  pineSourceBlobSha:digest
+ });
+ assert.equal(r.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
+ assert.equal(r.certified,false);assert.equal(r.actionable,false);
  assert.equal(r.sendPush,false);
 });
