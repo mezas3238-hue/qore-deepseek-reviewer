@@ -153,7 +153,7 @@ test("comparison cannot silently accept a different Pine candidate even with sev
  assert.throws(()=>compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
   pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
- }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_11I_11J_SOURCE_SHA/);
+ }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_11I_11J_11K_SOURCE_SHA/);
 });
 
 test("exact V34.11c audit-display candidate can compare traces, without certifying real Pine",()=>{
@@ -254,4 +254,18 @@ test("V34.11j 33-market native phase +1/+2 is unverified and cannot authorize al
  assert.equal(r.actionable,false);
  assert.equal(r.sendPush,false);
  assert.equal(r.realPineCompilationCertified,false);
+});
+
+test("V34.11k full-48-M5 strict H4 always remains UNCERTIFIED from fixture snapshots",()=>{
+ const digest="93c337d0ee64617bf20211d35d175536d98524bf";
+ const snapshots=pine.map(p=>({...p,pineBlobSha:digest}));
+ const result=compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:snapshots,asOf,
+  pineSourceBlobSha:digest
+ });
+ assert.equal(result.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
+ assert.equal(result.certified,false);
+ assert.equal(result.actionable,false);
+ assert.equal(result.sendPush,false);
+ assert.equal(result.realPineCompilationCertified,false);
 });
