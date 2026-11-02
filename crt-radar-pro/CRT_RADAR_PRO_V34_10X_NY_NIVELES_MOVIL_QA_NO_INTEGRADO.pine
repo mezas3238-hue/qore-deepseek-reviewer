@@ -2570,14 +2570,23 @@ if barstate.islast and showDashboard and compactMobile
     table.cell(board,3,1,ownCore ? (chartBtcSymbol ? chartPdlState == "TAKEN" ? "T" : chartPdlState == "INTACTO" ? "INT" : "N/D" : own.pdlStatus == "TAKEN" ? "T" : own.pdlStatus == "INTACTO" ? "INT" : "N/D") : "—",bgcolor=shade,text_color=color.white,text_size=size.tiny)
     table.cell(board,4,1,ownCore and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=ownCore and not na(own.m5At) ? posInk : color.gray,text_size=size.tiny)
     table.cell(board,5,1,ownM15Ok ? "✓" : "—",bgcolor=shade,text_color=ownM15Ok ? posInk : color.gray,text_size=size.tiny)
+    // Count confirmed core CRTs before paginating; never show empty page
+    // when the Android user previously selected a larger QA page.
     int othersTotal = 0
+    for i = 0 to 33
+        string sym = array.get(scanSymbols,i)
+        if (scanAll or i == 7) and ticker.standard(sym) != ownStd and array.get(validCoreFlags,i)
+            othersTotal += 1
+    int totalPages = math.max(1,int(math.ceil(othersTotal * 1.0 / 2)))
+    int safePage = math.min(page,totalPages)
     int othersShown = 0
+    int eligibleSeen = 0
     for i = 0 to 33
         string sym = array.get(scanSymbols,i)
         bool sameAsChart = ticker.standard(sym) == ownStd
         bool matchCore = array.get(validCoreFlags,i)
         if (scanAll or i == 7) and not sameAsChart and matchCore
-            if othersTotal >= (page - 1) * 2 and othersShown < 2
+            if eligibleSeen >= (safePage - 1) * 2 and othersShown < 2
                 int rr = 2 + othersShown
                 color rowTint = array.get(directions,i) == 1 ? posInk : negInk
                 table.cell(board,0,rr,array.get(scanNames,i),bgcolor=navy,text_color=color.white,text_size=size.tiny)
@@ -2587,9 +2596,7 @@ if barstate.islast and showDashboard and compactMobile
                 table.cell(board,4,rr,array.get(m5Flags,i) == 1 ? "✓" : "—",bgcolor=navy,text_color=array.get(m5Flags,i) == 1 ? posInk : color.gray,text_size=size.tiny)
                 table.cell(board,5,rr,array.get(m15Flags,i) == 1 ? "✓" : "—",bgcolor=navy,text_color=array.get(m15Flags,i) == 1 ? posInk : color.gray,text_size=size.tiny)
                 othersShown += 1
-            othersTotal += 1
-    int totalPages = math.max(1,int(math.ceil(othersTotal * 1.0 / 2)))
-    int safePage = math.min(page,totalPages)
+            eligibleSeen += 1
     table.cell(board,0,4,"PAG "+str.tostring(safePage)+"/"+str.tostring(totalPages),bgcolor=shade,text_color=color.aqua,text_size=size.tiny)
     table.cell(board,1,4,"34 SCAN" ,bgcolor=shade,text_color=color.gray,text_size=size.tiny)
     table.cell(board,2,4,"ACT:"+str.tostring(othersTotal+(ownCore ? 1 : 0)),bgcolor=shade,text_color=color.white,text_size=size.tiny)
