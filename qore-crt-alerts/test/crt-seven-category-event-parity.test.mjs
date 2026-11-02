@@ -153,5 +153,17 @@ test("comparison cannot silently accept a different Pine candidate even with sev
  assert.throws(()=>compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
   pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
- }),/WRONG_V34_11B_PINE_SOURCE_SHA/);
+ }),/UNRECOGNIZED_PINE_V34_11B_11C_SOURCE_SHA/);
+});
+
+test("exact V34.11c audit-display candidate can compare traces, without certifying real Pine",()=>{
+ const cSha="3c202bf8ff7eaec8b8f043aad8d0117cccd900ca";
+ const captures=pine.map(p=>({...p,pineBlobSha:cSha}));
+ const result=compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:captures,asOf,
+  pineSourceBlobSha:cSha
+ });
+ assert.equal(result.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
+ assert.equal(result.certified,false);
+ assert.equal(result.sendPush,false);
 });
