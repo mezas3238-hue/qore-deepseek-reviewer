@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {bucketNY,nyParts,C1_HOURS} from "../src/ny-clock.mjs";
+import {readFileSync} from "node:fs";
 
 // Regression for the precise owner screenshot: 1 Nov 2026 BTCUSD M15.
 // At DST fallback 01:00 NY happens twice. Five-clock-hour H4 from 01
@@ -38,12 +39,16 @@ test("missing M5 is a different failure from a DST-short or DST-long H4",()=>{
   const start=asMs("2026-11-02T06:00:00Z");
   const observed=Array.from({length:48},(_,i)=>start+i*M5).filter((_,i)=>i!==21);
   assert.equal(observed.length,47);
-  assert.notEqual(observed[22]-observed[21],M5);
+  assert.equal(observed[21]-observed[20],2*M5);
   assert.equal(buckets("2026-11-02T06:00:00Z","2026-11-02T10:00:00Z").get("2026-11-02T01:00"),48);
 });
 test("H4 GAP count in Pine V34.10r is aggregate of DST, partial start, or real feed gaps",()=>{
   // Static contractual check. It does NOT prove which two H4 were counted
   // on the user's chart: timestamped source events would be necessary.
   // Regression: protect conservative 48 M5 requirement and H4 closure only.
-  assert.equal(48,4*60/5);
+  const pine=readFileSync(new URL("../../crt-radar-pro/CRT_RADAR_PRO_V34_10R_HISTORIAL_DETECTORES_QA_NO_INTEGRADO.pine",import.meta.url),"utf8");
+  assert.match(pine,/bool fullH4 = h4Continuous and h4Count == 48/);
+  assert.match(pine,/if not fullH4\s+qaAuditH4Incomplete \+= 1/);
+  assert.match(pine,/En el retroceso DST, 01:00 ocurre dos veces/);
+  assert.match(pine,/if not fullH4\s+array\.clear\(qaFourH4\)/);
 });
