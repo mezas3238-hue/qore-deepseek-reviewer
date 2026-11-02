@@ -60,7 +60,7 @@ test("34 independent feed slots expose honest range readiness for actual chosen 
 
 test("reject/provisional/retest mask bits NEVER grant a family or C1 visualization",()=>{
  assert.ok(now.includes('bool showRejectedDiagnostics = expandFull34 and showCatalog7'));
- assert.ok(now.includes('showRejectedDiagnostics ? catExpansion ? "RECHAZO"'));
+ assert.ok(now.includes('showRejectedDiagnostics ? catExpansion or catInsideContinuation ? "RECHAZO"'));
  assert.ok(now.includes('showRejectedDiagnostics ? cat2 ? "2C*"'));
  assert.ok(now.includes('bool chartExtraC1 = chartAvailable and not chartCoreC1'));
  assert.ok(!now.includes('chartCoreC1 or chartExtraC1 or (chartAvailable and own.qaCatalogMask'));
