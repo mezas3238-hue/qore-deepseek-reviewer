@@ -23,7 +23,12 @@ function validControl(x,row,role){
     x.slot!==row.slot||x.instrumentId!==row.symbol||
     x.provider!==row.provider||x.sourcePhaseMin!==row.sourcePhaseMin||
     !SHA256.test(x.candleSha256)||x.candleSha256!==row.candleSha256||
-    !safe(x.eventAtMs)||x.eventAtMs%300000!==row.sourcePhaseMin*60000||
+    !safe(row.windowStartMs)||!safe(row.windowEndMs)||
+    row.windowStartMs>=row.windowEndMs||
+    !safe(x.eventAtMs)||!safe(x.c1StartMs)||
+    x.c1StartMs<row.windowStartMs||
+    x.eventAtMs>row.windowEndMs||x.eventAtMs<=x.c1StartMs||
+    x.eventAtMs%300000!==row.sourcePhaseMin*60000||
     x.actionable!==false||x.sendPush!==false||
     typeof x.labEvidenceId!=="string"||!x.labEvidenceId.trim()||
     typeof x.pineEvidenceId!=="string"||!x.pineEvidenceId.trim()||
@@ -49,8 +54,16 @@ function validControl(x,row,role){
         e.mss15?.breakAtMs===x.mss15?.breakAtMs&&
         e.mss15?.retestAtMs===x.mss15?.retestAtMs)))
    return false;
- } else if(x.pineObserved!==false||x.labObserved!==false||
-           x.negativeReason!==role.negative)return false;
+ } else {
+  if(x.pineObserved!==false||x.labObserved!==false||
+     x.negativeReason!==role.negative)return false;
+  // A negative case cannot be reported as missed when both independent
+  // traces actually contain the same category at that time and cycle.
+  // The rejected scenario still requires external witness verification.
+  if(row.matchedCategoryEvents.some(e=>
+    e.category===role.id&&e.eventAtMs===x.eventAtMs&&
+    e.c1StartMs===x.c1StartMs))return false;
+ }
  if(role.id==="CRT_MULTICANDLE"){
   if(x.controlType==="POSITIVE"&&!["MULTI4","MULTI_N"].includes(x.variant))
    return false;
@@ -89,7 +102,9 @@ export function assessSevenCrtReadiness({eventAudit,controlCases=[]}={}){
    rows.every(x=>(x.status==="EVENT_TRACE_MATCH_UNCERTIFIED"||
                   x.status==="NO_EVENTS_TO_COMPARE")&&
                   Array.isArray(x.matchedCategoryEvents)&&
-                  x.matchedCategoryEvents.length===x.matchedEvents);
+                  x.matchedCategoryEvents.length===x.matchedEvents&&
+                  safe(x.windowStartMs)&&safe(x.windowEndMs)&&
+                  x.windowEndMs>x.windowStartMs);
  const ids=new Set();
  const valid=[];
  let invalid=0;
