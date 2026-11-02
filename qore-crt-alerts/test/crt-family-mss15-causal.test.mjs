@@ -6,10 +6,13 @@ const base={provider:"COINBASE",instrumentId:"BTCUSD",model:"CRT_INSIDE_BAR",
  c1Start:t-H4,terminalH4Start:t,direction:1};
 const pivot={provider:"COINBASE",instrumentId:"BTCUSD",at:t-2*M15MS,
  confirmedAt:t-M15MS,price:110};
-const frozen=(options={})=>freezeFamilyPivot({
- candidate:{...base,...options.candidate},pivot:{...pivot,...options.pivot},
- sweepAt:t+5*M5,sweepEndM5:t+6*M5,strictLow:true,strictHigh:false,...options
-});
+const frozen=(options={})=>{
+ const {candidate:overrideCandidate,pivot:overridePivot,...other}=options;
+ return freezeFamilyPivot({
+  candidate:{...base,...overrideCandidate},pivot:{...pivot,...overridePivot},
+  sweepAt:t+5*M5,sweepEndM5:t+6*M5,strictLow:true,strictHigh:false,...other
+ });
+};
 const b=(i,c,provider="COINBASE")=>({
  provider,instrumentId:"BTCUSD",timeframe:"M15",
  openedAt:t+i*M15MS,closedAt:t+(i+1)*M15MS,
