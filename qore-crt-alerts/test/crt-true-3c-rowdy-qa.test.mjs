@@ -24,8 +24,8 @@ const identity=(dir=1)=>({
  cycleId:[provider,instrumentId,t,dir,"TRUE3C"].join("|")
 });
 const proof=(period,dir=1)=>({...identity(dir),pivotAt:t+H4-M15,
- breakAt:sweepAt+(period===M5?M5:M15),
- lastClosedAt:sweepAt+M15});
+ breakAt:period===M5?sweepAt+M5:t+2*H4+M15,
+ lastClosedAt:t+2*H4+M15});
 const sample=(p={})=>({
  provider,instrumentId,h4:bullish,sourcePhaseMin:phase,
  sweepAt,m5Evidence:proof(M5),m15Evidence:proof(M15),...p
@@ -104,7 +104,7 @@ test("every 0..4 native minute phase requires separate real M5 and M15 closes",(
     cycleId:[provider,instrumentId,t+shift,1,"TRUE3C"].join("|")};
   const m5={...source,pivotAt:t+shift+H4-M15,breakAt:s+M5};
   const m15={...source,pivotAt:t+shift+H4-M15,
-    breakAt:s+M15,lastClosedAt:s+M15};
+    breakAt:t+shift+2*H4+M15,lastClosedAt:t+shift+2*H4+M15};
   const base=sample({h4,sourcePhaseMin:phase,sweepAt:s,
     m5Evidence:m5,m15Evidence:m15});
   assert.equal(inspectTrue3cRowdyQa(base).mssM5,"QA_CONFIRMED");
