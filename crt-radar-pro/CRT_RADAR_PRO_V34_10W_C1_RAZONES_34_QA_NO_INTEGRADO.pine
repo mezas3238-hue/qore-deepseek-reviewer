@@ -1338,7 +1338,7 @@ f_engine() =>
             int expectedC2 = (lastC1Hour + 4) % 24
             bool c1AllowedHour = f_allowed(lastC1Hour, isIndex)
             bool c1AlignedNext = hour(bucketH4, TZ) == expectedC2
-            bool c1CompleteData = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == h4Bucket + (bucketH4 - h4Bucket) and (isBTC ? (h4Count == 48 and bucketH4 - h4Bucket == H4MS) : h4Count >= minBarsC1)
+            bool c1CompleteData = h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and (isBTC ? (h4Count == 48 and bucketH4 - h4Bucket == H4MS) : h4Count >= minBarsC1)
             bool c1HasRange = h4High > h4Low
             // Cada cierre elegible por HORA aporta exactamente una
             // clasificación: mala ancla, datos, rango o C1 apta.
