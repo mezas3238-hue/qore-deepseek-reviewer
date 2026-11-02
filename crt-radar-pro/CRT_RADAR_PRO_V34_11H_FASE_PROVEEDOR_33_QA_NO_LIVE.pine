@@ -292,6 +292,7 @@ type Signal
     int qaH4LastStartOffsetMin
     int qaH4LastEndOffsetMin
     int qaLastM5PhaseMin
+    bool qaPhase1Active
 
 // M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
 // M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
@@ -424,6 +425,12 @@ f_update_context_fvg(FvgContext f, int start5, int end5, float lo5, float hi5, f
 // QA: -1=no existe, 0 intacto, 1 parcial, 2 lleno, 3 invalidado, 4 datos incompletos.
 f_fvg_code(string st) =>
     st == "INTACTO" ? 0 : st == "PARCIAL" ? 1 : st == "LLENADO_TOTAL" ? 2 : st == "INVALIDADO" ? 3 : st == "DATOS_INCOMPLETOS" ? 4 : -2
+
+// In QA +1 minute mode, MSS M15 is confirmed ONLY on a CLOSED M15 of
+// this source's native phase. Normal NY :00 BTC/other feeds unchanged.
+// An M5 pivot can never satisfy a distinct M15 close condition.
+f_m15_phase_ok(int closedAt, bool sourcePhase1Qa) =>
+    not na(closedAt) and closedAt % MIN15 == (sourcePhase1Qa ? 60000 : 0)
 
 // En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
 // UNA peticion request.security por activo en vez de tres peticiones.
@@ -796,17 +803,18 @@ f_engine() =>
 
     // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
     // f_engine() debe evaluarse incondicionalmente en cada barra M5.
-    int bucketH1 = time("60")[1]
-    int bucket15 = time("15")[1]
-    // Same explicit NY clock used by BTC now also anchors Forex (01/05/21).
-    // Indices use 02/06/22. Do not infer a custom-session "240" boundary;
-    // it may not coincide with the actual NY calendar clock on this feed.
-    int bucketH4NY = isBTC ? f_btc_crt_h4_ny(barT) : isIndex ? f_index_crt_h4_ny(barT) : f_forex_metal_crt_h4_ny(barT)
-    // V34.11h: ONLY a source-native "+1 minute" controlled experiment
-    // for the 33 non-BTC feeds. BTC and standard NY anchors unchanged.
-    // Count must STILL be 48 CONSECUTIVE closed M5 and all H4/MSS gates
-    // remain strict. This source-phase H4 is NEVER an approved NY :00 entry.
+    // Per-source phase comes from the LAST CLOSED M5, never the chart.
+    // Only non-BTC feeds with an exact +1m cadence may use this QA path.
     bool qaNativeM5Plus1 = qaPhase1NonBtc and not isBTC and not na(barT) and minute(barT, TZ) % 5 == 1 and second(barT, TZ) == 0
+    // Correct H1/M15 reconstruction at the same native source phase;
+    // otherwise valid 3xM5 M15 closes at :16/:31/... fail a :00-only gate.
+    // Normal NY :00 and BTC preserve the original request-driven buckets.
+    int bucketH1 = qaNativeM5Plus1 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), 1, 0) : time("60")[1]
+    int nativeM15Minute = int(math.floor(minute(barT, TZ) / 15)) * 15 + 1
+    int bucket15 = qaNativeM5Plus1 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), nativeM15Minute, 0) : time("15")[1]
+    // Forex/metals use 01/05/21 NY; indices use 02/06/22; BTC is separate.
+    int bucketH4NY = isBTC ? f_btc_crt_h4_ny(barT) : isIndex ? f_index_crt_h4_ny(barT) : f_forex_metal_crt_h4_ny(barT)
+    // This is a controlled NON-LIVE source-native H4 reconstruction.
     int bucketH4 = bucketH4NY + (qaNativeM5Plus1 ? 60000 : 0)
     int qaLastM5PhaseMin = not na(barT) ? minute(barT, TZ) % 5 : na
 
@@ -885,13 +893,13 @@ f_engine() =>
                     // El pivote debe ser M15 confirmado y ANTERIOR
                     // a la barrida C2; ruptura por CIERRE de M15, no M5.
                     bool frozenPivot15 = not na(c2Pivot15) and not na(c2Pivot15At) and c2Pivot15At < c2SweepEnd
-                    bool exact15Close = closed15At == bucket15 and closed15At % MIN15 == 0
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)
                     bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c2Dir == 1 ? (m15Close > c2Pivot15 and prev15Close <= c2Pivot15) : (m15Close < c2Pivot15 and prev15Close >= c2Pivot15))
                     if eligible15 and na(c2M15At)
                         c2M15At := closed15At
                 if c3Active and not na(c3SweepEnd) and closed15At > c3Start and closed15At > c3SweepEnd
                     bool frozenPivot15 = not na(c3Pivot15) and not na(c3Pivot15At) and c3Pivot15At < c3SweepEnd
-                    bool exact15Close = closed15At == bucket15 and closed15At % MIN15 == 0
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)
                     bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c3Dir == 1 ? (m15Close > c3Pivot15 and prev15Close <= c3Pivot15) : (m15Close < c3Pivot15 and prev15Close >= c3Pivot15))
                     if eligible15 and na(c3M15At)
                         c3M15At := closed15At
@@ -902,19 +910,19 @@ f_engine() =>
                 if array.size(insideCandidates) > 0
                     for ix = 0 to array.size(insideCandidates) - 1
                         InsideCandidate q = array.get(insideCandidates, ix)
-                        bool eligibleInsideM15 = (q.state == "SWEPT" or q.state == "RATIFIED") and q.sweepDir != 0 and q.sweptLow != q.sweptHigh and not na(q.sweepAt) and not na(q.pivot15) and not na(q.pivot15At) and q.pivot15At < q.sweepAt and closed15At > q.sweepAt and closed15At <= q.sweepH4Start + 2 * H4MS and na(q.mss15At) and prev15Continuous and closed15At == bucket15 and closed15At % MIN15 == 0
+                        bool eligibleInsideM15 = (q.state == "SWEPT" or q.state == "RATIFIED") and q.sweepDir != 0 and q.sweptLow != q.sweptHigh and not na(q.sweepAt) and not na(q.pivot15) and not na(q.pivot15At) and q.pivot15At < q.sweepAt and closed15At > q.sweepAt and closed15At <= q.sweepH4Start + 2 * H4MS and na(q.mss15At) and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)
                         bool crossedInside = q.sweepDir == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
                         if eligibleInsideM15 and crossedInside
                             q.mss15At := closed15At
                 if array.size(qaMultiNMssCandidates) > 0
                     for mi = 0 to array.size(qaMultiNMssCandidates) - 1
                         MultiNMssCandidate q = array.get(qaMultiNMssCandidates, mi)
-                        bool eligibleMultiM15 = not q.doubleSweep and q.direction != 0 and not na(q.pivot15) and not na(q.pivot15At) and not na(q.sweepAt) and q.pivot15At < q.sweepAt and na(q.mss15At) and closed15At > q.sweepAt and closed15At <= q.terminalH4Start + H4MS and prev15Continuous and closed15At == bucket15 and closed15At % MIN15 == 0
+                        bool eligibleMultiM15 = not q.doubleSweep and q.direction != 0 and not na(q.pivot15) and not na(q.pivot15At) and not na(q.sweepAt) and q.pivot15At < q.sweepAt and na(q.mss15At) and closed15At > q.sweepAt and closed15At <= q.terminalH4Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)
                         bool crossedMulti = q.direction == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
                         if eligibleMultiM15 and crossedMulti
                             q.mss15At := closed15At
                 // Extender Multi-N ya ratificado hasta max. una H4 adicional.
-                bool eligibleRatifiedMulti = not na(qaMultiNAt) and not na(qaMultiNSweepAt) and not na(qaMultiNPivot15At) and not na(qaMultiNPivot15) and qaMultiNPivot15At < qaMultiNSweepAt and na(qaMultiNMss15At) and closed15At > qaMultiNSweepAt and closed15At <= qaMultiNAt + H4MS and closed15At == bucket15 and closed15At % MIN15 == 0 and prev15Continuous
+                bool eligibleRatifiedMulti = not na(qaMultiNAt) and not na(qaMultiNSweepAt) and not na(qaMultiNPivot15At) and not na(qaMultiNPivot15) and qaMultiNPivot15At < qaMultiNSweepAt and na(qaMultiNMss15At) and closed15At > qaMultiNSweepAt and closed15At <= qaMultiNAt + H4MS and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1) and prev15Continuous
                 bool crossedRatifiedMulti = qaMultiNDir == 1 ? m15Close > qaMultiNPivot15 and prev15Close <= qaMultiNPivot15 : qaMultiNDir == -1 ? m15Close < qaMultiNPivot15 and prev15Close >= qaMultiNPivot15 : false
                 if eligibleRatifiedMulti and crossedRatifiedMulti
                     qaMultiNMss15At := closed15At
@@ -944,7 +952,7 @@ f_engine() =>
                         qaRetest15Close := na
                         qaRetest15Pivot := na
                         qaRetest15State := "ESPERA RETEST"
-                    bool postMss15 = closed15At > qaMssAt and closed15At <= qaMssAt + 4 * 3600000 and closed15At % MIN15 == 0
+                    bool postMss15 = closed15At > qaMssAt and closed15At <= qaMssAt + 4 * 3600000 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)
                     bool touchedRetest = qaDir == 1 ? m15Low <= qaLevel and m15Close > qaLevel : qaDir == -1 ? m15High >= qaLevel and m15Close < qaLevel : false
                     if na(qaRetest15At) and postMss15 and prev15Continuous and touchedRetest
                         qaRetest15At := closed15At
@@ -1724,7 +1732,7 @@ f_engine() =>
         qaGapH4 := qaH4.gapObservedAt
     // No promover un MSS M5 a MSS M15 ni aceptar un cierre de 15m
     // no visto por el agregador M15 del mismo proveedor.
-    bool validIndependent15 = not na(outM15At) and not na(outM15Level) and not na(outM15PivotAt) and not na(outSweep) and outM15PivotAt < outSweep and outM15At > outSweep and outM15At % MIN15 == 0 and not na(lastCompleteM15CloseAt) and outM15At <= lastCompleteM15CloseAt
+    bool validIndependent15 = not na(outM15At) and not na(outM15Level) and not na(outM15PivotAt) and not na(outSweep) and outM15PivotAt < outSweep and outM15At > outSweep and f_m15_phase_ok(outM15At, qaNativeM5Plus1) and not na(lastCompleteM15CloseAt) and outM15At <= lastCompleteM15CloseAt
     int verifiedM15At = validIndependent15 ? outM15At : na
     // Clasificador QA de MODELOS, sin cambiar CRT ni eventos M5/M15.
     // BTC+Forex mantienen C1, C2 y C3 H4 consecutivas obligatorias.
@@ -1812,7 +1820,7 @@ f_engine() =>
     int extraPivotAt = not extraFamily ? na : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
     int extraMssAt = not extraFamily ? na : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
     // Distinta C1 y M15; no se hereda el pivote del CRT principal.
-    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and extraMssAt % MIN15 == 0 and extraMssAt <= extraAt + H4MS
+    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and f_m15_phase_ok(extraMssAt, qaNativeM5Plus1) and extraMssAt <= extraAt + H4MS
     // V34.11a: dedicated QA evidence for all SEVEN legacy category roles.
     // Inside CONTINUATION is an observed rejection, never a live CRT.
     bool insideContinuationNow = false
@@ -1830,7 +1838,7 @@ f_engine() =>
     bool categoryMultiCandle = extraMulti or extraMultiN
     bool categoryM15Retest = retestVisible
     int qaCatalogMask = (category3C ? 1 : 0) + (category2CPending ? 2 : 0) + (category2CExpansion ? 4 : 0) + (categoryInsideReturn ? 8 : 0) + (categoryInsideContinuation ? 16 : 0) + (categoryMultiCandle ? 32 : 0) + (categoryM15Retest ? 64 : 0)
-    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin, qaLastM5PhaseMin)
+    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin, qaLastM5PhaseMin, qaNativeM5Plus1)
 
 // V34.10c QA: f_engine se ejecuta EN TODAS las M5 para preservar
 // acumuladores, pivotes, C1/C2/C3 y MSS. Solo se entrega la UDT
@@ -2027,7 +2035,7 @@ for i = 0 to 33
         array.set(c1IDs, i, id)
         array.set(m5Flags, i, m5t > 0 ? 1 : 0)
         array.set(m15Flags, i, m15t > 0 ? 1 : 0)
-        bool family15QA = extraValidQA and not na(s.extraFamilyC1) and s.extraFamilyM15C1 == s.extraFamilyC1 and not na(s.extraFamilySweepAt) and not na(s.extraFamilyM15PivotAt) and s.extraFamilyM15PivotAt < s.extraFamilySweepAt and not na(s.extraFamilyM15Pivot) and not na(s.extraFamilyM15At) and s.extraFamilyM15At > s.extraFamilySweepAt and s.extraFamilyM15At % MIN15 == 0 and not na(s.qaLastClosedM15At) and s.extraFamilyM15At <= s.qaLastClosedM15At
+        bool family15QA = extraValidQA and not na(s.extraFamilyC1) and s.extraFamilyM15C1 == s.extraFamilyC1 and not na(s.extraFamilySweepAt) and not na(s.extraFamilyM15PivotAt) and s.extraFamilyM15PivotAt < s.extraFamilySweepAt and not na(s.extraFamilyM15Pivot) and not na(s.extraFamilyM15At) and s.extraFamilyM15At > s.extraFamilySweepAt and f_m15_phase_ok(s.extraFamilyM15At, s.qaPhase1Active) and not na(s.qaLastClosedM15At) and s.extraFamilyM15At <= s.qaLastClosedM15At
         array.set(extraM15Flags, i, family15QA ? 1 : 0)
         array.set(m5Times, i, m5t)
         array.set(m15Times, i, m15t)
@@ -2258,7 +2266,7 @@ if barstate.islast
         // y congelado ANTES de la barrida C2. Dibujar en naranja
         // mientras espera ruptura por CIERRE M15; no inventar check ✓.
         bool m15SwingAvailable = showMssLines and own.phase == 2 and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt
-        bool m15BreakConfirmed = m15SwingAvailable and not na(own.m15At) and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
+        bool m15BreakConfirmed = m15SwingAvailable and not na(own.m15At) and own.m15At > own.sweepAt and f_m15_phase_ok(own.m15At, own.qaPhase1Active) and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         if m15SwingAvailable
             int lineEndM15 = m15BreakConfirmed ? own.m15At : time_close
             color m15Ink = m15BreakConfirmed ? color.blue : color.orange
@@ -2312,7 +2320,7 @@ if barstate.islast
         bool showC1Audit = modeDashboard == "Auditoría C1 34 (QA)"
         bool showQAInList = modeDashboard == "Solo CRT + QA" or allMode
         bool ownCRTValid = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS
-        bool m15CRTConfirmed = ownCRTValid and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and own.m15At % MIN15 == 0 and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
+        bool m15CRTConfirmed = ownCRTValid and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and f_m15_phase_ok(own.m15At, own.qaPhase1Active) and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         bool ownExtraQA = chartAvailable and own.extraFamilyValid and not na(own.extraFamilyRatifiedAt) and not na(own.extraFamilyC1) and own.extraFamilyC1 > 0 and (own.extraFamilyDirection == 1 or own.extraFamilyDirection == -1)
         bool ownAnyCRT = ownCRTValid or (showQAInList and ownExtraQA)
         bool ownFamilyM15QA = ownExtraQA and own.extraFamilyM15C1 == own.extraFamilyC1 and not na(own.extraFamilyM15Pivot) and not na(own.extraFamilyM15PivotAt) and not na(own.extraFamilySweepAt) and not na(own.extraFamilyM15At) and own.extraFamilyM15PivotAt < own.extraFamilySweepAt and own.extraFamilyM15At > own.extraFamilySweepAt and own.extraFamilyM15At <= own.qaLastClosedM15At
