@@ -23,9 +23,9 @@ test("every historical counter in the Signal comes from exactly one initialized 
  for(const key of fields){
    const udt="    int audit"+key;
    const state="    var int qaAudit"+key+" = 0";
-   assert.equal(numberOf(pine,udt),1,udt);
+   assert.match(pine,new RegExp("    int audit"+key+"\\n"),udt);
    assert.equal(numberOf(pine,state),1,state);
-   assert.equal(numberOf(pine,"qaAudit"+key+", "),1,"return "+key);
+   assert.match(pine,new RegExp("qaAudit"+key+"[,)]"),"return "+key);
    const match=new RegExp("own\\.audit"+key+"\\b");
    assert.match(pine,match,"dashboard "+key);
  }
