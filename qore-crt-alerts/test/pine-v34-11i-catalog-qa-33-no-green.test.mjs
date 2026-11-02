@@ -49,3 +49,29 @@ test("Simple static simulation: experimental nonBTC never contributes to operati
  assert.equal(eligible(false,0,true),true); // candidate previous normal :00 path
  assert.equal(eligible(true,1,false),false);
 });
+
+test("Pine editor reported two syntax errors at bool/string: both declarations align with their enclosing block",()=>{
+ const lines=after.split("\n");
+ const i=lines.findIndex(line=>line.includes("bool catM15Observed ="));
+ assert.ok(i>1);
+ const indent=line=>(line.match(/^ */)||[""])[0].length;
+ assert.equal(indent(lines[i-2]),20); // comment
+ assert.equal(indent(lines[i-1]),20); // comment
+ assert.equal(indent(lines[i]),20); // bool
+ assert.equal(indent(lines[i+1]),20); // string
+ assert.equal(indent(lines[i+2]),20); // adjacent same scope
+ assert.equal(lines.filter(line=>line.includes("bool catM15Observed =")).length,1);
+ assert.equal(lines.filter(line=>line.includes("string cat3Label =")).length,1);
+});
+test("Only V34.11i presentation changes: no irregular +1-space declarations in CRT catalog",()=>{
+ const lines=after.split("\n");
+ const begin=lines.findIndex(x=>x.includes("int categoryMask = array.get(qaCatalogPerFeed,i)"));
+ const end=lines.findIndex((x,i)=>i>begin&&x.includes("displayedMobile += 1"));
+ assert.ok(begin>0&&end>begin);
+ for(const x of lines.slice(begin,end)){
+  if(x.trim()&&!x.trim().startsWith("//")){
+   assert.equal((x.match(/^ */)||[""])[0].length,20,
+     "Unexpected scope indentation: "+x.trim().slice(0,65));
+  }
+ }
+});
