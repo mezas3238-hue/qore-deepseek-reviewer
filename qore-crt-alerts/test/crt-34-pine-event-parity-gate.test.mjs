@@ -12,7 +12,7 @@ const manifest=JSON.parse(readFileSync(
 const catalog=manifest.source_catalog;
 const M5=300000,base=Date.parse("2026-10-26T05:00:00Z");
 const asOf=base+10*3600000;
-const pineBlobSha="66c2041c2e2534c65a07e6b794eea8e976bff99c"; // fixture only, not Pine blob
+const pineBlobSha="923903c1ceaaa13e45d0956dc1a1f8a3ecae69a3"; // exact Pine source blob, mocked TV captures
 const familyOf=s=>["NAS100","SP500","US30"].includes(s)?"index":s==="BTCUSD"?"crypto":"forex";
 const feed=(c,n=96)=>{
  const family=familyOf(c.source_symbol),instrumentId=c.source_symbol;
