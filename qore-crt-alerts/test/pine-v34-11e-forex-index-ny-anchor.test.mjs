@@ -9,7 +9,13 @@ const between=(s,a,b)=>{const i=s.indexOf(a),j=s.indexOf(b,i);assert.ok(i>=0&&j>
 const engine=x=>between(x,"f_engine() =>","f_engine_snapshot() =>");
 const anchorOld='int bucketH4 = isBTC ? f_btc_crt_h4_ny(barT) : isIndex ? time("240", "0200-0200:1234567", TZ)[1] : time("240", "0100-0100:1234567", TZ)[1]';
 const anchorNew='int bucketH4 = isIndex ? f_index_crt_h4_ny(barT) : f_btc_crt_h4_ny(barT)';
-const engineNoAnchor=engine(after).replace(anchorNew,anchorOld);
+const newAnchorBlock=[
+ "    // Same explicit NY clock used by BTC now also anchors Forex (01/05/21).",
+ "    // Indices use 02/06/22. Do not infer a custom-session \"240\" boundary;",
+ "    // it may not coincide with the actual NY calendar clock on this feed.",
+ "    "+anchorNew
+].join("\n");
+const engineNoAnchor=engine(after).replace(newAnchorBlock,"    "+anchorOld);
 const fmt=new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"2-digit",hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit"});
 function NYParts(ms){
  const o=Object.fromEntries(fmt.formatToParts(new Date(ms)).filter(x=>x.type!=="literal").map(x=>[x.type,Number(x.value)]));
