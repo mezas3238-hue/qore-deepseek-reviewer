@@ -3167,7 +3167,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
             int close15T = array.get(qaClosed15BySlot,i)
             int nativePhase = array.get(qaSourcePhaseBySlot,i)
             bool cycleRoot = core and not na(c1T) and not na(sweepT) and sweepT > c1T
-            bool sameM5 = cycleRoot and not na(pivot5T) and pivot5T < sweepT and break5T > sweepT and f_m5_phase_ok(break5T, nativePhase)
+            bool sameM5 = cycleRoot and not na(pivot5T) and pivot5T < sweepT and break5T > sweepT and (not na(nativePhase) and nativePhase >= 0 and nativePhase <= 4 and break5T % MIN5 == nativePhase * 60000)
             bool sameM15 = cycleRoot and not na(pivot15T) and pivot15T < sweepT and break15T > sweepT and not na(close15T) and break15T <= close15T and f_m15_phase_ok(break15T, nativePhase)
             if core
                 currentStruct += 1
@@ -3198,7 +3198,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
             int close15T = array.get(qaClosed15BySlot,i)
             int nativePhase = array.get(qaSourcePhaseBySlot,i)
             bool cycleRoot = core and not na(c1T) and not na(sweepT) and sweepT > c1T
-            bool sameM5 = cycleRoot and not na(pivot5T) and pivot5T < sweepT and break5T > sweepT and f_m5_phase_ok(break5T, nativePhase)
+            bool sameM5 = cycleRoot and not na(pivot5T) and pivot5T < sweepT and break5T > sweepT and (not na(nativePhase) and nativePhase >= 0 and nativePhase <= 4 and break5T % MIN5 == nativePhase * 60000)
             bool sameM15 = cycleRoot and not na(pivot15T) and pivot15T < sweepT and break15T > sweepT and not na(close15T) and break15T <= close15T and f_m15_phase_ok(break15T, nativePhase)
             bool selectedPriority = expandFull34 ? priority == 0 : priority == 0 ? core and sameM15 : priority == 1 ? core and not sameM15 : extra
             bool visibleRow = requested and selectedPriority
