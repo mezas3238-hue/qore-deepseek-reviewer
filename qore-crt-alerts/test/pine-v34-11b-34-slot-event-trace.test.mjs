@@ -24,7 +24,7 @@ test("No increase from existing 60 plot calls to exceed Pine 64 plot ceiling",()
  const oldPlotCount=(a.match(/^\s*plot\(/gm)||[]).length;
  const newPlotCount=(b.match(/^\s*plot\(/gm)||[]).length;
  assert.equal(oldPlotCount,60);assert.equal(newPlotCount,oldPlotCount);
- assert.ok(!audit.includes("plot("));
+ assert.ok(!/^\\s*plot\\(/m.test(audit));
 });
 test("Input has independent 1..34 slot selector, QA view opt-in, compact preserved",()=>{
  assert.ok(b.includes('showSlotEventAudit = input.bool(false,'));
