@@ -2445,15 +2445,22 @@ if barstate.islast
         // Visual independiente: nivel de swing M15 ya CONFIRMADO
         // y congelado ANTES de la barrida C2. Dibujar en naranja
         // mientras espera ruptura por CIERRE M15; no inventar check ✓.
-        bool m15SwingAvailable = chartCoreC1 and showMssLines and own.phase == 2 and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt
-        bool m15BreakConfirmed = m15SwingAvailable and not na(own.m15At) and own.m15At > own.sweepAt and f_m15_phase_ok(own.m15At, own.qaSourcePhaseMin) and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
+        // Independent Inside/Multi-N M15 pivot, only when selected
+        // family identity matches both C1 and kind. No 2C MSS borrowing.
+        bool extraOwnM15 = chartExtraC1 and showMssLines and not na(own.extraFamilyC1) and own.extraFamilyC1 == own.familyVisual.c1Start and own.extraFamilyKind == own.familyVisual.kind and not na(own.extraFamilyM15PivotAt) and not na(own.extraFamilyM15Pivot) and not na(own.extraFamilySweepAt) and own.extraFamilyM15PivotAt < own.extraFamilySweepAt
+        bool m15SwingAvailable = showMssLines and (chartCoreC1 and own.phase == 2 and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt or extraOwnM15)
+        int shownM15PivotAt = extraOwnM15 ? own.extraFamilyM15PivotAt : own.m15PivotAt
+        float shownM15Price = extraOwnM15 ? own.extraFamilyM15Pivot : own.m15Level
+        int shownM15SweepAt = extraOwnM15 ? own.extraFamilySweepAt : own.sweepAt
+        int shownM15BreakAt = extraOwnM15 ? own.extraFamilyM15At : own.m15At
+        bool m15BreakConfirmed = m15SwingAvailable and not na(shownM15BreakAt) and shownM15BreakAt > shownM15SweepAt and f_m15_phase_ok(shownM15BreakAt, own.qaSourcePhaseMin) and not na(own.qaLastClosedM15At) and shownM15BreakAt <= own.qaLastClosedM15At
         if m15SwingAvailable
-            int lineEndM15 = m15BreakConfirmed ? own.m15At : time_close
+            int lineEndM15 = m15BreakConfirmed ? shownM15BreakAt : time_close
             color m15Ink = m15BreakConfirmed ? color.blue : color.orange
             if na(m15Line)
-                m15Line := line.new(own.m15PivotAt,own.m15Level,lineEndM15,own.m15Level,xloc=xloc.bar_time,color=m15Ink,style=line.style_dashed,width=2)
-            line.set_xy1(m15Line,own.m15PivotAt,own.m15Level)
-            line.set_xy2(m15Line,lineEndM15,own.m15Level)
+                m15Line := line.new(shownM15PivotAt,shownM15Price,lineEndM15,shownM15Price,xloc=xloc.bar_time,color=m15Ink,style=line.style_dashed,width=2)
+            line.set_xy1(m15Line,shownM15PivotAt,shownM15Price)
+            line.set_xy2(m15Line,lineEndM15,shownM15Price)
             line.set_color(m15Line,m15Ink)
         else if not na(m15Line)
             line.delete(m15Line)
