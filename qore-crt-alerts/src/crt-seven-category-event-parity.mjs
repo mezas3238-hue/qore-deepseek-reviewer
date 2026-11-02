@@ -4,6 +4,7 @@
 import {compareSevenCrtCategories34,CATEGORY_BITS}
   from "./crt-seven-category-parity-audit.mjs";
 
+export const PINE_V34_11B_SOURCE_SHA="28c8c731c943d9c3b3f8a2cc77746dee3a02f8c6";
 const statusByCategory=Object.freeze({
  CRT_3C_REVERSAL:"RATIFIED",
  CRT_2C_CANDIDATE:"PROVISIONAL",
@@ -89,6 +90,8 @@ function normalize(events,snapshot,feed,asOf){
  return {canonical:sorted(canonical),count:events.length,mask};
 }
 export function compareSevenCrtEventTraces34(input={}){
+ if(input.pineSourceBlobSha!==PINE_V34_11B_SOURCE_SHA)
+   throw Error("WRONG_V34_11B_PINE_SOURCE_SHA");
  const base=compareSevenCrtCategories34(input);
  const bySlot=arr=>new Map((arr??[]).map(x=>[x.slot,x]));
  const feeds=bySlot(input.feeds),pines=bySlot(input.pineCaptures),
