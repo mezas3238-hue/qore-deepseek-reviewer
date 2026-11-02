@@ -153,7 +153,7 @@ test("comparison cannot silently accept a different Pine candidate even with sev
  assert.throws(()=>compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
   pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
- }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_11I_SOURCE_SHA/);
+ }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_11I_11J_SOURCE_SHA/);
 });
 
 test("exact V34.11c audit-display candidate can compare traces, without certifying real Pine",()=>{
@@ -235,6 +235,19 @@ test("V34.11i cannot certify a screenshot of 3C M15 from source-native QA",()=>{
  const captures=pine.map(p=>({...p,pineBlobSha:digest}));
  const r=compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:captures,asOf,pineSourceBlobSha:digest
+ });
+ assert.equal(r.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
+ assert.equal(r.certified,false);
+ assert.equal(r.actionable,false);
+ assert.equal(r.sendPush,false);
+ assert.equal(r.realPineCompilationCertified,false);
+});
+
+test("V34.11j 33-market native phase +1/+2 is unverified and cannot authorize alert delivery",()=>{
+ const digest="29906e5e9f55b28618dcf1a943cc2e646e609c18";
+ const p=pine.map(x=>({...x,pineBlobSha:digest}));
+ const r=compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:p,asOf,pineSourceBlobSha:digest
  });
  assert.equal(r.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
  assert.equal(r.certified,false);
