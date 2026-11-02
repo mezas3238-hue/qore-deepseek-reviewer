@@ -20,7 +20,8 @@ const mkFeed=(c,phase=0)=>({
   open:100,high:102,low:98,close:101
  }))
 });
-// Array.map passes an index as its second argument: DO NOT treat that as the native phase.\nconst feeds=catalog.map(c=>mkFeed(c,0));
+// Array.map passes an index as its second argument; do not use it as phase.
+const feeds=catalog.map(c=>mkFeed(c,0));
 const mkEvent=(f,phase,category="CRT_2C_CANDIDATE")=>({
  category,state:"PROVISIONAL",instrumentId:f.instrumentId,
  provider:f.provider,c1StartMs:t+phase*60000,
