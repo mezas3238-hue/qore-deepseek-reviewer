@@ -38,7 +38,7 @@ test("H4 close guard is the only place model counters are increased",()=>{
  const core=pine.slice(start,end);
  for(const key of fields){
    const needle="qaAudit"+key+" += 1";
-   assert.equal(numberOf(pine,needle), key==="InsideOther"||key==="InsideData"?2:1,needle);
+   assert.equal(numberOf(pine,needle), key==="InsideOther"?3:key==="InsideData"?2:1,needle);
    assert.ok(core.includes(needle),"H4-only "+key);
  }
  const c2=core.slice(core.indexOf("                bool exactHour3"),core.indexOf("                if validRange and exactHour3"));
