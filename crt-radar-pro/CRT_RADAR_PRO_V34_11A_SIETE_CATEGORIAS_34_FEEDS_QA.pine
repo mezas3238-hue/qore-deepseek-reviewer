@@ -1747,7 +1747,7 @@ f_engine() =>
     int extraPivotAt = not extraFamily ? na : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
     int extraMssAt = not extraFamily ? na : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
     // Distinta C1 y M15; no se hereda el pivote del CRT principal.
-    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and extraMssAt % MIN15 == 0 and extraMssAt <= extraAt + H4MS
+    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and extraMssAt % MIN15 == 0 and extraMssAt <= extraAt + H4MS
     // V34.11a: dedicated QA evidence for all SEVEN legacy category roles.
     // Inside CONTINUATION is an observed rejection, never a live CRT.
     bool insideContinuationNow = false
