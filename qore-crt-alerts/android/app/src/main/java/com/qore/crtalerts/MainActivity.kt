@@ -11,9 +11,11 @@ import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.view.View
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
@@ -116,7 +118,7 @@ class MainActivity : Activity() {
         refresh()
 
         val clear = Button(this).apply {
-            text = "Borrar mi preferencia local"
+            text = "Borrar interés local en alertas"
             isAllCaps = false
             setOnClickListener {
                 if (prefs.edit().remove(QaConsentGate.INTEREST_KEY).commit()) {
@@ -128,6 +130,78 @@ class MainActivity : Activity() {
         root.addView(clear, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 20 })
+
+        root.addView(label("Mis 34 mercados · selección local", 19f, Color.WHITE, true).apply {
+            setPadding(0, 32, 0, 8)
+        })
+        root.addView(label(
+            "Seleccionar mercados guarda solo una preferencia en este teléfono. " +
+                "No crea suscripciones, no activa precios ni envía alertas.",
+            13f, muted
+        ))
+        val watchlistPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(8, 8, 8, 8)
+        }
+        var chosen = QaMarketWatchlist.normalized(
+            prefs.getStringSet(QaMarketWatchlist.SELECTED_SYMBOLS_KEY, emptySet())
+                ?.toSet() ?: emptySet()
+        )
+        val expandWatchlist = Button(this).apply { isAllCaps = false }
+        fun refreshWatchlistCount() {
+            val count = chosen.size
+            expandWatchlist.text = if (watchlistPanel.visibility == View.VISIBLE)
+                "Ocultar mercados ($count/34)" else "Elegir mercados ($count/34)"
+        }
+        var updatingChoices = false
+        val checkboxes = mutableListOf<CheckBox>()
+        for (instrument in QaMarketWatchlist.symbols) {
+            val box = CheckBox(this).apply {
+                text = instrument
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                isChecked = instrument in chosen
+            }
+            box.setOnCheckedChangeListener { _, enabled ->
+                if (!updatingChoices) {
+                    val next = QaMarketWatchlist.update(chosen, instrument, enabled)
+                    if (prefs.edit().putStringSet(
+                            QaMarketWatchlist.SELECTED_SYMBOLS_KEY, next.toSet()
+                        ).commit()) {
+                        chosen = next
+                    } else {
+                        updatingChoices = true
+                        box.isChecked = instrument in chosen
+                        updatingChoices = false
+                    }
+                    refreshWatchlistCount()
+                }
+            }
+            checkboxes.add(box)
+            watchlistPanel.addView(box)
+        }
+        expandWatchlist.setOnClickListener {
+            watchlistPanel.visibility =
+                if (watchlistPanel.visibility == View.GONE) View.VISIBLE else View.GONE
+            refreshWatchlistCount()
+        }
+        refreshWatchlistCount()
+        root.addView(expandWatchlist)
+        root.addView(watchlistPanel)
+        root.addView(Button(this).apply {
+            text = "Borrar selección de mercados"
+            isAllCaps = false
+            setOnClickListener {
+                if (prefs.edit().remove(QaMarketWatchlist.SELECTED_SYMBOLS_KEY).commit()) {
+                    chosen = emptySet()
+                    updatingChoices = true
+                    for (box in checkboxes) box.isChecked = false
+                    updatingChoices = false
+                    refreshWatchlistCount()
+                }
+            }
+        })
 
         root.addView(label("BTCUSD · primera prueba", 19f, Color.WHITE, true).apply {
             setPadding(0, 30, 0, 8)
