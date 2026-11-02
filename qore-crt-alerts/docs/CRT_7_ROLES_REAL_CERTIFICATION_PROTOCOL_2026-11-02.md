@@ -39,3 +39,17 @@ El JSON de evidencia para la segunda orden contiene: `catalog`, `feeds`, `asOf`,
 7. Solo tras lo anterior, autorizar controles de alertas y comprobar Android/FCM extremo a extremo.
 
 **Estado de estos cambios:** pruebas GitHub offline; no constituye compilación privada Pine, paridad OHLC real ni certificado. La matriz mantiene `certified:false`, `actionable:false` y `sendPush:false` incluso con 15 pruebas sintéticas exitosas.
+
+## CERT-7B — anclaje evento a evento y prueba visual real (2026-11-02)
+
+Captura real de TradingView Android: el indicador identifica **`CRT MSS QA 4C 11K`**, lo que confirma la carga de V34.11k en el gráfico M15 de NZDCAD. El panel de 33 fuentes conserva `R:33/33`, `0C1:0`, `C1+:33`, `BLOQ:0`, `HIST:33`; última H4 NZDCAD 48 velas M5 e inicio/fin `0/0`. XAUUSD `MET+2` presenta todavía `NO48:7`. La captura **no contiene evidencia temporal C1/C2/MSS15 de cada familia**, ni el cotejo independiente OHLC del proveedor.
+
+Se ha reforzado **`src/crt-seven-category-event-parity.mjs`**: cada slot que empata incluye únicamente los eventos CANÓNICOS con coincidencia entre Pine y Trader Lab, con categoría, variante Multi4/N, ciclo C1, dirección, timestamp, fuente, fase, hash y ventana M5. No basta con una máscara global que diga que la categoría aparece en alguna parte.
+
+**`src/crt-seven-role-certification-readiness.mjs`** exige que cada caso POSITIVE sea **el mismo evento exacto** en el mismo slot, ciclo, dirección y subtipo. Para RETEST compara también pivotAt, sweepAt, breakAt y retestAt; no basta un MSS M5 o un retest de otro ciclo. Los NEGATIVE requieren ausencia del evento correspondiente en ambas trazas emparejadas y controles dentro de los límites de la misma ventana OHLC M5 cerrada. Rechaza evidencias de otros instrumentos, fases o ventanas.
+
+Pruebas nuevas/extendidas en `test/crt-seven-role-certification-readiness.test.mjs`: máscaras globales fraudulentas, evento ausente en el instrumento correcto, C1/timestamp/dirección alterados, Multi-N sin evento idéntico, MSS15 cruzado, negativo contradicho por un evento real y controles fuera de ventana. **607/607 PASS, 0 fallos**, GitHub Actions Foundation [41459005170](https://github.com/mezas3238-hue/qore-deepseek-reviewer/actions/runs/41459005170); workflows CRT offline y Harness también SUCCESS en el mismo commit `e0beddbe4d8b31da07cb4ab84c024477cdb125de`.
+
+El resultado de matriz con 15 casos **sintéticos** seguirá siendo exclusivamente `SEVEN_OFFLINE_ROLE_CONTROLS_COMPLETE_NEEDS_EXTERNAL_CERTIFICATION`; la salida nunca concede certificación de TradingView real, ni `actionable` ni `sendPush`.
+
+**Siguiente evidencia crítica:** ejecutar en TradingView V34.11k `03 / Dashboard → Ver los 34 instrumentos (expandir)` y `Ampliado: inspeccionar 7 categorias CRT (QA)` con `QA: auditar los 33 instrumentos sin BTC` **OFF**, y después activar `QA: ver tiempos CRT/MSS de 1 instrumento` para capturar tiempos, de un slot por vez; la tabla normal y la tabla 33 no se pueden mostrar simultáneamente. Contrastar cada positivo y negativo con Trader Lab M5 del mismo proveedor y fase, y luego holdout/no-repaint. Nunca clasificar `3C HIST` como MSS15 confirmado sin sus tiempos de pivote y ruptura.
