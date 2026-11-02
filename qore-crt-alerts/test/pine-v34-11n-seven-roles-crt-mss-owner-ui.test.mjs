@@ -37,8 +37,10 @@ test("all seven bit roles remain distinct; rejection and retest not mistaken for
   "mask / 16","mask / 32","mask / 64",
   '"2C*"','"EXP RECH"','"INS RECH"','"MULTI QA"','"RETEST QA"'
  ])assert.ok(candidate.includes(expression),expression);
- assert.ok(candidate.includes('core ? "CRT H4" : extra ? "QA H4"'));
+ assert.ok(candidate.includes('core ? "CRT H4" : extra or structuralObservedQA ? "QA H4"'));
  assert.ok(candidate.includes('mask != 0 ? "QA" : "ESPERA"'));
+ assert.ok(candidate.includes('bool structuralObservedQA = not core and not extra'));
+ assert.ok(candidate.includes('else if extra or structuralObservedQA'));
  assert.ok(candidate.includes('QA != SENAL'));
  assert.ok(candidate.includes('RECH != CRT'));
 });
@@ -49,9 +51,9 @@ test("M5/M15 are independent and bound to pivot before sweep, break after, sourc
  assert.ok(candidate.includes('pivot15T < sweepT and break15T > sweepT'));
  assert.ok(candidate.includes('f_m15_phase_ok(break15T, nativePhase)'));
  assert.ok(candidate.includes('break15T <= close15T'));
- assert.ok(candidate.includes('m5Text = not (core or extra)'));
- assert.ok(candidate.includes('m15Text = not (core or extra)'));
- assert.ok(candidate.includes('string m5Text = not (core or extra) ? "—" : core ? sameM5 ? "SI" : "NO" : "N/V"'));
+ assert.ok(candidate.includes('m5Text = not (core or extra or structuralObservedQA)'));
+ assert.ok(candidate.includes('m15Text = not (core or extra or structuralObservedQA)'));
+ assert.ok(candidate.includes('string m5Text = not (core or extra or structuralObservedQA) ? "—" : core ? sameM5 ? "SI" : "NO" : "N/V"'));
  assert.ok(!candidate.includes('f_m5_phase_ok('));
 });
 
