@@ -51,7 +51,7 @@ test("M5/M15 are independent and bound to pivot before sweep, break after, sourc
  assert.ok(candidate.includes('break15T <= close15T'));
  assert.ok(candidate.includes('m5Text = not (core or extra)'));
  assert.ok(candidate.includes('m15Text = not (core or extra)'));
- assert.ok(candidate.includes('extra ? "N/V"'));
+ assert.ok(candidate.includes('string m5Text = not (core or extra) ? "—" : core ? sameM5 ? "SI" : "NO" : "N/V"'));
  assert.ok(!candidate.includes('f_m5_phase_ok('));
 });
 
