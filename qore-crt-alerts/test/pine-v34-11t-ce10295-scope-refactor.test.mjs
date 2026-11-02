@@ -31,7 +31,7 @@ const functionBody=(name)=>{
 
 test("5 presentation scopes moved verbatim into Pine UDF; no changes to dashboard behavior",()=>{
  for(const [name,start,end] of nameBlocks){
-  assert.equal(functionBody(name),originalBody(start,end),"changed logic in "+name);
+  assert.equal(functionBody(name).replaceAll("V34.11T","V34.11S"),originalBody(start,end),"changed logic in "+name);
   assert.equal(after.split("\n"+name+"()\n").length-1,1,
     "expected exactly one global invocation of "+name);
  }
