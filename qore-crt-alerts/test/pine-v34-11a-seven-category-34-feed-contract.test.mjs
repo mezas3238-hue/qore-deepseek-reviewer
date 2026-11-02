@@ -54,6 +54,8 @@ test("Multicandle is independent from Inside return and records its separate tax
  assert.ok(current.includes('bool categoryInsideReturn = extraInside'));
  assert.ok(current.includes('bool categoryMultiCandle = extraMulti or extraMultiN'));
  assert.ok(current.includes('bool extraMssCausal = extraFamily'));
+ assert.ok(current.includes('extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt'),
+   "auxiliary MSS M15 must follow its own sweep; never recycle a pre-sweep confirmation");
  assert.ok(render.includes('catInsideR ? "RET QA"'));
  assert.ok(render.includes('catMulti ? "MULTI QA"'));
  assert.ok(render.includes('catRetest ? "RT M15 QA"'));
