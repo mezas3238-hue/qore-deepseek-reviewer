@@ -1,0 +1,698 @@
+{
+  "schema": "qore.crt.trader_lab_34.source_preflight.v1",
+  "observed_date": "2026-11-01",
+  "scanner_version": "V34.10w_C1_RAZONES_34_QA",
+  "scanner_source": "crt-radar-pro/CRT_RADAR_PRO_V34_10W_C1_RAZONES_34_QA_NO_INTEGRADO.pine",
+  "trader_lab_repo": "mezas3238-hue/qore-core",
+  "trader_lab_policy": "QORE-TRADER-LAB-001",
+  "oos_policy": "OUTCOMES_NOT_OPENED_BY_PREFLIGHT",
+  "execution_authority": "NONE",
+  "immutable_methodology_binding": "REQUIRED_BEFORE_REPLAY",
+  "preregistration_signature": "NOT_YET_ISSUED",
+  "data_license_verified": false,
+  "holdout_period_frozen": false,
+  "pure_holdout_outcome_accessed": false,
+  "real_price_replay_executed": false,
+  "pine_compiler_executed": false,
+  "source_catalog": [
+    {
+      "slot": 1,
+      "tv_symbol": "IC:AUDJPY",
+      "dashboard_name": "AUDJPY",
+      "source_symbol": "AUDJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476530915,
+        "source_symbol": "AUDJPY",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-AUDJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 22358275,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 2,
+      "tv_symbol": "IC:GBPUSD",
+      "dashboard_name": "GBPUSD",
+      "source_symbol": "GBPUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475449182,
+        "source_symbol": "GBPUSD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-GBPUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 22258135,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 3,
+      "tv_symbol": "IC:GBPJPY",
+      "dashboard_name": "GBPJPY",
+      "source_symbol": "GBPJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475453293,
+        "source_symbol": "GBPJPY",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-GBPJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 23234524,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 4,
+      "tv_symbol": "IC:XAUUSD",
+      "dashboard_name": "XAUUSD",
+      "source_symbol": "XAUUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476557530,
+        "source_symbol": "XAUUSD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-XAUUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 22887318,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 5,
+      "tv_symbol": "OANDA:NAS100USD",
+      "dashboard_name": "NDX100",
+      "source_symbol": "NAS100",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "OANDA",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476153072,
+        "source_symbol": "NAS100",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-NAS100-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 22219327,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 6,
+      "tv_symbol": "IC:US500",
+      "dashboard_name": "SPX500",
+      "source_symbol": "SP500",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476368574,
+        "source_symbol": "SP500",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-SP500-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 18489295,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 7,
+      "tv_symbol": "IC:US30",
+      "dashboard_name": "US30",
+      "source_symbol": "US30",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476353558,
+        "source_symbol": "US30",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-US30-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 21192374,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 8,
+      "tv_symbol": "IC:BTCUSD",
+      "dashboard_name": "BTCUSD",
+      "source_symbol": "BTCUSD",
+      "source_provider": "NOT_YET_VERIFIED",
+      "tv_provider": "IC",
+      "status": "MISSING_SOURCE",
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 9,
+      "tv_symbol": "IC:AUDUSD",
+      "dashboard_name": "AUDUSD",
+      "source_symbol": "AUDUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475697610,
+        "source_symbol": "AUDUSD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-AUDUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 21473326,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 10,
+      "tv_symbol": "IC:USDCAD",
+      "dashboard_name": "USDCAD",
+      "source_symbol": "USDCAD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475972108,
+        "source_symbol": "USDCAD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-USDCAD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 21848980,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 11,
+      "tv_symbol": "IC:USDJPY",
+      "dashboard_name": "USDJPY",
+      "source_symbol": "USDJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475389415,
+        "source_symbol": "USDJPY",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-USDJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 22254767,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 12,
+      "tv_symbol": "IC:EURUSD",
+      "dashboard_name": "EURUSD",
+      "source_symbol": "EURUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10475354631,
+        "source_symbol": "EURUSD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-EURUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 21644666,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 13,
+      "tv_symbol": "IC:USDCHF",
+      "dashboard_name": "USDCHF",
+      "source_symbol": "USDCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11722633876,
+        "source_symbol": "USDCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-USDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21644183,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 14,
+      "tv_symbol": "IC:NZDUSD",
+      "dashboard_name": "NZDUSD",
+      "source_symbol": "NZDUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11723435593,
+        "source_symbol": "NZDUSD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDUSD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21679522,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 15,
+      "tv_symbol": "IC:NZDJPY",
+      "dashboard_name": "NZDJPY",
+      "source_symbol": "NZDJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11727123842,
+        "source_symbol": "NZDJPY",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22397239,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 16,
+      "tv_symbol": "IC:NZDCHF",
+      "dashboard_name": "NZDCHF",
+      "source_symbol": "NZDCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11727882491,
+        "source_symbol": "NZDCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21470758,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 17,
+      "tv_symbol": "IC:XAGUSD",
+      "dashboard_name": "XAGUSD",
+      "source_symbol": "XAGUSD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 35166210458,
+        "artifact_id": 10476348562,
+        "source_symbol": "XAGUSD",
+        "artifact_name": "qore-cibo-market-atlas-10y-windowed-XAGUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
+        "expires_at": "2026-12-16T00:21:18Z",
+        "size_bytes": 20105163,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 18,
+      "tv_symbol": "IC:AUDCAD",
+      "dashboard_name": "AUDCAD",
+      "source_symbol": "AUDCAD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11725372612,
+        "source_symbol": "AUDCAD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21999583,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 19,
+      "tv_symbol": "IC:AUDCHF",
+      "dashboard_name": "AUDCHF",
+      "source_symbol": "AUDCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11725383385,
+        "source_symbol": "AUDCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21645385,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 20,
+      "tv_symbol": "IC:AUDNZD",
+      "dashboard_name": "AUDNZD",
+      "source_symbol": "AUDNZD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11726084946,
+        "source_symbol": "AUDNZD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21907271,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 21,
+      "tv_symbol": "IC:CADCHF",
+      "dashboard_name": "CADCHF",
+      "source_symbol": "CADCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11727270453,
+        "source_symbol": "CADCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CADCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21296725,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 22,
+      "tv_symbol": "IC:CADJPY",
+      "dashboard_name": "CADJPY",
+      "source_symbol": "CADJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11726771423,
+        "source_symbol": "CADJPY",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CADJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22428327,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 23,
+      "tv_symbol": "IC:CHFJPY",
+      "dashboard_name": "CHFJPY",
+      "source_symbol": "CHFJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11726569233,
+        "source_symbol": "CHFJPY",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CHFJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22762929,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 24,
+      "tv_symbol": "IC:EURAUD",
+      "dashboard_name": "EURAUD",
+      "source_symbol": "EURAUD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11724002469,
+        "source_symbol": "EURAUD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURAUD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 23149688,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 25,
+      "tv_symbol": "IC:EURCAD",
+      "dashboard_name": "EURCAD",
+      "source_symbol": "EURCAD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11723594590,
+        "source_symbol": "EURCAD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22608481,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 26,
+      "tv_symbol": "OANDA:EURCHF",
+      "dashboard_name": "EURCHF",
+      "source_symbol": "EURCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "OANDA",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11724180355,
+        "source_symbol": "EURCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21332864,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 27,
+      "tv_symbol": "OANDA:EURGBP",
+      "dashboard_name": "EURGBP",
+      "source_symbol": "EURGBP",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "OANDA",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11723561353,
+        "source_symbol": "EURGBP",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURGBP-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21271482,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 28,
+      "tv_symbol": "IC:EURJPY",
+      "dashboard_name": "EURJPY",
+      "source_symbol": "EURJPY",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11723592292,
+        "source_symbol": "EURJPY",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22890410,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 29,
+      "tv_symbol": "OANDA:EURNZD",
+      "dashboard_name": "EURNZD",
+      "source_symbol": "EURNZD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "OANDA",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11724058179,
+        "source_symbol": "EURNZD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 23185288,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 30,
+      "tv_symbol": "IC:GBPAUD",
+      "dashboard_name": "GBPAUD",
+      "source_symbol": "GBPAUD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11725720991,
+        "source_symbol": "GBPAUD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPAUD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 23492498,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 31,
+      "tv_symbol": "IC:GBPCAD",
+      "dashboard_name": "GBPCAD",
+      "source_symbol": "GBPCAD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11724054734,
+        "source_symbol": "GBPCAD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 23058355,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 32,
+      "tv_symbol": "OANDA:GBPCHF",
+      "dashboard_name": "GBPCHF",
+      "source_symbol": "GBPCHF",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "OANDA",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11724349483,
+        "source_symbol": "GBPCHF",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 22446925,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 33,
+      "tv_symbol": "IC:GBPNZD",
+      "dashboard_name": "GBPNZD",
+      "source_symbol": "GBPNZD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11725246763,
+        "source_symbol": "GBPNZD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 23449705,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    },
+    {
+      "slot": 34,
+      "tv_symbol": "IC:NZDCAD",
+      "dashboard_name": "NZDCAD",
+      "source_symbol": "NZDCAD",
+      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "tv_provider": "IC",
+      "status": "ARTIFACT_METADATA_VERIFIED",
+      "artifact": {
+        "run_id": 38193802541,
+        "artifact_id": 11727143327,
+        "source_symbol": "NZDCAD",
+        "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
+        "expires_at": "2027-01-10T01:56:00Z",
+        "size_bytes": 21964294,
+        "expired": false
+      },
+      "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
+      "holdout_sealed": false
+    }
+  ],
+  "required_count": 34,
+  "usable_holdout_count": 0,
+  "source_artifacts_metadata_present": 33,
+  "missing_source_symbols": [
+    "BTCUSD"
+  ],
+  "final_verdict": "BLOCKED_HOLDOUT_DATA_AND_PREREGISTRATION",
+  "caveat": "Artifacts are historical cTrader/IC Markets DEMO data, not TradingView OANDA/IC/Coinbase bars. Must not mix providers, reuse consumed holdouts, or infer live trading readiness."
+}
