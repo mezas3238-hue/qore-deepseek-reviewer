@@ -5,7 +5,7 @@ import {buildNyH4FromClosedM5} from "./trader-lab-raw-m5-causal-bridge.mjs";
 import {inspectCrtMorphologies,STRUCTURAL_MORPHOLOGIES}
   from "./crt-structural-morphologies.mjs";
 
-const PINE_SHA=/^[a-f0-9]{40}$/;
+export const PINE_V34_10W_SOURCE_BLOB_SHA="923903c1ceaaa13e45d0956dc1a1f8a3ecae69a3";
 const SHA256=/^[a-f0-9]{64}$/;
 const FAMILIES=new Set(["forex","index","crypto"]);
 const MODELS=new Set(STRUCTURAL_MORPHOLOGIES);
@@ -64,7 +64,7 @@ export function compare34PineTraderLabEvents({
 }={}){
   if(!Array.isArray(catalog)||catalog.length!==34||
      !Array.isArray(feeds)||feeds.length!==34||
-     !Array.isArray(captures)||!integer(asOf)||!PINE_SHA.test(pineBlobSha||""))
+     !Array.isArray(captures)||!integer(asOf)||pineBlobSha!==PINE_V34_10W_SOURCE_BLOB_SHA)
     throw Error("PARITY_SCOPE_OR_PINE_SHA_INVALID");
   const slots=new Set(),symbols=new Set();
   for(const c of catalog){
