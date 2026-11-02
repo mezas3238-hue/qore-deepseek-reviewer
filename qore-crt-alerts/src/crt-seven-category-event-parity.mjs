@@ -144,9 +144,20 @@ export function compareSevenCrtEventTraces34(input={}){
   }
   matched++;eventsCompared+=l.count;
   for(const e of lab.events)allCategories.add(e.category);
+  // A global mask cannot prove a positive case on another instrument/cycle.
+  // Export only events that BOTH independent traces matched exactly.
+  const matchedCategoryEvents=Object.freeze(lab.events.map(e=>Object.freeze({
+   category:e.category,variant:e.variant??null,
+   eventAtMs:e.eventAtMs,c1StartMs:e.c1StartMs,direction:e.direction,
+   mss15:e.mss15?Object.freeze({
+    pivotAtMs:e.mss15.pivotAtMs,sweepAtMs:e.mss15.sweepAtMs,
+    breakAtMs:e.mss15.breakAtMs,retestAtMs:e.mss15.retestAtMs??null
+   }):null
+  })));
   results.push(nonlive(l.count?"EVENT_TRACE_MATCH_UNCERTIFIED":"NO_EVENTS_TO_COMPARE",{
    slot:row.slot,symbol:row.symbol,provider:feed.provider,
-   sourcePhaseMin,candleSha256:row.candleSha256,matchedEvents:l.count
+   sourcePhaseMin,candleSha256:row.candleSha256,matchedEvents:l.count,
+   matchedCategoryEvents
   }));
  }
  return nonlive(
