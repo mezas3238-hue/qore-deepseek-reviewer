@@ -8,13 +8,16 @@ const sha="a".repeat(64);
 const rows=Array.from({length:34},(_,i)=>({
  slot:i+1,symbol:"S"+(i+1),provider:"PROVIDER_"+(i+1),
  sourcePhaseMin:i===7?0:i===3?2:1,
- candleSha256:sha,status:"EVENT_TRACE_MATCH_UNCERTIFIED",matchedEvents:1
+ candleSha256:sha,status:"EVENT_TRACE_MATCH_UNCERTIFIED",matchedEvents:1,
+ windowStartMs:t,windowEndMs:t+7200000
 }));
 const audit={comparedSlots:34,matchedSlots:34,matchedEvents:8,
  coveredCategories:SEVEN_CRT_ROLES.map(x=>x.id),results:rows,
  certified:false,actionable:false,sendPush:false};
 function control(role,slot,controlType,variant){
- const row=rows[slot-1],at=t+row.sourcePhaseMin*60000+1800000;
+ const row=rows[slot-1],
+  at=t+row.sourcePhaseMin*60000+1800000+
+    (controlType==="NEGATIVE"?300000:0);
  const common={
   controlId:role.id+"/"+slot+"/"+controlType+(variant??""),
   category:role.id,slot,controlType,variant,
@@ -191,4 +194,22 @@ test("Positive retest must correspond to the exact same causal M15 pivot and swe
  assert.equal(r.invalidControlCases,1);
  assert.ok(r.categoryReports.find(x=>x.category==="CRT_M15_RETEST")
   .missing.includes("INDEPENDENT_POSITIVE_CONTROL"));
+});
+
+test("A negative control contradicting an independently matched event is rejected",()=>{
+ const pos=good.find(x=>x.category==="CRT_3C_REVERSAL"&&x.controlType==="POSITIVE");
+ const result=run(good.map(x=>x.category==="CRT_3C_REVERSAL"&&
+  x.controlType==="NEGATIVE"?{...x,eventAtMs:pos.eventAtMs}:x));
+ assert.equal(result.invalidControlCases,1);
+ assert.ok(result.categoryReports[0].missing.includes("INDEPENDENT_NEGATIVE_CONTROL"));
+ assert.equal(result.certified,false);
+});
+test("No positive or negative control can live outside the exact captured M5 time window",()=>{
+ const pos=good.find(x=>x.category==="CRT_3C_REVERSAL"&&x.controlType==="POSITIVE");
+ const tooLate={...pos,eventAtMs:t+14400000};
+ assert.equal(run(good.map(x=>x===pos?tooLate:x)).invalidControlCases,1);
+ const tooEarly={...pos,c1StartMs:t-300000};
+ assert.equal(run(good.map(x=>x===pos?tooEarly:x)).invalidControlCases,1);
+ const noWindow=rows.map(x=>x.slot===1?{...x,windowStartMs:undefined}:x);
+ assert.equal(run(good,{...audit,results:noWindow}).status,"34_EVENT_PARITY_NOT_READY");
 });
