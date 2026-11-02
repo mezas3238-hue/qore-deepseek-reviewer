@@ -85,12 +85,16 @@ export function buildNyH4FromClosedM5({closedM5,family,provider,instrumentId,asO
    if(bars[i].openedAt-bars[i-1].openedAt!==M5){contiguous=false;break;}
   }
   const correctStart=startNY.hour===g.nyHour&&startNY.minute===0;
-  const valid=correctStart&&contiguous&&bars.length===48&&
+  // Extra guard: 48 observed bars at the DST fall-back are NOT a closed
+  // local-NY H4; 01:00-05:00 NY takes 60 M5 on that day.
+  const endNY=nyParts(last.closedAt);
+  const correctClose=endNY.hour===(g.nyHour+4)%24&&endNY.minute===0;
+  const valid=correctStart&&correctClose&&contiguous&&bars.length===48&&
    last.closedAt===first.openedAt+H4;
   if(!valid){
    const reason=!contiguous?"INTERNAL_M5_DISCONTINUITY":
     !correctStart?"SESSION_OR_HISTORY_PARTIAL":
-    (bars.length===36||bars.length===60)?"DST_OR_UNUSUAL_NY_BUCKET":
+    (bars.length===36||bars.length===60||!correctClose)?"DST_OR_UNUSUAL_NY_BUCKET":
     "H4_PARTIAL_OR_NONSTANDARD_SESSION";
    rejected.push(Object.freeze({key:g.key,reason,observedM5:bars.length,
     nyHour:g.nyHour,provider,instrumentId}));
