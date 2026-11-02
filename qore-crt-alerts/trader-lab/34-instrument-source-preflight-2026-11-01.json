@@ -1,6 +1,6 @@
 {
-  "schema": "qore.crt.trader_lab_34.source_preflight.v1",
-  "observed_date": "2026-11-01",
+  "schema": "qore.crt.trader_lab_34.source_preflight.v2",
+  "observed_date": "2026-11-02",
   "scanner_version": "V34.10w_C1_RAZONES_34_QA",
   "scanner_source": "crt-radar-pro/CRT_RADAR_PRO_V34_10W_C1_RAZONES_34_QA_NO_INTEGRADO.pine",
   "trader_lab_repo": "mezas3238-hue/qore-core",
@@ -20,9 +20,9 @@
       "tv_symbol": "IC:AUDJPY",
       "dashboard_name": "AUDJPY",
       "source_symbol": "AUDJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476530915,
@@ -30,19 +30,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-AUDJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 22358275,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:a416085cfcef04003ae89debaad360304a0c4c8bac65b3bf2b439a8a4b7098bf",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 2,
       "tv_symbol": "IC:GBPUSD",
       "dashboard_name": "GBPUSD",
       "source_symbol": "GBPUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475449182,
@@ -50,19 +58,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-GBPUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 22258135,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:77d5b65ce3c6763e3ac5f620e4167d4ef071bfe1c13746cd5ca7ad9788268dcf",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 3,
       "tv_symbol": "IC:GBPJPY",
       "dashboard_name": "GBPJPY",
       "source_symbol": "GBPJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475453293,
@@ -70,19 +86,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-GBPJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 23234524,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:b68e74b2afa54295f891c11cde19e12e92db4192930496036c7ebb372474e415",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 4,
       "tv_symbol": "IC:XAUUSD",
       "dashboard_name": "XAUUSD",
       "source_symbol": "XAUUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476557530,
@@ -90,19 +114,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-XAUUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 22887318,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:dcb905b11380e3d4e1a4dc621e269bb75d2886806dd662e260d21d1d15362e08",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 5,
       "tv_symbol": "OANDA:NAS100USD",
       "dashboard_name": "NDX100",
       "source_symbol": "NAS100",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "OANDA",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476153072,
@@ -110,19 +142,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-NAS100-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 22219327,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:87ae8095feadce23c5026cda4dada49765d44d0baa2237b5bd7704ccc8deb863",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 6,
       "tv_symbol": "IC:US500",
       "dashboard_name": "SPX500",
       "source_symbol": "SP500",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476368574,
@@ -130,19 +170,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-SP500-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 18489295,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:f27147a8d8b262e231198120ecd9dff6e856c5f64336e39aa202bad4f0200ac7",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 7,
       "tv_symbol": "IC:US30",
       "dashboard_name": "US30",
       "source_symbol": "US30",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476353558,
@@ -150,10 +198,18 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-US30-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 21192374,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:8786e856ca2c8c97aa2be86504f20a9864b2b981d15e7f64dc8ccce61f15733c",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 8,
@@ -171,9 +227,9 @@
       "tv_symbol": "IC:AUDUSD",
       "dashboard_name": "AUDUSD",
       "source_symbol": "AUDUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475697610,
@@ -181,19 +237,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-AUDUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 21473326,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:ac72aaf438c164cd79691a7cf1f3f0a68f4c65aa6a91a921a721c7a04ebdc2f0",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 10,
       "tv_symbol": "IC:USDCAD",
       "dashboard_name": "USDCAD",
       "source_symbol": "USDCAD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475972108,
@@ -201,19 +265,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-USDCAD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 21848980,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:35d57d024121dcfbbbfd201bd6bfd5f5250895cdfe7c47a817e58de32392ee50",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 11,
       "tv_symbol": "IC:USDJPY",
       "dashboard_name": "USDJPY",
       "source_symbol": "USDJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475389415,
@@ -221,19 +293,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-USDJPY-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 22254767,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:e3ac9a45f3000c3e3bd93e50c730c952ddd08f77f1c857b5c4b3a67679fcaa51",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 12,
       "tv_symbol": "IC:EURUSD",
       "dashboard_name": "EURUSD",
       "source_symbol": "EURUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10475354631,
@@ -241,19 +321,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-EURUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 21644666,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:e0fa9e316b79ba61c338161a57508359d4c6afe2fbf97d3f50f1e27c2d359a86",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 13,
       "tv_symbol": "IC:USDCHF",
       "dashboard_name": "USDCHF",
       "source_symbol": "USDCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11722633876,
@@ -261,19 +349,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-USDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21644183,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:f0ecff960b4ae47d1b16f273ba0790ad46c4cba945a5c638812062397aed9d20",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 14,
       "tv_symbol": "IC:NZDUSD",
       "dashboard_name": "NZDUSD",
       "source_symbol": "NZDUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11723435593,
@@ -281,19 +377,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDUSD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21679522,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:02ebacefcb0baefdcd75d067aa7ab627059f4ee44fa76bdbd233ccc1d6a20d62",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 15,
       "tv_symbol": "IC:NZDJPY",
       "dashboard_name": "NZDJPY",
       "source_symbol": "NZDJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11727123842,
@@ -301,19 +405,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22397239,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:f759d64f0cf3bcd27829e9574589c6f002b62a84ff99c59638791b098b801219",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 16,
       "tv_symbol": "IC:NZDCHF",
       "dashboard_name": "NZDCHF",
       "source_symbol": "NZDCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11727882491,
@@ -321,19 +433,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21470758,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:234cf9a45720933ecac5fb38b1f3d3ac0b3b5d0f0f1ca8bc0ea398641be23f7f",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 17,
       "tv_symbol": "IC:XAGUSD",
       "dashboard_name": "XAGUSD",
       "source_symbol": "XAGUSD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 35166210458,
         "artifact_id": 10476348562,
@@ -341,19 +461,27 @@
         "artifact_name": "qore-cibo-market-atlas-10y-windowed-XAGUSD-ab782b8e9f890f86a2b6500070f0556b4b685e3d",
         "expires_at": "2026-12-16T00:21:18Z",
         "size_bytes": 20105163,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:cadfb896b65ce58b27f0389cb624ba53d93a12f813a60792087bb5b94ff5d971",
+        "capture_head_sha": "ab782b8e9f890f86a2b6500070f0556b4b685e3d"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_CIBO_ATLAS_12",
+      "provider_account_exactly_verified": false,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 18,
       "tv_symbol": "IC:AUDCAD",
       "dashboard_name": "AUDCAD",
       "source_symbol": "AUDCAD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11725372612,
@@ -361,19 +489,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21999583,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:0e8cf82a4b43c9083efd487b469dfc9f2d5db6c2d6049b9bc77504f805e71789",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 19,
       "tv_symbol": "IC:AUDCHF",
       "dashboard_name": "AUDCHF",
       "source_symbol": "AUDCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11725383385,
@@ -381,19 +517,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21645385,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:b9237743cc9cd8ca1e879cb4f68bdea249a5efc080c59bcd976ddc37333575c3",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 20,
       "tv_symbol": "IC:AUDNZD",
       "dashboard_name": "AUDNZD",
       "source_symbol": "AUDNZD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11726084946,
@@ -401,19 +545,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-AUDNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21907271,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:8fddb6a28df06df4ad0aca1bb057a7319be27007ed61841b8037c6da0d1c9a8b",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 21,
       "tv_symbol": "IC:CADCHF",
       "dashboard_name": "CADCHF",
       "source_symbol": "CADCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11727270453,
@@ -421,19 +573,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CADCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21296725,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:f28fc6ed76c20f7b50b8ae45578dafa7443d3f48b0a8ea51c1287716c985ff69",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 22,
       "tv_symbol": "IC:CADJPY",
       "dashboard_name": "CADJPY",
       "source_symbol": "CADJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11726771423,
@@ -441,19 +601,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CADJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22428327,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:8806a77c936e87d2d42bc206f47ef0f9c2f5f2c407654fdb67ab0df30d7afe4b",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 23,
       "tv_symbol": "IC:CHFJPY",
       "dashboard_name": "CHFJPY",
       "source_symbol": "CHFJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11726569233,
@@ -461,19 +629,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-CHFJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22762929,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:b9bb72d3c7d1a754720dba49ab2ce7cbe47145177b6d67c4b50683170ac83f72",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 24,
       "tv_symbol": "IC:EURAUD",
       "dashboard_name": "EURAUD",
       "source_symbol": "EURAUD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11724002469,
@@ -481,19 +657,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURAUD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 23149688,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:34f76af17c009d04d4a0bc0c20f60814c27cdf43df2a5fda342522752f33b953",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 25,
       "tv_symbol": "IC:EURCAD",
       "dashboard_name": "EURCAD",
       "source_symbol": "EURCAD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11723594590,
@@ -501,19 +685,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22608481,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:51902e560497f12b7b61b1fa927ffbe7396d1c71a65b6515ab76c2ac35fc3bd6",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 26,
       "tv_symbol": "OANDA:EURCHF",
       "dashboard_name": "EURCHF",
       "source_symbol": "EURCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "OANDA",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11724180355,
@@ -521,19 +713,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21332864,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:bac43daba94ae239387a3fb6da735f7c92cad2c04d5de52f9993933ab78a8e6d",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 27,
       "tv_symbol": "OANDA:EURGBP",
       "dashboard_name": "EURGBP",
       "source_symbol": "EURGBP",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "OANDA",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11723561353,
@@ -541,19 +741,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURGBP-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21271482,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:c30dbb78ad134b83829820452d30ebf734328a8e10d7dd53eae5398e6d08317d",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 28,
       "tv_symbol": "IC:EURJPY",
       "dashboard_name": "EURJPY",
       "source_symbol": "EURJPY",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11723592292,
@@ -561,19 +769,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURJPY-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22890410,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:5e830c81f20be78be64c9758822f0f7192f64f00097d30261deb294c380e9a33",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 29,
       "tv_symbol": "OANDA:EURNZD",
       "dashboard_name": "EURNZD",
       "source_symbol": "EURNZD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "OANDA",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11724058179,
@@ -581,19 +797,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-EURNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 23185288,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:ae4419f0f420120bb90bb4ab765ee7344f8b9c17f773f7f1b3ad859ce256a8d1",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 30,
       "tv_symbol": "IC:GBPAUD",
       "dashboard_name": "GBPAUD",
       "source_symbol": "GBPAUD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11725720991,
@@ -601,19 +825,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPAUD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 23492498,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:f301451afe0074b79c168a6f62098c5de8a30ae235d8b34e6ceaf9158f3b2f55",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 31,
       "tv_symbol": "IC:GBPCAD",
       "dashboard_name": "GBPCAD",
       "source_symbol": "GBPCAD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11724054734,
@@ -621,19 +853,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 23058355,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:aafac69de06965036159e6a5747814dab24c582de40d760adebe6284877c3279",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 32,
       "tv_symbol": "OANDA:GBPCHF",
       "dashboard_name": "GBPCHF",
       "source_symbol": "GBPCHF",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "OANDA",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11724349483,
@@ -641,19 +881,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPCHF-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 22446925,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:7b80682fb013e6c8509173bfe9203257f4c8e19472d0c91dbfe3a24ef15a8db6",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 33,
       "tv_symbol": "IC:GBPNZD",
       "dashboard_name": "GBPNZD",
       "source_symbol": "GBPNZD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11725246763,
@@ -661,19 +909,27 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-GBPNZD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 23449705,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:11976de066db0bdb56e7f46a5c862e25ccf33a0b6b47a7548b835868b1eb631a",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     },
     {
       "slot": 34,
       "tv_symbol": "IC:NZDCAD",
       "dashboard_name": "NZDCAD",
       "source_symbol": "NZDCAD",
-      "source_provider": "IC_MARKETS_CTRADER_DEMO",
+      "source_provider": "IC_MARKETS_DEMO_CONFIRMED_CAPTURE",
       "tv_provider": "IC",
-      "status": "ARTIFACT_METADATA_VERIFIED",
+      "status": "ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED",
       "artifact": {
         "run_id": 38193802541,
         "artifact_id": 11727143327,
@@ -681,10 +937,18 @@
         "artifact_name": "qore-native-icmarkets-10Y-provider-M5-NZDCAD-e0ca5a13c866a19d8505c68cffc473598984b340",
         "expires_at": "2027-01-10T01:56:00Z",
         "size_bytes": 21964294,
-        "expired": false
+        "expired": false,
+        "archive_sha256": "sha256:7cc75531ea0472424b0fbaba8ac83c6c6e35ec67c86c6115ec20ac4c2f03e159",
+        "capture_head_sha": "e0ca5a13c866a19d8505c68cffc473598984b340"
       },
       "role": "CALIBRATION_OR_PRIOR_EVIDENCE_ONLY",
-      "holdout_sealed": false
+      "holdout_sealed": false,
+      "source_catalog_source": "QORE_NATIVE_ICMARKETS_21",
+      "provider_account_exactly_verified": true,
+      "broker_to_tradingview_price_parity_verified": false,
+      "content_manifest_sha256": null,
+      "source_content_attested": false,
+      "original_replay_consumed": true
     }
   ],
   "required_count": 34,
@@ -693,6 +957,10 @@
   "missing_source_symbols": [
     "BTCUSD"
   ],
-  "final_verdict": "BLOCKED_HOLDOUT_DATA_AND_PREREGISTRATION",
-  "caveat": "Artifacts are historical cTrader/IC Markets DEMO data, not TradingView OANDA/IC/Coinbase bars. Must not mix providers, reuse consumed holdouts, or infer live trading readiness."
+  "final_verdict": "BLOCKED_SOURCE_DATA_LICENSE_BTC_HOLDOUT",
+  "caveat": "12 Atlas M5 datasets are cTrader DEMO with exact broker identity UNVERIFIED; 21 additional have IC Markets account/catalog provenance. Artifact ZIP SHA256 is not uncompressed OHLC SHA256. All source prices uninspected in this version and previously used in other research; no untouched holdout inference.",
+  "broker_accounts_verified_for_21_only": true,
+  "atlas_broker_identity_verified": false,
+  "originals_used_in_prior_research": true,
+  "source_content_software_attested": false
 }
