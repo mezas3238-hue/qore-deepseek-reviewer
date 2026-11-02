@@ -71,7 +71,7 @@ test("chart lines AND labels use current chosen family C1; never old 2C values f
 test("main dashboard shows own-chart true3C/Inside/Multi and noncompact 34 feed QA with clear tags",()=>{
  assert.ok(r.includes("ownAnyCRT = ownCRTValid or chartCoreC1 or ownChartFamilyQA"));
  assert.ok(r.includes("own.familyVisual.direction"));
- for(const label of ['"[2C] "','""[2C QA] "','"[3C QA] "','"[INS QA] "','"[MN QA] "','"[M4 QA] "'])
+ for(const label of ['"[2C] "','"[2C QA] "','"[3C QA] "','"[INS QA] "','"[MN QA] "','"[M4 QA] "'])
    assert.ok(r.includes(label),label);
  assert.ok(r.includes('if slotScanned and not sameAsChart and (allMode or hasCRT)'));
  assert.ok(r.includes('bool real3cQA = int(math.floor(qaMask / 1)) % 2 == 1 and not validMain and not qa2C'));
