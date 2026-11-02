@@ -212,7 +212,13 @@ export function verifyMssM15ForFamily(entry,mss){
     Number.isSafeInteger(mss?.pivotAt) &&
     Number.isSafeInteger(mss?.mssAt) &&
     mss.pivotAt<mss.sweepAt && mss.sweepAt<mss.mssAt &&
-    mss.mssAt%M15===0 &&
+    // Native M5 phases are 0..4 minutes. Require the independent M15
+    // pivot/break and source sweep to share this exact feed phase;
+    // never borrow BTC's zero-minute alignment for +1/+2 feeds.
+    entry.c1Start%60000===0 &&
+    mss.pivotAt%M15===entry.c1Start%300000 &&
+    mss.sweepAt%300000===entry.c1Start%300000 &&
+    mss.mssAt%M15===entry.c1Start%300000 &&
     mss.mssAt<=mss.observedUntil;
   return Object.freeze({
     model:entry?.model??"NONE",eventId:entry?.id??null,
