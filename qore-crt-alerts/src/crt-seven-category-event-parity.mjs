@@ -156,7 +156,9 @@ export function compareSevenCrtEventTraces34(input={}){
   })));
   results.push(nonlive(l.count?"EVENT_TRACE_MATCH_UNCERTIFIED":"NO_EVENTS_TO_COMPARE",{
    slot:row.slot,symbol:row.symbol,provider:feed.provider,
-   sourcePhaseMin,candleSha256:row.candleSha256,matchedEvents:l.count,
+   sourcePhaseMin,candleSha256:row.candleSha256,
+   windowStartMs:pine.windowStartMs,windowEndMs:pine.windowEndMs,
+   matchedEvents:l.count,
    matchedCategoryEvents
   }));
  }
