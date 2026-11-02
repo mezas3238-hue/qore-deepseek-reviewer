@@ -153,7 +153,7 @@ test("comparison cannot silently accept a different Pine candidate even with sev
  assert.throws(()=>compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
   pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
- }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_SOURCE_SHA/);
+ }),/UNRECOGNIZED_PINE_V34_11B_11C_11D_11E_11F_11G_11H_11I_SOURCE_SHA/);
 });
 
 test("exact V34.11c audit-display candidate can compare traces, without certifying real Pine",()=>{
@@ -228,4 +228,17 @@ test("V34.11h source-native 33-market +1min QA cannot certify synthetic parity o
  assert.equal(result.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
  assert.equal(result.realPineCompilationCertified,false);
  assert.equal(result.certified,false);assert.equal(result.actionable,false);assert.equal(result.sendPush,false);
+});
+
+test("V34.11i cannot certify a screenshot of 3C M15 from source-native QA",()=>{
+ const digest="31a480923cf51cd4b6d6015061909df9ca32d363";
+ const captures=pine.map(p=>({...p,pineBlobSha:digest}));
+ const r=compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:captures,asOf,pineSourceBlobSha:digest
+ });
+ assert.equal(r.status,"ALL_34_EVENT_TRACES_MATCH_UNCERTIFIED");
+ assert.equal(r.certified,false);
+ assert.equal(r.actionable,false);
+ assert.equal(r.sendPush,false);
+ assert.equal(r.realPineCompilationCertified,false);
 });
