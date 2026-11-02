@@ -16,7 +16,7 @@ La captura indica que el Pine V34.11h llega a renderizar eventos y categorías m
 
 ## Corrección V34.11i
 
-**Fuente:** `crt-radar-pro/CRT_RADAR_PRO_V34_11I_CATALOGO_QA_NO_SENALES_33.pine`; Git blob **`31a480923cf51cd4b6d6015061909df9ca32d363`**, derivado de V34.11h en PR #74.
+**Fuente:** `crt-radar-pro/CRT_RADAR_PRO_V34_11I_CATALOGO_QA_NO_SENALES_33.pine`; Git blob **`ca7ad8c339a5ea82b63a316d4af95bc82abba28f`**, derivado de V34.11h en PR #74.
 
 - El panel ampliado etiqueta un 3C con cierre MSS15 como **`3C M15 QA`** (naranja) y 3C sin MSS15 como **`3C ESP QA`**, nunca `3C M15✓` verde. `EXP RECH`, `CONT RECH`, `RT M15 QA`, `MULTI QA` conservan estado de diagnóstico.
 - Con `qaPhase1NonBtc` ON, se impide convertir 3C del experimento de fase +1m de **cualquiera de los 33 no BTC** en un `scanCrtValid`, `certifiedCRT` o `ownCRTValid` de la lista compacta operativa. **No se deshabilita la observación de las siete categorías.**
@@ -33,3 +33,7 @@ La captura indica que el Pine V34.11h llega a renderizar eventos y categorías m
 6. En el panel ampliado, comprobar que ya no haya ✓ verde en `3C/M15` para las 33 en fase QA. Las marcas `QA` no son recomendaciones de operar.
 
 **Resultado deseado pero todavía no demostrado:** 33/33 feeds con H4 coherentes, validaciones MSS15 causales, siete categorías correctas según sus funciones (rechazos/provisionales/no todos entradas). **PR DRAFT / NO MERGE / NO LIVE / NO PUSH.**
+
+
+## Compilación real: error reportado y corregido
+Captura real del editor Pine en Android mostró `Syntax error at input "bool" (CE10156)` en línea 2766, `1 of 2 problems`. Causa reproducida en GitHub: comentario y declaraciones `bool catM15Observed` / `string cat3Label` tenían **21 espacios** mientras el bloque `if eligibleSeenMobile...` exige **20**. Corregidos los tres renglones en el mismo archivo V34.11i; SHA nuevo `ca7ad8c339a5ea82b63a316d4af95bc82abba28f`. La segunda incidencia también podría derivarse del mismo bloque, pero requiere **compilar de nuevo** para comprobarla. Se incorporó regresión de indentación Pine; las pruebas Node no reemplazan el compilador de TradingView.
