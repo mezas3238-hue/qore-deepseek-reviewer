@@ -56,7 +56,10 @@ test("fresh QA 3C can show its true direction, but no borrowed M5/M15 signal",()
  const s=monitor(next);
  assert.ok(s.includes('bool ownTrue3C = cat3 and not core and not qaCore and not na(signedTrue3C)'));
  assert.ok(s.includes('int dir = ownTrue3C ? signedTrue3C > 0 ? 1 : -1'));
- assert.ok(s.includes('cat3 ? "3C TRUE QA"'));
+ assert.ok(s.includes('ownTrue3C ? "3C TRUE QA" : extra ? array.get(familyLabels,i)'));
+ assert.ok(s.includes('ownTrue3C ? "C3 CERR QA"'));
+ assert.ok(s.includes('ownTrue3C ? signedTrue3C > 0 ? 1 : -1'));
+
  assert.ok(s.includes('ownTrue3C ? "N/V"'));
  assert.ok(s.includes('qaCore ? sameM15 ? "QA SI" : "QA --"'));
  assert.ok(s.includes('"NO PUSH"'));
