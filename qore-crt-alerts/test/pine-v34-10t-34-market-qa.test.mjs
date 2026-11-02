@@ -77,8 +77,8 @@ test("opened indices display C1 02/06/22 NY instead of the old BTC/Forex hours",
  need('bool indexChartQA = f_index()',
  'string c1ClocksQA = indexChartQA ? "C1:02/06/22" : "C1:01/05/21"',
  'table.cell(board,2,12,c1ClocksQA');
- assert.doesNotMatch(pine,/table\\.cell\\(board,2,12,"C1:01\\/05\\/21"/);
- assert.match(pine,/own\\.nyH4M5Count > 48 \\? \\(btcScope \\? "H4 EXTRA\\/DST" : "H4 EXTRA"\\)/);
+ assert.ok(!pine.includes('table.cell(board,2,12,"C1:01/05/21"'));
+ assert.ok(pine.includes('own.nyH4M5Count > 48 ? (btcScope ? "H4 EXTRA/DST" : "H4 EXTRA")'));
 });
 test("no change to MSS 2C/3C, FVG/PDH, event alerts or security budget",()=>{
  assert.equal(android,pine);
