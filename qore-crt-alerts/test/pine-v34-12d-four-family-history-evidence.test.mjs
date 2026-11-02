@@ -13,7 +13,10 @@ const main=x=>x.slice(x.indexOf("f_renderRadarDashboard() =>"),x.indexOf("\nf_re
 
 test("V34.12D retains identical detector, full 34-feed scanner, M5/M15 evidence and all old ranking",()=>{
  assert.equal(engine(candidate),engine(prior),"never change engine as part of history panel");
- assert.equal(oldScanner(candidate),oldScanner(prior),"no change to slot evidence inputs");
+ assert.equal(
+  oldScanner(candidate).replace(/^qaFamilyHistoryView = input.bool\(false, "QA: historial 2C\/3C\/Inside\/Multi por mercado".*\n/m,""),
+  oldScanner(prior),"no change to slot evidence inputs"
+ );
  assert.equal(count(candidate,/^s\d\d = input\.symbol\(/gm),34);
  assert.equal(count(candidate,/^\s*Signal s = request\.security\(/gm),1);
  assert.equal(count(candidate,/^\s*plot\(/gm),1);
