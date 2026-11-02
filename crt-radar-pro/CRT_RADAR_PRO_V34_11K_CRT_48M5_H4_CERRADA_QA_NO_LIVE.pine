@@ -55,8 +55,8 @@ idxList = input.string("NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK10
 scheduleMode = input.string("Solo C1 de tres horarios NY", "Escaneo C1", options=["Todas las H4 NY", "Solo C1 de tres horarios NY"], group=grp, tooltip="Por defecto SOLO tres C1: Forex 01/05/21 NY e indices 02/06/22 NY. Todas las H4 es diagnostico opcional; no usar como confirmacion oficial.")
 allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group=grp, tooltip="Los toques exactos se muestran PROVISIONALES; el cierre H4 de C2 dentro de C1 es obligatorio para ratificar. Desactivar para exigir barrida estricta.")
 // V34.11k: C1/C2/C3/Inside require a CLOSED 48-M5 contiguous H4.
- // No minimum-bar override: a partially observed four-hour candle
- // must NEVER enter the sovereign CRT or an Inside validation.
+// No minimum-bar override: a partially observed four-hour candle
+// must NEVER enter the sovereign CRT or an Inside validation.
 showCandidate = input.bool(true, "Mostrar CRT C2 provisional (con *)", group=grp)
 showAtSweep = input.bool(true, "Mostrar barrida C2 antes del retorno (provisional *)", group=grp, tooltip="El toque del rango H4 no es confirmacion CRT; se identifica con * y no se le asignan MSS futuros. Debe retornar al rango para ratificarse.")
 keepLastCRT = input.bool(false, "Conservar ultimo CRT ratificado (solo historial)", group=grp)
