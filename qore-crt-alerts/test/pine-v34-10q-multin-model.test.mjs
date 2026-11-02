@@ -76,7 +76,7 @@ test("No extra security requests and original CRT C2/C3/MSS engine preserved",()
  assert.equal(count(prev,"request.security("),count(pine,"request.security("));
  assert.equal(count(prev,"Signal s = request.security("),count(pine,"Signal s = request.security("));
  assert.equal((pine.match(/^s\d\d = input\.symbol\(/gm)||[]).length,34);
- const section=s=>s.split("            // C3 solo se invalida por el CIERRE de su H4.")[1]?.split("    // ---- M4B: ESTADO DE LIQUIDEZ")[0];
+ const section=s=>s.split("            // C3 solo se invalida por el CIERRE de su H4, NO por cierre M5.")[1]?.split("    // ---- M4B: ESTADO DE LIQUIDEZ")[0];
  assert.ok(section(prev));assert.equal(section(prev),section(pine));
  assert.match(pine,/useAlerts = input\.bool\(false/);
  assert.match(pine,/if scanCrtValid\s+if m5t > 0/);
@@ -84,7 +84,7 @@ test("No extra security requests and original CRT C2/C3/MSS engine preserved",()
  assert.match(pine,/if slotScanned and not sameAsChart and \(allMode or validMain or \(showQAInList and hasCRT\)\)/);
 });
 test("Multi-N remains QA only and cannot claim M5/M15 from 2C/3C core",()=>{
- assert.match(pine,/extraMultiN \? "MULTI-N QA"/);
+ assert.match(pine,/extraSelectMultiN \? "MULTI-N QA"/);
  assert.match(pine,/s\.extraFamilyKind == "MULTI-N QA"/);
  assert.match(pine,/familyLabel == "MULTI-N QA" \? "MN QA "/);
  assert.match(pine,/table\.cell\(board,4,r,validMain and array\.get\(m5Flags,i\)==1/);
