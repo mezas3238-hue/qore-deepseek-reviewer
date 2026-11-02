@@ -98,7 +98,10 @@ test("no role or source can claim a push or an operational trade",()=>{
  assert.equal(audit(feeds,lab,p).results[7].status,"UNSAFE_OR_INVALID_CATEGORY_EVIDENCE");
 });
 test("35th, duplicated or foreign slot and future M5 cannot silently enter 34 cohort",()=>{
- assert.throws(()=>audit([...feeds,feeds[0]]),/DUPLICATE_OR_UNKNOWN_FEED_SLOT/);
+ // An extra 35th feed is rejected by the cohort-size gate before slot checks.
+ assert.throws(()=>audit([...feeds,feeds[0]]),/34_SCOPE_OR_PINE_SOURCE_INVALID/);
+ const duplicate=replace(feeds,1,{...feeds[1],slot:feeds[0].slot});
+ assert.throws(()=>audit(duplicate),/DUPLICATE_OR_UNKNOWN_FEED_SLOT/);
  assert.throws(()=>audit(feeds,lab,[...pine,pine[0]]),/DUPLICATE_OR_UNKNOWN_PINE_SLOT/);
  const bad=replace(feeds,1,{...feeds[1],closedM5:[...feeds[1].closedM5,
   {...feeds[1].closedM5.at(-1),openedAt:asOf,closedAt:asOf+M5}]});
