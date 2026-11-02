@@ -145,7 +145,8 @@ export function compareSevenCrtEventTraces34(input={}){
   matched++;eventsCompared+=l.count;
   for(const e of lab.events)allCategories.add(e.category);
   results.push(nonlive(l.count?"EVENT_TRACE_MATCH_UNCERTIFIED":"NO_EVENTS_TO_COMPARE",{
-   slot:row.slot,symbol:row.symbol,matchedEvents:l.count
+   slot:row.slot,symbol:row.symbol,provider:feed.provider,
+   sourcePhaseMin,candleSha256:row.candleSha256,matchedEvents:l.count
   }));
  }
  return nonlive(
