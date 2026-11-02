@@ -9,6 +9,7 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "parity": "node scripts/compare-parity.mjs",
-    "parity:seven": "node scripts/compare-seven-catalog.mjs"
+    "parity:seven": "node scripts/compare-seven-catalog.mjs",
+    "parity:events": "node scripts/compare-seven-events.mjs"
   }
 }
