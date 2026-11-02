@@ -2712,7 +2712,7 @@ if barstate.islast and showDashboard and compactMobile
 f_qaUtcMin(int t) =>
     na(t) or t <= 0 ? "N/D" : str.tostring(math.round(t / 60000))
 f_qaPrice(float p) =>
-    na(p) ? "N/D" : str.tostring(p, format.mintick)
+    na(p) ? "N/D" : str.tostring(p, "#.##########")
 
 if barstate.islast and showDashboard and showSlotEventAudit
     table.clear(board,0,0,5,14)
