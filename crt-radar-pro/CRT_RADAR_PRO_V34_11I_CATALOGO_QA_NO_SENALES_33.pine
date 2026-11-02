@@ -2762,9 +2762,9 @@ if barstate.islast and showDashboard and compactMobile
                     // Non-operational catalogue states must never inherit
                     // another family MSS or an unrelated live CRT status.
                     // Never render the unverified +1 minute M15 as a green check.
-                     // Neither historical labels nor a 3C bit prove Pine/feed parity.
-                     bool catM15Observed = cat3C and array.get(m15Flags,i) == 1
-                     string cat3Label = not responded ? "SIN FEED" : cat3C ? catM15Observed ? "3C M15 QA" : "3C ESP QA" : "—"
+                    // Neither historical labels nor a 3C bit prove Pine/feed parity.
+                    bool catM15Observed = cat3C and array.get(m15Flags,i) == 1
+                    string cat3Label = not responded ? "SIN FEED" : cat3C ? catM15Observed ? "3C M15 QA" : "3C ESP QA" : "—"
                     string cat2Label = cat2C ? "2C*" : catExpansion ? "EXP RECH" : "—"
                     string catInsideLabel = catInsideR ? "RET QA" : catInsideC ? "CONT RECH" : "—"
                     table.cell(board,1,rr,catalogExpanded ? cat3Label : stateText,bgcolor=bg,text_color=catalogExpanded ? cat3C ? color.orange : color.gray : stateTint,text_size=size.tiny)
