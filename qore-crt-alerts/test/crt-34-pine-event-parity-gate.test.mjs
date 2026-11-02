@@ -111,6 +111,17 @@ test("1500 closed M5 horizon is enforced per source rather than complete histori
  assert.equal(one.closedM5.at(-1).closedAt,horizonAsOf);
  assert.equal(extended.length,34);
 });
+test("full-history input is actually sliced to the latest 1500 M5 by the parity gate",()=>{
+ const extended=[feed(catalog[0],1536),...feeds.slice(1)];
+ const horizonAt=extended[0].closedM5.at(-1).closedAt;
+ const r=compare34PineTraderLabEvents({
+  catalog,feeds:extended,captures:[],asOf:horizonAt,pineBlobSha
+ });
+ assert.equal(r.results[0].observedWindowM5,1500);
+ assert.equal(r.results[1].observedWindowM5,96);
+ assert.equal(r.results[0].status,"PINE_CAPTURE_MISSING");
+ assert.equal(r.status,"PARITY_BLOCKED_OR_MISMATCH");
+});
 test("duplicate catalog symbol, duplicate capture and wrong feed slot fail closed",()=>{
  const clone=catalog.map(x=>({...x}));
  clone[1].source_symbol=clone[0].source_symbol;
