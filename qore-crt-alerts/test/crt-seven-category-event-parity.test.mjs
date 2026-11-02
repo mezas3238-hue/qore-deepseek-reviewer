@@ -231,7 +231,7 @@ test("V34.11h source-native 33-market +1min QA cannot certify synthetic parity o
 });
 
 test("V34.11i cannot certify a screenshot of 3C M15 from source-native QA",()=>{
- const digest="31a480923cf51cd4b6d6015061909df9ca32d363";
+ const digest="ca7ad8c339a5ea82b63a316d4af95bc82abba28f";
  const captures=pine.map(p=>({...p,pineBlobSha:digest}));
  const r=compareSevenCrtEventTraces34({
   catalog,feeds,labSnapshots:lab,pineCaptures:captures,asOf,pineSourceBlobSha:digest
