@@ -30,12 +30,18 @@ internal object NotificationPolicy {
             return Decision(false, "MISSING_DATA_PROOF")
         val mssAt = data["mssAtMs"]?.toLongOrNull()
             ?: return Decision(false, "INVALID_TIME")
-        if (mssAt <= 0L || mssAt % 900_000L != 0L)
+        if (mssAt <= 0L || mssAt % 60_000L != 0L)
             return Decision(false, "INVALID_TIME")
         // This checks payload coherence only; untrusted FCM fields cannot
         // attest to genuine market data or replace authenticated enrollment.
+        // The native source phase must come from this *same event cycle*.
+        // Non-BTC feeds can close M15 at :01/:16, :02/:17 etc.
         val parts = eventId.split('|')
         val c1Start = parts.getOrNull(2)?.toLongOrNull()
+        val nativePhaseMs = c1Start?.takeIf { it > 0L && it % 60_000L == 0L }
+            ?.rem(300_000L)
+        if (nativePhaseMs == null || mssAt % 900_000L != nativePhaseMs)
+            return Decision(false, "INVALID_TIME")
         val cycleElapsed = if (c1Start != null && c1Start > 0L && c1Start < mssAt)
             mssAt - c1Start else -1L
         if (parts.size != 6 || parts[0].isBlank() ||
