@@ -2209,10 +2209,14 @@ if barstate.islast
         bool btcScope = str.upper(syminfo.ticker) == "BTCUSD"
         bool chartIsH4 = timeframe.isintraday and timeframe.multiplier == 240
         bool brokerAligned = chartIsH4 and chartAvailable and not na(own.nyH4Start) and own.nyH4Start == time
-        string statusNY = not btcScope ? "OTRO" : not chartAvailable ? "SIN M5" : own.nyH4M5Count > 48 ? "H4 EXTRA/DST" : not chartIsH4 ? "MOTOR M5 NY" : brokerAligned ? "ALINEADA" : "H4 BROKER != NY"
+        // CRT índices ancla NY 02/06/22, Forex/BTC 01/05/21.
+        // Nunca mostrar anclas BTC como si fueran horarios de índices.
+        bool indexChartQA = f_index()
+        string c1ClocksQA = indexChartQA ? "C1:02/06/22" : "C1:01/05/21"
+        string statusNY = not chartAvailable ? "SIN M5" : own.nyH4M5Count > 48 ? (btcScope ? "H4 EXTRA/DST" : "H4 EXTRA") : not chartIsH4 ? "MOTOR M5 NY" : brokerAligned ? "ALINEADA" : "H4 BROKER != NY"
         table.cell(board,0,12,btcScope ? "BTC H4 NY" : "H4 NY QA",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,12,nyAnchor,bgcolor=navy,text_color=color.white,text_size=size.tiny)
-        table.cell(board,2,12,"C1:01/05/21",bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,2,12,c1ClocksQA,bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
         table.cell(board,3,12,"M5:"+str.tostring(chartAvailable ? own.nyH4M5Count : 0),bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,4,12,statusNY,bgcolor=navy,text_color=btcScope and brokerAligned ? posInk : color.orange,text_size=size.tiny)
         table.cell(board,5,12,"America/NY",bgcolor=navy,text_color=color.white,text_size=size.tiny)
