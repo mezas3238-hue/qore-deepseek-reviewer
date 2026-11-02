@@ -11,7 +11,7 @@ const manifest=JSON.parse(readFileSync(new URL(
 const catalog=manifest.source_catalog;
 const t=Date.parse("2026-10-26T05:00:00Z"),step=300000;
 const count=150,asOf=t+count*step;
-const pineSourceBlobSha="0123456789abcdef0123456789abcdef01234567";
+const pineSourceBlobSha="28c8c731c943d9c3b3f8a2cc77746dee3a02f8c6";
 const feeds=catalog.map(c=>({
  slot:c.slot,instrumentId:c.source_symbol,provider:"SIM_"+c.slot,
  closedM5:Array.from({length:count},(_,i)=>({
@@ -147,4 +147,11 @@ test("Missing independent lab data or mismatched provider blocks before any trac
  assert.equal(noLab.results[0].status,"MASK_OR_SOURCE_NOT_READY");
  const p=swap(pine,3,{provider:"FICTITIOUS"});
  assert.equal(run(lab,p).results[3].status,"MASK_OR_SOURCE_NOT_READY");
+});
+
+test("comparison cannot silently accept a different Pine candidate even with seven identical masks",()=>{
+ assert.throws(()=>compareSevenCrtEventTraces34({
+  catalog,feeds,labSnapshots:lab,pineCaptures:pine,asOf,
+  pineSourceBlobSha:"0123456789abcdef0123456789abcdef01234567"
+ }),/WRONG_V34_11B_PINE_SOURCE_SHA/);
 });
