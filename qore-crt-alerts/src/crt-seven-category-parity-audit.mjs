@@ -17,11 +17,15 @@ const safe=x=>Number.isSafeInteger(x)&&x>=0;
 const sha=x=>typeof x==="string"&&/^[a-f0-9]{64}$/.test(x);
 const pineSha=x=>typeof x==="string"&&/^[a-f0-9]{40}$/.test(x);
 const validMask=x=>safe(x)&&x<=127;
+// Every feed has one exact native M5 phase in {0,1,2,3,4} minutes.
+// No tolerances, borrowing BTC's phase or shifting OHLC timestamps.
+const sourcePhase=x=>Number.isSafeInteger(x)&&x>=0&&x<=4;
+const phaseOf=t=>t%300000/60000;
 export function decodeSevenCrtCategoryMask(mask){
  if(!validMask(mask))throw Error("INVALID_SEVEN_CATEGORY_MASK");
  return Object.freeze(Object.fromEntries(keys.map(k=>[k,Math.floor(mask/CATEGORY_BITS[k])%2===1])));
 }
-function verifySnapshot(x,{symbol,provider,sha256,asOf,count,start,end,pineSourceBlobSha},isPine){
+function verifySnapshot(x,{symbol,provider,sha256,asOf,count,start,end,pineSourceBlobSha,sourcePhaseMin},isPine){
  if(!x)return "MISSING_"+(isPine?"PINE":"LAB")+"_EVIDENCE";
  if(x.instrumentId!==symbol||x.provider!==provider||
     x.candleSha256!==sha256||x.asOf!==asOf||
@@ -38,6 +42,8 @@ function verifySnapshot(x,{symbol,provider,sha256,asOf,count,start,end,pineSourc
  }else if(x.engine!=="INDEPENDENT_TRADER_LAB_SEVEN_CATALOG_REPLAY"||
           typeof x.evidenceLocator!=="string"||!x.evidenceLocator.trim())
    return "LAB_PROVENANCE_NOT_VERIFIED";
+ if(x.sourcePhaseMin!==undefined&&x.sourcePhaseMin!==sourcePhaseMin)
+   return "SOURCE_PHASE_MISMATCH";
  if((x.categoryMask&64)!==0){
    const p=x.mss15Proof;
    if(!p||p.timeframe!=="M15"||p.instrumentId!==symbol||
@@ -46,7 +52,8 @@ function verifySnapshot(x,{symbol,provider,sha256,asOf,count,start,end,pineSourc
       !safe(p.observedUntilMs)||p.pivotAtMs>=p.sweepAtMs||
       p.sweepAtMs>=p.mssAtMs||p.mssAtMs>=p.retestAtMs||
       p.mssAtMs>p.observedUntilMs||p.retestAtMs>p.observedUntilMs||
-      p.mssAtMs%900000!==0||p.retestAtMs%900000!==0)
+      p.mssAtMs%900000!==sourcePhaseMin*60000||
+      p.retestAtMs%900000!==sourcePhaseMin*60000)
      return "M15_RETEST_CAUSAL_PROOF_MISSING";
  }
  return null;
@@ -84,6 +91,9 @@ export function compareSevenCrtCategories34({
      !Array.isArray(f.closedM5)||!f.closedM5.length)
    throw Error("MISSING_OR_UNBOUND_M5_SOURCE:"+entry.source_symbol);
   const window=f.closedM5.slice(-1500);
+  const sourcePhaseMin=phaseOf(window[0].openedAt);
+  if(!sourcePhase(sourcePhaseMin))
+   throw Error("INVALID_SOURCE_NATIVE_M5_PHASE");
   for(let i=0;i<window.length;i++){
    const x=window[i],previous=i>0?window[i-1]:null;
    if(x?.provider!==f.provider||x.instrumentId!==f.instrumentId||
@@ -91,12 +101,14 @@ export function compareSevenCrtCategories34({
       x.closedAt!==x.openedAt+300000||x.closedAt>asOf||
       (previous&&x.openedAt<=previous.openedAt))
     throw Error("OPEN_FUTURE_UNSORTED_OR_MIXED_M5");
+    if(phaseOf(x.openedAt)!==sourcePhaseMin)
+      throw Error("M5_SOURCE_PHASE_DRIFT");
   }
   const sha256=hashM5(window);
   if(!sha(sha256))throw Error("INVALID_M5_DIGEST");
   const expected={symbol:f.instrumentId,provider:f.provider,sha256,asOf,
     count:window.length,start:window[0].openedAt,end:window.at(-1).closedAt,
-    pineSourceBlobSha};
+    pineSourceBlobSha,sourcePhaseMin};
   const pine=byPine.get(entry.slot),lab=byLab.get(entry.slot);
   const labReason=verifySnapshot(lab,expected,false);
   const pineReason=verifySnapshot(pine,expected,true);
@@ -110,7 +122,7 @@ export function compareSevenCrtCategories34({
   rows.push(fail(diffs.length?"SEVEN_CATEGORY_PARITY_MISMATCH":"SEVEN_CATEGORY_MASK_MATCH_UNCERTIFIED",{
    slot:entry.slot,symbol:f.instrumentId,provider:f.provider,
    comparedCategories:7,differences:Object.freeze(diffs),
-   candleSha256:sha256,windowM5Count:window.length,
+   candleSha256:sha256,windowM5Count:window.length,sourcePhaseMin,
    // A mask match is not proof that both independently computed timestamps
    // and MSS pivot/first-break events are the same.
    requiresPerEventMss15Parity:true
