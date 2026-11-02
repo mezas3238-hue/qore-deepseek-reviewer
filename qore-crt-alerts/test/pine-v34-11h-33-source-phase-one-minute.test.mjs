@@ -89,7 +89,38 @@ test("All 33 non-BTC rows report independently observed raw provider phase",()=>
  assert.ok(!after.includes('input.float(1.0, "Tolerancia M5"'));
 });
 test("MSS15 cannot inherit M5 pivot after nonBTC source clock adjustment",()=>{
- assert.ok(after.includes('int bucket15 = time("15")[1]'));
+ assert.ok(after.includes('int bucket15 = qaNativeM5Plus1 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), nativeM15Minute, 0) : time("15")[1]'));
  assert.ok(after.includes('bool fullM15 = m15Count == 3 and m15LastEnd == bucket15 and m15Start + MIN15 == m15LastEnd'));
  assert.ok(after.includes('int qaLastM5PhaseMin = not na(barT) ? minute(barT, TZ) % 5 : na'));
+});
+
+test("source native +1m M15 quarter buckets are :01/:16/:31/:46, not normal NY :00/:15",()=>{
+ const quarter=m=>Math.floor(m/15)*15+1;
+ assert.deepEqual([1,6,11,16,21,26,31,36,41,46,51,56].map(quarter),
+  [1,1,1,16,16,16,31,31,31,46,46,46]);
+ assert.ok(after.includes('int nativeM15Minute = int(math.floor(minute(barT, TZ) / 15)) * 15 + 1'));
+ assert.ok(after.includes('int bucketH1 = qaNativeM5Plus1 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), 1, 0) : time("60")[1]'));
+});
+test("Independent MSS M15 causal times require matching closed native phase without tolerating M5-only timestamps",()=>{
+ assert.ok(after.includes('f_m15_phase_ok(int closedAt, bool sourcePhase1Qa) =>'));
+ assert.ok(after.includes('closedAt % MIN15 == (sourcePhase1Qa ? 60000 : 0)'));
+ assert.ok(after.includes('f_m15_phase_ok(outM15At, qaNativeM5Plus1)'));
+ assert.ok(after.includes('f_m15_phase_ok(extraMssAt, qaNativeM5Plus1)'));
+ assert.ok(after.includes('f_m15_phase_ok(s.extraFamilyM15At, s.qaPhase1Active)'));
+ assert.ok(after.includes('f_m15_phase_ok(own.m15At, own.qaPhase1Active)'));
+ assert.ok(after.includes('closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeM5Plus1)'));
+ assert.ok(after.includes('bool fullM15 = m15Count == 3 and m15LastEnd == bucket15 and m15Start + MIN15 == m15LastEnd'));
+ for(const t of [1,16,31,46]){
+  const ms=t*60000;
+  assert.equal(ms%900000,60000);
+  assert.notEqual(ms%900000,0);
+ }
+});
+test("If native M15 phase differs from observed M5 phase, no invented MSS passes",()=>{
+ const proof=(closedAt,phase)=>closedAt%900000===(phase===1?60000:0);
+ assert.equal(proof(16*60000,1),true);
+ assert.equal(proof(15*60000,1),false);
+ assert.equal(proof(16*60000,0),false);
+ assert.equal(proof(15*60000,0),true);
+ assert.equal(proof(5*60000,1),false);
 });
