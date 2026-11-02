@@ -31,6 +31,7 @@ Las cuatro morfologías visuales de base documentadas por Rowdy FX/DeepSeek son 
 - En móvil, columnas únicas: MERCADO / CRT 7 / DIR / MSS M5 / MSS M15 / ETAPA.
 - Compacto: 2 CRT estructurales visibles (priorizar mismo-ciclo MSS15). Con `Ver los 34 instrumentos (expandir)`: **34 mercados**, 10 por página, y etiquetas de rol diagnóstico, sin líneas PDH/PDL.
 - Para el «SI» de MSS5 y MSS15 exige estructura CRT **core válida**, mismo C1 y sweep, pivote anterior a sweep, ruptura posterior, fase nativa de la fuente en M5/M15; M15 además no puede ser futura frente al último M15 cerrado.
+- Los 33 mercados no BTC con un rol estructural actual `3C`, `Inside Return` o `Multi-Candle` todavía **no homologado** aparecen como `QA H4` en compacto (ámbar, no señal verde), aunque el bloque de validación core permanezca cerrado. No ocultar el escaneo; tampoco confundir un bit QA con ratificación.
 - Inside y Multi QA llevan `QA H4`, M5 `N/V`, M15 `N/V` o `QA`; nunca obtienen un ✓ verde de una confirmación core perteneciente a otro ciclo.
 - Rechazos EXP/INS CONT, C2 provisional y retest M15 no producen CRT operativo ni MSS falso.
 - Los 34 `input.symbol`, 34 solicitudes M5 por feed, `f_engine()`, las 48 M5/H4 cerradas, fases 0..4, DST NY y 60 `plot()` permanecen sin cambios.
