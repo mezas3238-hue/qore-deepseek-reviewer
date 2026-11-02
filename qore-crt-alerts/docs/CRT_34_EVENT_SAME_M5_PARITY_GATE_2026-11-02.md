@@ -2,6 +2,8 @@
 
 **02 Nov 2026 · Candidato Pine V34.10w inalterado · PR #72 DRAFT.**
 
+SHA del blob GitHub de Pine V34.10w fijado en QA: `923903c1ceaaa13e45d0956dc1a1f8a3ecae69a3`. No se aceptan capturas de otro candidato.
+
 ## Qué se agregó
 - `src/crt-34-pine-event-parity-gate.mjs`: compara eventos H4 del laboratorio con una **captura de ejecución Pine independiente** por cada uno de los 34 símbolos.
 - Exige 34 slots únicos, identidad exacta de **proveedor + instrumento**, OHLC de las últimas **hasta 1500 M5 cerradas**, SHA-256 de velas, primer/último timestamp, `asOf`, versión Pine fija y prueba de procedencia de la captura.
