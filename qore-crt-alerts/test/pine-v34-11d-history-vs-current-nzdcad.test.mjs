@@ -36,7 +36,7 @@ test("history, H4 gaps, DST and rejected C2 only come from requested, responded 
  assert.ok(tail.includes('ticker.standard(selectedFeed) == ownStd'));
 });
 test("auditor states explicitly whether V34.11d currently draws levels",()=>{
- assert.ok(historical.includes('showLevels and visible ? "LINEAS NY SI" : "LINEAS NY NO"'));
+ assert.ok(tail.includes('showLevels and visible ? "LINEAS NY SI" : "LINEAS NY NO"'));
  assert.ok(d.includes('"CRT H4 NY HIGH"'));
  assert.ok(d.includes('"CRT H4 NY LOW"'));
  assert.ok(!d.includes('label.new(t2,own.crh,"CRH"'));
