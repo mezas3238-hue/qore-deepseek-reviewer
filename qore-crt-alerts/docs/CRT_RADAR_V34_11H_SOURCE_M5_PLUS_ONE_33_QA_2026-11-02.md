@@ -9,10 +9,11 @@ Captura de TradingView Android NZDCAD M15 usando `CRT MSS QA 4C 11G`: la auditor
 
 ## Solución implementada (segura para QA)
 
-Archivo Pine `crt-radar-pro/CRT_RADAR_PRO_V34_11H_FASE_PROVEEDOR_33_QA_NO_LIVE.pine`, Git blob `b7696b420b0afd0019d2e54d2388a2641d652230`.
+Archivo Pine `crt-radar-pro/CRT_RADAR_PRO_V34_11H_FASE_PROVEEDOR_33_QA_NO_LIVE.pine`, Git blob `638b01991bfce4901dbdfb3b9d640a8cdb896fd1`.
 
 - En `03 / Dashboard`, nuevo ajuste `QA: probar desfase +1m M5 en 33 (SIN ALERTAS)` — ON por defecto en este **candidato QA solamente**.
 - Para cada M5 cerrada del feed **no BTC**, si `minute(barT, America/New_York) % 5 == 1` **y segundos =0**, construye el bloque de la **fuente original** con el anclaje NY nominal +60.000 milisegundos. BTC usa únicamente su propio `f_btc_crt_h4_ny`, sin ningún desplazamiento. Otros offsets 2/3/4 minutos NO se arreglan por estimación ni se copian de NZDCAD.
+- La fuente M5 desplazada también requiere **M15 propias**: agrupación M15 por :01/:16/:31/:46 y H1 por :01, exigiendo 3 o 12 M5 consecutivas exactamente, no inventando pivotes. Los once filtros de cierre exacto M15, incluidos Inside/Multi y retest, aceptan la fase real **únicamente** para la fuente no BTC en modo experimental. M15 estándar y BTC conservan cierre :00/:15/:30/:45; la M15 debe estar cerrada, el pivote confirmado y anterior a C2, y la ruptura debe ocurrir después de la barrida.
 - Se conservan estrictamente `h4Continuous && h4Count == 48 && h4FirstT == h4Bucket && h4LastEnd == h4Bucket + H4MS`, los cierres M5, las condiciones CRT de C1/C2/C3, el MSS M15 independiente, la dirección y las reglas de invalidación.
 - El dashboard de los 33 **identifica explícitamente `QA +1m`**, y muestra en cada fila `FX+1 / MET+1 / IND+0` (por ejemplo), con el `minute%5` de su **propia** M5, nunca de BTC.
 - **Bloqueo explícito** de todas las alertas `if useAlerts and not qaPhase1NonBtc`. Los niveles de gráfico CRT no BTC no se muestran como operativos mientras QA +1m esté ON. Datos y contadores son diagnósticos, NO un certificado de CRT NY oficial `:00`.
