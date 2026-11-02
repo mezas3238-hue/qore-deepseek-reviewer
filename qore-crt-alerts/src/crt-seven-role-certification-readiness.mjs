@@ -31,7 +31,23 @@ function validControl(x,row,role){
   return false;
  if(x.controlType==="POSITIVE"){
   if(x.pineObserved!==true||x.labObserved!==true||
-     x.negativeReason!==undefined)
+     x.negativeReason!==undefined||
+     !safe(x.c1StartMs)||![-1,1].includes(x.direction))
+   return false;
+  // Positive evidence MUST be the exact event that matched on this slot,
+  // with the identical cycle and variant. A global seven-bit mask or an
+  // event in another feed can NEVER ratify this control.
+  if(row.status!=="EVENT_TRACE_MATCH_UNCERTIFIED"||
+     !Array.isArray(row.matchedCategoryEvents)||
+     !row.matchedCategoryEvents.some(e=>
+       e.category===role.id&&e.eventAtMs===x.eventAtMs&&
+       e.c1StartMs===x.c1StartMs&&e.direction===x.direction&&
+       (e.variant??null)===(x.variant??null)&&
+       (role.id!=="CRT_M15_RETEST"||
+        e.mss15?.pivotAtMs===x.mss15?.pivotAtMs&&
+        e.mss15?.sweepAtMs===x.mss15?.sweepAtMs&&
+        e.mss15?.breakAtMs===x.mss15?.breakAtMs&&
+        e.mss15?.retestAtMs===x.mss15?.retestAtMs)))
    return false;
  } else if(x.pineObserved!==false||x.labObserved!==false||
            x.negativeReason!==role.negative)return false;
@@ -70,8 +86,10 @@ export function assessSevenCrtReadiness({eventAudit,controlCases=[]}={}){
  }
  const auditComplete=eventAudit?.comparedSlots===34&&
    eventAudit?.matchedSlots===34&&rows.length===34&&
-   rows.every(x=>["EVENT_TRACE_MATCH_UNCERTIFIED",
-                      "NO_EVENTS_TO_COMPARE"].includes(x.status));
+   rows.every(x=>(x.status==="EVENT_TRACE_MATCH_UNCERTIFIED"||
+                  x.status==="NO_EVENTS_TO_COMPARE")&&
+                  Array.isArray(x.matchedCategoryEvents)&&
+                  x.matchedCategoryEvents.length===x.matchedEvents);
  const ids=new Set();
  const valid=[];
  let invalid=0;
