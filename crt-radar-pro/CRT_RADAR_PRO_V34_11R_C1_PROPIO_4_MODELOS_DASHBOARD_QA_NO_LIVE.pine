@@ -2420,18 +2420,18 @@ if barstate.islast
         if na(hiLine)
             hiLine := line.new(t1,displayCRH,t2,displayCRH,xloc=xloc.bar_time,color=ink,width=2)
             loLine := line.new(t1,displayCRL,t2,displayCRL,xloc=xloc.bar_time,color=ink,width=2)
-            hiLabel := label.new(t2,own.crh,"CRH "+displayFamily,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
-            loLabel := label.new(t2,own.crl,"CRL "+displayFamily,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+            hiLabel := label.new(t2,displayCRH,"CRH "+displayFamily,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
+            loLabel := label.new(t2,displayCRL,"CRL "+displayFamily,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)
         line.set_xy1(hiLine,t1,displayCRH)
         line.set_xy2(hiLine,t2,displayCRH)
         line.set_color(hiLine,ink)
         line.set_xy1(loLine,t1,displayCRL)
         line.set_xy2(loLine,t2,displayCRL)
         line.set_color(loLine,ink)
-        label.set_xy(hiLabel,t2,own.crh)
+        label.set_xy(hiLabel,t2,displayCRH)
         label.set_text(hiLabel,"CRH "+displayFamily)
         label.set_textcolor(hiLabel,ink)
-        label.set_xy(loLabel,t2,own.crl)
+        label.set_xy(loLabel,t2,displayCRL)
         label.set_text(loLabel,"CRL "+displayFamily)
         label.set_textcolor(loLabel,ink)
         if chartCoreC1 and showMssLines and not na(own.m5At) and not na(own.m5PivotAt) and own.m5PivotAt < own.m5At and not na(own.m5Level)
@@ -2502,18 +2502,19 @@ if barstate.islast
         bool ownCRTValid = (not qaPhase1NonBtc or chartBtcSymbol) and chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS
         bool m15CRTConfirmed = ownCRTValid and not na(own.m15At) and not na(own.m15PivotAt) and not na(own.m15Level) and not na(own.sweepAt) and own.m15PivotAt < own.sweepAt and own.m15At > own.sweepAt and f_m15_phase_ok(own.m15At, own.qaSourcePhaseMin) and not na(own.qaLastClosedM15At) and own.m15At <= own.qaLastClosedM15At
         bool ownExtraQA = chartAvailable and own.extraFamilyValid and not na(own.extraFamilyRatifiedAt) and not na(own.extraFamilyC1) and own.extraFamilyC1 > 0 and (own.extraFamilyDirection == 1 or own.extraFamilyDirection == -1)
-        bool ownAnyCRT = ownCRTValid or (showQAInList and ownExtraQA)
+        bool ownChartFamilyQA = chartExtraC1 and not ownCRTValid
+        bool ownAnyCRT = ownCRTValid or chartCoreC1 or ownChartFamilyQA
         bool ownFamilyM15QA = ownExtraQA and own.extraFamilyM15C1 == own.extraFamilyC1 and not na(own.extraFamilyM15Pivot) and not na(own.extraFamilyM15PivotAt) and not na(own.extraFamilySweepAt) and not na(own.extraFamilyM15At) and own.extraFamilyM15PivotAt < own.extraFamilySweepAt and own.extraFamilyM15At > own.extraFamilySweepAt and own.extraFamilyM15At <= own.qaLastClosedM15At
         // No atribuir MSS del CRT principal a Inside/Multi4 QA.
         // Activo abierto SIEMPRE en la primera fila, sin duplicados.
-        int ownDir = ownCRTValid ? own.direction : showQAInList and ownExtraQA ? own.extraFamilyDirection : 0
-        string ownState = ownCRTValid ? (ownDir > 0 ? "BULLISH" : "BEARISH") : showQAInList and ownExtraQA ? (ownDir > 0 ? "BULL QA" : "BEAR QA") : "—"
-        color ownInk = ownAnyCRT ? (ownDir > 0 ? posInk : negInk) : color.gray
+        int ownDir = chartCoreC1 ? own.direction : ownChartFamilyQA ? own.familyVisual.direction : 0
+        string ownState = ownCRTValid ? (ownDir > 0 ? "[2C] ALC" : "[2C] BAJ") : chartCoreC1 ? (ownDir > 0 ? "[2C QA] ALC" : "[2C QA] BAJ") : ownChartFamilyQA ? "[" + own.familyVisual.kind + "] " + (ownDir > 0 ? "ALC" : "BAJ") : "—"
+        color ownInk = ownCRTValid ? (ownDir > 0 ? posInk : negInk) : ownAnyCRT ? color.orange : color.gray
         string ownPDH = chartBtcSymbol ? (chartPdhState == "TAKEN" ? "T 1D" : chartPdhState == "INTACTO" ? "INT" : "N/D") : chartAvailable ? f_liqText(own.pdhStatus,own.pdhSweepAt,own.pdhSweepStage,own.pdhSweepC1,own.c1Start,own.crtC2Start) : "N/D"
         string ownPDL = chartBtcSymbol ? (chartPdlState == "TAKEN" ? "T 1D" : chartPdlState == "INTACTO" ? "INT" : "N/D") : chartAvailable ? f_liqText(own.pdlStatus,own.pdlSweepAt,own.pdlSweepStage,own.pdlSweepC1,own.c1Start,own.crtC2Start) : "N/D"
         // Mostrar el símbolo del gráfico solo cuando sea un CRT estructural H4 ratificado y vigente.
         table.cell(board,0,1,ownAnyCRT ? openName+" [G]" : "ESPERA CRT",bgcolor=shade,text_color=ownAnyCRT ? color.white : color.gray,text_size=size.tiny)
-        table.cell(board,1,1,showQAInList and ownExtraQA and not ownCRTValid ? (own.extraFamilyKind == "INSIDE QA" ? "INS QA " : own.extraFamilyKind == "MULTI-N QA" ? "MN QA " : "M4 QA ") + ownState : ownState,bgcolor=shade,text_color=ownInk,text_size=size.tiny)
+        table.cell(board,1,1,ownState,bgcolor=shade,text_color=ownInk,text_size=size.tiny)
         table.cell(board,2,1,ownCRTValid ? ownPDH : "—",bgcolor=shade,text_color=ownCRTValid ? (chartBtcSymbol ? f_liqColor(chartPdhState) : f_liqColor(own.pdhStatus)) : color.gray,text_size=size.tiny)
         table.cell(board,3,1,ownCRTValid ? ownPDL : "—",bgcolor=shade,text_color=ownCRTValid ? (chartBtcSymbol ? f_liqColor(chartPdlState) : f_liqColor(own.pdlStatus)) : color.gray,text_size=size.tiny)
         table.cell(board,4,1,ownCRTValid and not na(own.m5At) ? "✓" : "—",bgcolor=shade,text_color=ownCRTValid and not na(own.m5At) ? posInk : color.gray,text_size=size.small)
@@ -2532,16 +2533,21 @@ if barstate.islast
             bool sameAsChart = ticker.standard(sym) == ownStd
             bool slotScanned = scanAll or i == 7
             int st = array.get(statuses,i)
-            bool hasCRT = array.get(validCrtFlags,i)
             bool validMain = array.get(validCoreFlags,i)
+            bool qa2C = array.get(qaCoreObservedFlags,i)
+            int qaMask = array.get(qaCatalogPerFeed,i)
+            bool real3cQA = int(math.floor(qaMask / 1)) % 2 == 1 and not validMain and not qa2C
+            bool hasCRT = array.get(validCrtFlags,i) or qa2C or real3cQA
             string familyLabel = array.get(familyLabels,i)
-            if slotScanned and not sameAsChart and (allMode or validMain or (showQAInList and hasCRT))
+            if slotScanned and not sameAsChart and (allMode or hasCRT)
                 if passed >= offset and shown < othersOnPage
                     int r = shown+2
-                    int dir = array.get(directions,i)
+                    int signedC3 = array.get(qaTrue3CSignedBySlot,i)
+                    int dir = real3cQA and not na(signedC3) ? signedC3 > 0 ? 1 : -1 : qa2C ? array.get(qaObservedDirectionBySlot,i) : array.get(directions,i)
                     color rowbg = r % 2 == 0 ? navy : shade
-                    color dirInk = hasCRT ? (st == 3 ? color.silver : dir > 0 ? posInk : negInk) : color.gray
-                    string side = not hasCRT ? "—" : validMain ? (dir > 0 ? "BULLISH" : "BEARISH") : (familyLabel == "INSIDE QA" ? "IN QA " : familyLabel == "MULTI-N QA" ? "MN QA " : "M4 QA ") + (dir > 0 ? "BULL" : "BEAR")
+                    color dirInk = hasCRT ? (validMain ? (dir > 0 ? posInk : negInk) : color.orange) : color.gray
+                    string familyTag = validMain ? "[2C] " : qa2C ? "[2C QA] " : real3cQA ? "[3C QA] " : familyLabel == "INSIDE QA" ? "[INS QA] " : familyLabel == "MULTI-N QA" ? "[MN QA] " : "[M4 QA] "
+                    string side = not hasCRT ? "—" : familyTag + (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "DIR N/V")
                     table.cell(board,0,r,array.get(scanNames,i),bgcolor=rowbg,text_color=color.white,text_size=size.tiny)
                     table.cell(board,1,r,side,bgcolor=rowbg,text_color=dirInk,text_size=size.tiny)
                     int hFlag = array.get(pdhFlags,i)
@@ -3357,7 +3363,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
                     string stage = not feedOK ? "SIN FEED" : core ? "C3 ACT" : qaCore ? "C3 QA" : ownTrue3C ? "C3 CERR QA" : extra or structuralObservedQA ? "QA H4" : showRejectedDiagnostics ? catExpansion or catInsideContinuation ? "RECHAZO" : cat2 ? "PENDIENTE" : catRetest ? "QA MSS" : mask != 0 ? "QA" : "ESPERA" : "ESPERA"
                     string m5Text = core ? sameM5 ? "SI" : "NO" : qaCore ? sameM5 ? "QA SI" : "QA --" : ownTrue3C ? "N/V" : extra or structuralObservedQA ? "N/V" : "—"
                     string m15Text = core ? sameM15 ? "SI" : "NO" : qaCore ? sameM15 ? "QA SI" : "QA --" : ownTrue3C ? "N/V" : extra and array.get(extraM15Flags,i) == 1 ? "QA" : extra or structuralObservedQA ? "N/V" : "—"
-                    string dirText = core or qaCore or extra or structuralObservedQA ? dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "?" : "—"
+                    string dirText = core or qaCore or ownTrue3C or extra or structuralObservedQA ? dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "?" : "—"
                     color bg = rowIndex % 2 == 0 ? shade : navy
                     color textState = core ? posInk : qaCore or extra or structuralObservedQA or mask != 0 ? color.orange : color.gray
                     table.cell(board,0,rowIndex,array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
