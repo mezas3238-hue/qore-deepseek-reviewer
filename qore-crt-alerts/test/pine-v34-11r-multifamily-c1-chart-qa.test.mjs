@@ -57,7 +57,11 @@ test("chart lines AND labels use current chosen family C1; never old 2C values f
   "label.set_xy(hiLabel,t2,displayCRH)",
   "label.set_xy(loLabel,t2,displayCRL)",
   "chartCoreC1 and showMssLines",
-  "m15SwingAvailable = chartCoreC1 and showMssLines"
+  "bool extraOwnM15 = chartExtraC1 and showMssLines",
+  "own.extraFamilyC1 == own.familyVisual.c1Start",
+  "own.extraFamilyKind == own.familyVisual.kind",
+  "shownM15PivotAt = extraOwnM15 ? own.extraFamilyM15PivotAt : own.m15PivotAt",
+  "shownM15Price = extraOwnM15 ? own.extraFamilyM15Pivot : own.m15Level"
  ])assert.ok(s.includes(x),x);
  assert.ok(!s.includes('label.new(t2,own.crh'));
  assert.ok(!s.includes('label.set_xy(hiLabel,t2,own.crh)'));
