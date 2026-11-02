@@ -291,6 +291,7 @@ type Signal
     int qaH4LastBars
     int qaH4LastStartOffsetMin
     int qaH4LastEndOffsetMin
+    int qaLastM5PhaseMin
 
 // M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
 // M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
@@ -807,6 +808,7 @@ f_engine() =>
     // remain strict. This source-phase H4 is NEVER an approved NY :00 entry.
     bool qaNativeM5Plus1 = qaPhase1NonBtc and not isBTC and not na(barT) and minute(barT, TZ) % 5 == 1 and second(barT, TZ) == 0
     int bucketH4 = bucketH4NY + (qaNativeM5Plus1 ? 60000 : 0)
+    int qaLastM5PhaseMin = not na(barT) ? minute(barT, TZ) % 5 : na
 
     // QA: al aparecer una nueva M5 despues de un hueco, descartar
     // acumuladores y swings M15 de la cadena anterior. No permitir que
@@ -1828,7 +1830,7 @@ f_engine() =>
     bool categoryMultiCandle = extraMulti or extraMultiN
     bool categoryM15Retest = retestVisible
     int qaCatalogMask = (category3C ? 1 : 0) + (category2CPending ? 2 : 0) + (category2CExpansion ? 4 : 0) + (categoryInsideReturn ? 8 : 0) + (categoryInsideContinuation ? 16 : 0) + (categoryMultiCandle ? 32 : 0) + (categoryM15Retest ? 64 : 0)
-    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin)
+    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin, qaLastM5PhaseMin)
 
 // V34.10c QA: f_engine se ejecuta EN TODAS las M5 para preservar
 // acumuladores, pivotes, C1/C2/C3 y MSS. Solo se entrega la UDT
@@ -1955,6 +1957,7 @@ var array<int> auditFeedMN = array.new_int(34, 0)
 var array<int> auditFeedH4StartMis = array.new_int(34, 0)
 var array<int> auditFeedH4EndMis = array.new_int(34, 0)
 var array<int> auditFeedH4BarsMis = array.new_int(34, 0)
+var array<int> auditFeedPhaseMin = array.new_int(34, na)
 var array<int> auditFeedH4LastBars = array.new_int(34, na)
 var array<int> auditFeedH4StartShift = array.new_int(34, na)
 var array<int> auditFeedH4EndShift = array.new_int(34, na)
@@ -2051,6 +2054,7 @@ for i = 0 to 33
         array.set(auditFeedH4StartMis, i, available ? nz(s.qaH4BadStart, 0) : 0)
         array.set(auditFeedH4EndMis, i, available ? nz(s.qaH4BadEnd, 0) : 0)
         array.set(auditFeedH4BarsMis, i, available ? nz(s.qaH4BadBars, 0) : 0)
+        array.set(auditFeedPhaseMin, i, available ? s.qaLastM5PhaseMin : na)
         array.set(auditFeedH4LastBars, i, available ? s.qaH4LastBars : na)
         array.set(auditFeedH4StartShift, i, available ? s.qaH4LastStartOffsetMin : na)
         array.set(auditFeedH4EndShift, i, available ? s.qaH4LastEndOffsetMin : na)
@@ -2142,7 +2146,7 @@ string openName = f_name(syminfo.tickerid)
 bool visualChartAligned = timeframe.isintraday and (timeframe.multiplier == 5 or timeframe.multiplier == 15 or (timeframe.multiplier == 240 and chartAvailable and not na(own.nyH4Start) and own.nyH4Start == time))
 // A NY-anchored H4 CRT cannot be placed on a broker H4 chart whose candles
 // open at different timestamps. Use chart M5/M15 or an aligned H4 feed.
-bool visible = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and own.c1Start > 0 and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh >= own.crl and visualChartAligned
+bool visible = (not qaPhase1NonBtc or chartBtcSymbol) and chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and own.c1Start > 0 and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh >= own.crl and visualChartAligned
 plot(visible ? own.crh : na, "CRH actual", color=color.new(color.orange, 100), display=display.data_window)
 plot(visible ? own.crl : na, "CRL actual", color=color.new(color.orange, 100), display=display.data_window)
 // QA NY: estos valores son del motor M5, no de la H4 visual del broker.
@@ -2968,7 +2972,9 @@ if barstate.islast and showDashboard and showNonBtcCohortQA
                 string status33 = not responded33 ? "SIN FEED" : h4Count33 <= 0 ? "SIN H4" : badH433 >= h4Count33 ? "H4 BLOQ" : c1Count33 <= 0 ? "SIN C1" : array.get(auditFeed3C,i) > 0 ? "3C HIST" : array.get(auditFeed2C,i) > 0 ? "2C HIST" : "C1 LISTA"
                 color rowBg33 = rr % 2 == 0 ? shade : navy
                 table.cell(board,0,rr,array.get(scanNames,i),bgcolor=rowBg33,text_color=color.white,text_size=size.tiny)
-                table.cell(board,1,rr,cls33,bgcolor=rowBg33,text_color=color.gray,text_size=size.tiny)
+                int phase33 = array.get(auditFeedPhaseMin,i)
+                string clsWithPhase = cls33 + (not na(phase33) ? "+"+str.tostring(phase33) : "?")
+                table.cell(board,1,rr,clsWithPhase,bgcolor=rowBg33,text_color=qaPhase1NonBtc and phase33 == 1 ? color.orange : color.gray,text_size=size.tiny)
                 int badStart33 = array.get(auditFeedH4StartMis,i)
                 int badEnd33 = array.get(auditFeedH4EndMis,i)
                 int badBars33 = array.get(auditFeedH4BarsMis,i)
