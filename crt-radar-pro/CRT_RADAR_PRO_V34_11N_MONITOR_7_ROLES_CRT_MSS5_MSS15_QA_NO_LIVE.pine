@@ -1994,6 +1994,7 @@ var array<int> extraM15Flags = array.new_int(34, 0)
 var array<int> c1IDs = array.new_int(34, 0)
 var array<int> m5Times = array.new_int(34, 0)
 var array<int> m5PivotTimes = array.new_int(34, na)
+var array<int> qaObservedDirectionBySlot = array.new_int(34, 0)
 var array<int> qaSourcePhaseBySlot = array.new_int(34, na)
 var array<int> m15Times = array.new_int(34, 0)
 // V34.10u — Telemetria por feed usando el MISMO Signal del
@@ -2096,6 +2097,7 @@ for i = 0 to 33
         array.set(extraM15Flags, i, family15QA ? 1 : 0)
         array.set(m5Times, i, m5t)
         array.set(m5PivotTimes, i, available ? s.m5PivotAt : na)
+        array.set(qaObservedDirectionBySlot, i, available ? dr : 0)
         array.set(qaSourcePhaseBySlot, i, available ? s.qaSourcePhaseMin : na)
         array.set(m15Times, i, m15t)
         string hStatus = available ? s.pdhStatus : "N/D"
@@ -3158,6 +3160,8 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
         if scanAll or i == 7
             bool core = array.get(validCoreFlags,i)
             bool extra = array.get(validCrtFlags,i) and not core
+            int viewMask = array.get(qaCatalogPerFeed,i)
+            bool structuralObservedQA = not core and not extra and (int(math.floor(viewMask / 1)) % 2 == 1 or int(math.floor(viewMask / 8)) % 2 == 1 or int(math.floor(viewMask / 32)) % 2 == 1)
             int sweepT = array.get(qaSweepBySlot,i)
             int c1T = array.get(qaC1BySlot,i)
             int pivot5T = array.get(m5PivotTimes,i)
@@ -3173,7 +3177,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
                 currentStruct += 1
                 if sameM15
                     m15SameCycle += 1
-            else if extra
+            else if extra or structuralObservedQA
                 qaStructCount += 1
     int onPage = expandFull34 ? 10 : 2
     int visibleCount = expandFull34 ? nFeeds : currentStruct + qaStructCount
@@ -3181,6 +3185,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
     int pageNow = expandFull34 ? math.min(page,totalPages) : 1
     int visited = 0
     int drawn = 0
+    // Observed-but-unapproved 3C/Inside/Multi roles from 33 non-BTC remain orange QA.
     // Only active structural statuses are promoted into compact monitoring.
     // A QA structural family is orange even if it has an independent M15 QA.
     // For expanded 34 view, all seven catalog states remain inspectable.
@@ -3189,6 +3194,8 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
             bool requested = scanAll or i == 7
             bool core = array.get(validCoreFlags,i)
             bool extra = array.get(validCrtFlags,i) and not core
+            int viewMask = array.get(qaCatalogPerFeed,i)
+            bool structuralObservedQA = not core and not extra and (int(math.floor(viewMask / 1)) % 2 == 1 or int(math.floor(viewMask / 8)) % 2 == 1 or int(math.floor(viewMask / 32)) % 2 == 1)
             int sweepT = array.get(qaSweepBySlot,i)
             int c1T = array.get(qaC1BySlot,i)
             int pivot5T = array.get(m5PivotTimes,i)
@@ -3200,7 +3207,7 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
             bool cycleRoot = core and not na(c1T) and not na(sweepT) and sweepT > c1T
             bool sameM5 = cycleRoot and not na(pivot5T) and pivot5T < sweepT and break5T > sweepT and (not na(nativePhase) and nativePhase >= 0 and nativePhase <= 4 and break5T % MIN5 == nativePhase * 60000)
             bool sameM15 = cycleRoot and not na(pivot15T) and pivot15T < sweepT and break15T > sweepT and not na(close15T) and break15T <= close15T and f_m15_phase_ok(break15T, nativePhase)
-            bool selectedPriority = expandFull34 ? priority == 0 : priority == 0 ? core and sameM15 : priority == 1 ? core and not sameM15 : extra
+            bool selectedPriority = expandFull34 ? priority == 0 : priority == 0 ? core and sameM15 : priority == 1 ? core and not sameM15 : extra or structuralObservedQA
             bool visibleRow = requested and selectedPriority
             if visibleRow
                 if visited >= (pageNow-1)*onPage and drawn < onPage
@@ -3214,14 +3221,14 @@ if barstate.islast and showDashboard and compactMobile and userFocus7 and not sh
                     bool catMulti = int(math.floor(mask / 32)) % 2 == 1
                     bool catRetest = int(math.floor(mask / 64)) % 2 == 1
                     bool feedOK = array.get(auditFeedAvailable,i) == 1
-                    int dir = array.get(directions,i)
+                    int dir = core or extra ? array.get(directions,i) : structuralObservedQA ? array.get(qaObservedDirectionBySlot,i) : 0
                     string role = not feedOK ? "SIN FEED" : core ? cat3 ? "3C" : "2C RET" : extra ? array.get(familyLabels,i) : cat3 ? "3C QA" : catInsideReturn ? "INS RET QA" : catMulti ? "MULTI QA" : cat2 ? "2C*" : catExpansion ? "EXP RECH" : catInsideContinuation ? "INS RECH" : catRetest ? "RETEST QA" : "—"
-                    string stage = not feedOK ? "SIN FEED" : core ? "CRT H4" : extra ? "QA H4" : catExpansion or catInsideContinuation ? "RECHAZO" : cat2 ? "PENDIENTE" : catRetest ? "QA MSS" : mask != 0 ? "QA" : "ESPERA"
-                    string m5Text = not (core or extra) ? "—" : core ? sameM5 ? "SI" : "NO" : "N/V"
-                    string m15Text = not (core or extra) ? "—" : core ? sameM15 ? "SI" : "NO" : array.get(extraM15Flags,i) == 1 ? "QA" : "N/V"
-                    string dirText = core or extra ? dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "?" : "—"
+                    string stage = not feedOK ? "SIN FEED" : core ? "CRT H4" : extra or structuralObservedQA ? "QA H4" : catExpansion or catInsideContinuation ? "RECHAZO" : cat2 ? "PENDIENTE" : catRetest ? "QA MSS" : mask != 0 ? "QA" : "ESPERA"
+                    string m5Text = not (core or extra or structuralObservedQA) ? "—" : core ? sameM5 ? "SI" : "NO" : "N/V"
+                    string m15Text = not (core or extra or structuralObservedQA) ? "—" : core ? sameM15 ? "SI" : "NO" : extra and array.get(extraM15Flags,i) == 1 ? "QA" : "N/V"
+                    string dirText = core or extra or structuralObservedQA ? dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "?" : "—"
                     color bg = rowIndex % 2 == 0 ? shade : navy
-                    color textState = core ? posInk : extra or mask != 0 ? color.orange : color.gray
+                    color textState = core ? posInk : extra or structuralObservedQA or mask != 0 ? color.orange : color.gray
                     table.cell(board,0,rowIndex,array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
                     table.cell(board,1,rowIndex,role,bgcolor=bg,text_color=textState,text_size=size.tiny)
                     table.cell(board,2,rowIndex,dirText,bgcolor=bg,text_color=dir < 0 ? negInk : dir > 0 ? posInk : color.gray,text_size=size.tiny)
