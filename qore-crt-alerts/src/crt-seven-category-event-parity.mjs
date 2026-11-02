@@ -31,7 +31,7 @@ const nonlive=(status,extra={})=>Object.freeze({
  status,certified:false,actionable:false,sendPush:false,...extra
 });
 const sourceMatch=(x,f)=>x?.instrumentId===f.instrumentId&&x.provider===f.provider;
-function validM15(m,e,f,asOf,requiresRetest){
+function validM15(m,e,f,asOf,requiresRetest,sourcePhaseMin){
  if(!m)return false;
  if(!sourceMatch(m,f)||m.timeframe!=="M15"||
     m.c1StartMs!==e.c1StartMs||!ms(m.pivotAtMs)||
@@ -39,15 +39,15 @@ function validM15(m,e,f,asOf,requiresRetest){
     !ms(m.observedUntilMs)||!number(m.pivotPrice)||
     m.pivotAtMs>=m.sweepAtMs||m.sweepAtMs>=m.breakAtMs||
     m.breakAtMs>m.observedUntilMs||m.observedUntilMs>asOf||
-    m.breakAtMs%900000!==0||m.breakAtMs>e.eventAtMs+14400000)
+    m.breakAtMs%900000!==sourcePhaseMin*60000||m.breakAtMs>e.eventAtMs+14400000)
    return false;
  if(requiresRetest)
    return ms(m.retestAtMs)&&m.retestAtMs>m.breakAtMs&&
-     m.retestAtMs<=m.observedUntilMs&&m.retestAtMs%900000===0&&
+     m.retestAtMs<=m.observedUntilMs&&m.retestAtMs%900000===sourcePhaseMin*60000&&
      m.retestAtMs===e.eventAtMs;
  return m.retestAtMs===undefined||m.retestAtMs===null;
 }
-function normalize(events,snapshot,feed,asOf){
+function normalize(events,snapshot,feed,asOf,sourcePhaseMin){
  if(!Array.isArray(events))return {error:"EVENT_TRACE_MISSING"};
  if(events.length>300)return {error:"UNBOUNDED_EVENT_TRACE"};
  const canonical=[],seen=new Set();
@@ -59,7 +59,8 @@ function normalize(events,snapshot,feed,asOf){
      !ms(e.eventAtMs)||e.eventAtMs<=e.c1StartMs||
      e.eventAtMs>snapshot.windowEndMs||e.eventAtMs>asOf||
      e.c1StartMs<snapshot.windowStartMs||
-     e.c1StartMs%300000!==0||e.eventAtMs%300000!==0)
+     e.c1StartMs%300000!==sourcePhaseMin*60000||
+     e.eventAtMs%300000!==sourcePhaseMin*60000)
    return {error:"INVALID_EVENT_IDENTITY_OR_CAUSAL_TIME"};
   if(e.category==="CRT_MULTICANDLE"&&
      !["MULTI4","MULTI_N"].includes(e.variant))
@@ -74,10 +75,10 @@ function normalize(events,snapshot,feed,asOf){
        e.sweepAtMs>e.ratifiedAtMs)
       return {error:"INVALID_3C_RATIFICATION_OR_SWEEP"};
   }
-  if(e.category==="CRT_M15_RETEST"&&!validM15(e.mss15,e,feed,asOf,true))
+  if(e.category==="CRT_M15_RETEST"&&!validM15(e.mss15,e,feed,asOf,true,sourcePhaseMin))
    return {error:"RETEST_M15_CAUSAL_TRACE_MISSING"};
   if(e.category!=="CRT_M15_RETEST"&&e.mss15!==undefined&&e.mss15!==null&&
-      !validM15(e.mss15,e,feed,asOf,false))
+      !validM15(e.mss15,e,feed,asOf,false,sourcePhaseMin))
    return {error:"CROSS_CYCLE_OR_INVALID_M15"};
   const signature=[e.category,e.variant??"",e.direction,e.c1StartMs,
     e.eventAtMs].join("|");
@@ -117,8 +118,15 @@ export function compareSevenCrtEventTraces34(input={}){
   }
   const feed=feeds.get(row.slot),pine=pines.get(row.slot),
    lab=labs.get(row.slot);
-  const p=normalize(pine.events,pine,feed,input.asOf);
-  const l=normalize(lab.events,lab,feed,input.asOf);
+  const sourcePhaseMin=row.sourcePhaseMin;
+  if(!Number.isSafeInteger(sourcePhaseMin)||sourcePhaseMin<0||sourcePhaseMin>4){
+   results.push(nonlive("INVALID_OR_MISSING_SOURCE_PHASE",{
+    slot:row.slot,symbol:row.symbol
+   }));
+   continue;
+  }
+  const p=normalize(pine.events,pine,feed,input.asOf,sourcePhaseMin);
+  const l=normalize(lab.events,lab,feed,input.asOf,sourcePhaseMin);
   if(p.error||l.error){
    results.push(nonlive("INVALID_OR_MISSING_EVENT_TRACE",{
     slot:row.slot,symbol:row.symbol,
