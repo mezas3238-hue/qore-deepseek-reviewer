@@ -10,7 +10,7 @@ const rows=Array.from({length:34},(_,i)=>({
  sourcePhaseMin:i===7?0:i===3?2:1,
  candleSha256:sha,status:"EVENT_TRACE_MATCH_UNCERTIFIED",matchedEvents:1
 }));
-const audit={comparedSlots:34,matchedSlots:34,matchedEvents:34,
+const audit={comparedSlots:34,matchedSlots:34,matchedEvents:8,
  coveredCategories:SEVEN_CRT_ROLES.map(x=>x.id),results:rows,
  certified:false,actionable:false,sendPush:false};
 function control(role,slot,controlType,variant){
@@ -20,7 +20,8 @@ function control(role,slot,controlType,variant){
   category:role.id,slot,controlType,variant,
   instrumentId:row.symbol,provider:row.provider,
   sourcePhaseMin:row.sourcePhaseMin,candleSha256:sha,
-  eventAtMs:at,actionable:false,sendPush:false,
+  eventAtMs:at,c1StartMs:t+row.sourcePhaseMin*60000,direction:1,
+  actionable:false,sendPush:false,
   pineEvidenceId:"PINE_FIXTURE/"+role.id+"/"+slot,
   labEvidenceId:"LAB_FIXTURE/"+role.id+"/"+slot,
   pineObserved:controlType==="POSITIVE",labObserved:controlType==="POSITIVE"
@@ -41,6 +42,24 @@ const good=SEVEN_CRT_ROLES.flatMap((role,i)=>{
    control(role,slot,"NEGATIVE")]:
   [control(role,slot,"POSITIVE"),control(role,slot,"NEGATIVE")];
 });
+// The read-only audit must prove a POSITIVE on the EXACT slot and cycle.
+// Neither a global mask nor a category observed in another market suffices.
+// MULTI4/MULTI_N are distinct matched events on the same slot.
+for(const row of rows){
+ row.matchedCategoryEvents=good
+  .filter(x=>x.slot===row.slot&&x.controlType==="POSITIVE")
+  .map(x=>({
+   category:x.category,variant:x.variant??null,
+   eventAtMs:x.eventAtMs,c1StartMs:x.c1StartMs,direction:x.direction,
+   mss15:x.mss15?{
+    pivotAtMs:x.mss15.pivotAtMs,sweepAtMs:x.mss15.sweepAtMs,
+    breakAtMs:x.mss15.breakAtMs,retestAtMs:x.mss15.retestAtMs
+   }:null
+  }));
+ row.matchedEvents=row.matchedCategoryEvents.length;
+ row.status=row.matchedEvents?
+  "EVENT_TRACE_MATCH_UNCERTIFIED":"NO_EVENTS_TO_COMPARE";
+}
 const run=(controlCases=good,eventAudit=audit)=>assessSevenCrtReadiness({
  eventAudit,controlCases
 });
@@ -126,4 +145,50 @@ test("Forged positive/negative results and duplicate evidence ids cannot satisfy
  assert.throws(()=>run([...good,good[0]]),/DUPLICATE_OR_MISSING_CONTROL_ID/);
  const act=good.map((x,i)=>i===0?{...x,actionable:true}:x);
  assert.equal(run(act).invalidControlCases,1);
+});
+
+test("Global positive category cannot pass if event is only on another feed",()=>{
+ const slot=4,role=SEVEN_CRT_ROLES[3];
+ const falsePositive=good.map(x=>x.category===role.id&&
+   x.controlType==="POSITIVE"?{...x,slot:5,
+    instrumentId:rows[4].symbol,provider:rows[4].provider,
+    sourcePhaseMin:rows[4].sourcePhaseMin}:x);
+ const result=run(falsePositive);
+ assert.equal(result.invalidControlCases,1);
+ assert.ok(result.categoryReports.find(x=>x.category===role.id)
+  .missing.includes("INDEPENDENT_POSITIVE_CONTROL"));
+ assert.equal(result.certified,false);
+});
+test("Same slot, same category but wrong eventAtMs/C1 cycle/direction is rejected",()=>{
+ const chosen=good.find(x=>x.category==="CRT_3C_REVERSAL"&&x.controlType==="POSITIVE");
+ for(const patch of [
+  {eventAtMs:chosen.eventAtMs+300000},
+  {c1StartMs:chosen.c1StartMs+300000},
+  {direction:-1}
+ ]){
+  const replaced=good.map(x=>x===chosen?{...x,...patch}:x);
+  const result=run(replaced);
+  assert.equal(result.invalidControlCases,1);
+  assert.ok(result.categoryReports[0].missing.includes("INDEPENDENT_POSITIVE_CONTROL"));
+ }
+});
+test("Single Multi4 matched event cannot certify the Multi-N subtype",()=>{
+ const changedRows=rows.map(x=>x.slot===6?{
+  ...x,matchedEvents:1,
+  matchedCategoryEvents:x.matchedCategoryEvents.filter(e=>e.variant==="MULTI4")
+ }:x);
+ const result=run(good,{...audit,results:changedRows,matchedEvents:7});
+ assert.equal(result.readyForExternalReview,6);
+ const multi=result.categoryReports.find(x=>x.category==="CRT_MULTICANDLE");
+ assert.ok(multi.missing.includes("MULTI4_AND_MULTI_N_POSITIVE_CONTROLS"));
+ assert.equal(result.invalidControlCases,1);
+});
+test("Positive retest must correspond to the exact same causal M15 pivot and sweep",()=>{
+ const positive=good.find(x=>x.category==="CRT_M15_RETEST"&&x.controlType==="POSITIVE");
+ const changed=good.map(x=>x===positive?
+  {...x,mss15:{...x.mss15,pivotAtMs:x.mss15.pivotAtMs-900000}}:x);
+ const r=run(changed);
+ assert.equal(r.invalidControlCases,1);
+ assert.ok(r.categoryReports.find(x=>x.category==="CRT_M15_RETEST")
+  .missing.includes("INDEPENDENT_POSITIVE_CONTROL"));
 });
