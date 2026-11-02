@@ -68,4 +68,31 @@ class NotificationPolicyTest {
                 "FIXTURE|EURUSD|1793304000000|1|MSS_M15|1793351700000"), true).reason)
     }
 
+    @Test fun nativeM5PhaseZeroThroughFourIsRecognizedWithoutEnablingQaPush() {
+        val c1 = 1793336400000L
+        val m15 = 1793351700000L
+        for (minutes in 0..4) {
+            val phase = minutes * 60_000L
+            val id = "FIXTURE|EURUSD|${c1 + phase}|1|MSS_M15|${m15 + phase}"
+            val payload = valid() + mapOf(
+                "eventId" to id,
+                "mssAtMs" to (m15 + phase).toString()
+            )
+            // Parser contracts can validate phase on a hypothetical future
+            // approved build, while the ACTUAL QA BuildConfig is always OFF.
+            assertTrue("phase $minutes", NotificationPolicy.evaluate(payload, true).accepted)
+            assertEquals("BUILD_LOCKED", NotificationPolicy.evaluate(
+                payload, BuildConfig.STAGING_NOTIFICATIONS_ENABLED
+            ).reason)
+            assertEquals("INVALID_TIME", NotificationPolicy.evaluate(payload + (
+                "mssAtMs" to (m15 + phase + 60_000L).toString()
+            ), true).reason)
+            val wrongCycle = id.replace((c1 + phase).toString(),
+                (c1 + ((minutes + 1) % 5) * 60_000L).toString())
+            assertEquals("INVALID_TIME", NotificationPolicy.evaluate(
+                payload + ("eventId" to wrongCycle), true
+            ).reason)
+        }
+    }
+
 }
