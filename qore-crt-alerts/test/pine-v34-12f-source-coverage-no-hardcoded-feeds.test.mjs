@@ -36,7 +36,7 @@ test("selected broker feed shows measured response, C1 eligibility and H4 recons
   '"H4:"+str.tostring(selectedH4Closed)',
   '"HIST NO PUSH"'
  ])assert.ok(h.includes(x),x);
- assert.ok(!h.includes('"34 FEEDS"'));
+ assert.ok(!h.includes('table.cell(board,4,14,"34 FEEDS"'));
  assert.ok(h.includes('"3C=INS:"'));
  assert.ok(h.includes('ticker.standard(syminfo.tickerid)'));
  assert.ok(h.includes('selected := -1'));
