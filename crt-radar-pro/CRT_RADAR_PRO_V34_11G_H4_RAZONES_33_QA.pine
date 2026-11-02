@@ -2992,6 +2992,27 @@ if barstate.islast and showDashboard and showNonBtcCohortQA
     table.cell(board,3,7,scanAll and array.get(auditFeedAvailable,7) == 1 ? str.tostring(array.get(auditFeedC1,7)) : "N/D",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
     table.cell(board,4,7,"NO CERT",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
     table.cell(board,5,7,"NO PUSH",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+    // Automatically inspect the chart's exact source if it exists in the 33.
+    // BTC slot 8 is never mixed into this diagnostic.
+    int chartSlot33 = -1
+    for i = 0 to 33
+        if i != 7 and ticker.standard(array.get(scanSymbols,i)) == ownStd
+            chartSlot33 := i
+            break
+    int traceSlot33 = chartSlot33 >= 0 ? chartSlot33 : qaEventSlot-1
+    bool traceAllowed33 = traceSlot33 != 7 and scanAll and array.get(auditFeedAvailable,traceSlot33) == 1
+    table.cell(board,0,8,"H4 ULT M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,1,8,"# M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,2,8,"INICIO Δm",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,3,8,"FIN Δm",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,4,8,"FEED",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,5,8,"MODO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+    table.cell(board,0,9,traceAllowed33 ? array.get(scanNames,traceSlot33) : "SIN QA",bgcolor=shade,text_color=color.aqua,text_size=size.tiny)
+    table.cell(board,1,9,traceAllowed33 and not na(array.get(auditFeedH4LastBars,traceSlot33)) ? str.tostring(array.get(auditFeedH4LastBars,traceSlot33)) : "N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+    table.cell(board,2,9,traceAllowed33 and not na(array.get(auditFeedH4StartShift,traceSlot33)) ? str.tostring(array.get(auditFeedH4StartShift,traceSlot33)) : "N/D",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+    table.cell(board,3,9,traceAllowed33 and not na(array.get(auditFeedH4EndShift,traceSlot33)) ? str.tostring(array.get(auditFeedH4EndShift,traceSlot33)) : "N/D",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+    table.cell(board,4,9,traceAllowed33 ? array.get(scanSymbols,traceSlot33) : "N/D",bgcolor=shade,text_color=color.white,text_size=size.tiny)
+    table.cell(board,5,9,traceAllowed33 ? chartSlot33 >= 0 ? "AUTO" : "MANUAL" : "BTC APARTE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
     // Deep inspect an individual slot using the existing per-slot QA table:
     // no data is sampled from the visible chart's timeframe.
     // Offsets below capture the LAST closed H4 of the same M5 source.
