@@ -6,7 +6,7 @@ const strictPrices=x=>typeof x==="number"&&Number.isFinite(x);
 const H4MS=14_400_000;
 
 export function auditTraderLab34Preflight(manifest){
-  if(!manifest||manifest.schema!=="qore.crt.trader_lab_34.source_preflight.v1"||
+  if(!manifest||manifest.schema!=="qore.crt.trader_lab_34.source_preflight.v2"||
     !Array.isArray(manifest.source_catalog))throw Error("unknown preflight manifest");
   const items=manifest.source_catalog;
   const reasons=[];
@@ -15,18 +15,28 @@ export function auditTraderLab34Preflight(manifest){
     items.some((x,i)=>x.slot!==i+1))reasons.push("SLOT_IDENTITY_MISMATCH");
   if(new Set(items.map(x=>x.source_symbol)).size!==items.length)
     reasons.push("DUPLICATED_SOURCE_SYMBOL");
-  const present=items.filter(x=>x.status==="ARTIFACT_METADATA_VERIFIED"&&!x.artifact?.expired);
-  const missing=items.filter(x=>x.status!=="ARTIFACT_METADATA_VERIFIED");
+  const present=items.filter(x=>x.status==="ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED"&&!x.artifact?.expired);
+  const missing=items.filter(x=>x.status!=="ARCHIVE_METADATA_PRESENT_CONTENT_UNOPENED");
   for(const x of present){
     if(!Number.isSafeInteger(x.artifact?.artifact_id)||!Number.isSafeInteger(x.artifact?.run_id)||
        !x.artifact?.expires_at||!x.artifact?.source_symbol||
+       !/^sha256:[a-f0-9]{64}$/.test(x.artifact?.archive_sha256||"")||
+       !/^[a-f0-9]{40}$/.test(x.artifact?.capture_head_sha||"")||
        x.artifact.source_symbol!==x.source_symbol)
        reasons.push("UNTRUSTED_ARTIFACT_METADATA:"+x.source_symbol);
   }
   if(missing.length)reasons.push("MISSING_SOURCE:"+missing.map(x=>x.source_symbol).join(","));
-  if(items.some(x=>x.tv_provider!==x.source_provider &&
-     x.status==="ARTIFACT_METADATA_VERIFIED"))
+  if(present.some(x=>x.broker_to_tradingview_price_parity_verified!==true))
     reasons.push("PROVIDER_PARITY_NOT_ESTABLISHED");
+  if(present.some(x=>x.artifact.run_id===35166210458 &&
+     (x.provider_account_exactly_verified!==false||
+      x.source_provider!=="CTRADER_DEMO_ATLAS_BROKER_UNVERIFIED")))
+    reasons.push("ATLAS_ORIGIN_MISREPRESENTED");
+  if(present.filter(x=>x.artifact.run_id===35166210458).length!==12 ||
+     present.filter(x=>x.artifact.run_id===38193802541).length!==21)
+    reasons.push("ARCHIVE_COHORT_COMPOSITION_DRIFTED");
+  if(present.some(x=>x.artifact.run_id===35166210458))
+    reasons.push("ATLAS_EXACT_BROKER_ORIGIN_UNVERIFIED");
   if(!manifest.data_license_verified)reasons.push("LICENSE_NOT_VERIFIED");
   if(!manifest.holdout_period_frozen)reasons.push("HOLDOUT_NOT_PREREGISTERED");
   if(!manifest.immutable_methodology_binding||
@@ -37,13 +47,15 @@ export function auditTraderLab34Preflight(manifest){
     reasons.push("PREREGISTRATION_SIGNATURE_MISSING");
   if(items.some(x=>!x.holdout_sealed || x.role!=="UNSEEN_FROZEN_HOLDOUT"))
     reasons.push("HOLDOUT_IS_NOT_INDEPENDENT");
-  if(items.some(x=>x.status==="ARTIFACT_METADATA_VERIFIED" &&
-     (!SHA256.test(x.data_sha256||"")||!x.content_start_utc||!x.content_end_utc)))
+  if(present.some(x=>!SHA256.test(x.data_sha256||"")||
+     !x.content_start_utc||!x.content_end_utc||!x.source_content_attested))
     reasons.push("PRICE_CONTENT_DIGEST_OR_WINDOW_UNVERIFIED");
   return Object.freeze({
     kind:"QORE_TRADER_LAB_CRT34_PREFLIGHT",
     examined:items.length,
     metadata_present:present.length,
+    atlas_source_accounts_unverified:present.filter(x=>x.artifact.run_id===35166210458).length,
+    ic_markets_catalog_verified_metadata:present.filter(x=>x.artifact.run_id===38193802541).length,
     missing_sources:Object.freeze(missing.map(x=>x.source_symbol)),
     reasons:Object.freeze([...new Set(reasons)]),
     verdict:reasons.length?"BLOCKED_HOLDOUT":"READY_TO_REQUEST_PRIVATE_REPLAY",
