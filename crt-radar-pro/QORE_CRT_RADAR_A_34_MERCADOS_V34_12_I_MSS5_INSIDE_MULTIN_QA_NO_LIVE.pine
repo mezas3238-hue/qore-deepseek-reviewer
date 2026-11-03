@@ -2555,8 +2555,12 @@ f_renderRadarDashboard() =>
             bool multiObserved = requested and not core and not qaCore and int(math.floor(mask / 32)) % 2 == 1
             bool otherStructural = (true3c or extra or insideObserved or multiObserved) and not core and not qaCore
             [m5,m15] = f_monitorOwnMss(i)
-            bool extraM15 = extra and array.get(extraM15Flags,i) == 1
-            bool extraM5 = extra and array.get(extraM5Flags,i) == 1
+            // TRUE 3C has priority in visible QA role. Its MSS5/15
+            // are N/V until owned by its distinct C1/sweep. Never
+            // borrow Inside/Multi-N MSS under a 3C TRUE label.
+            bool extraDisplayed = extra and not true3c
+            bool extraM15 = extraDisplayed and array.get(extraM15Flags,i) == 1
+            bool extraM5 = extraDisplayed and array.get(extraM5Flags,i) == 1
             int rank = not requested ? 5 : (core or qaCore) ? (m5 and m15 ? 0 : m15 ? 1 : m5 ? 2 : 3) : extraM5 and extraM15 ? 0 : extraM15 ? 1 : extraM5 ? 2 : otherStructural ? 4 : 5
             array.set(rankBySlot,i,rank)
             array.set(ownM5BySlot,i,m5)
@@ -2606,8 +2610,10 @@ f_renderRadarDashboard() =>
                         bool feedOK = array.get(auditFeedAvailable,i) == 1
                         bool ownM5 = array.get(ownM5BySlot,i)
                         bool ownM15 = array.get(ownM15BySlot,i)
-                        bool ownExtraM15 = extra and array.get(extraM15Flags,i) == 1
-                        bool ownExtraM5 = extra and array.get(extraM5Flags,i) == 1
+                        // Match dashboard priority: do not show an
+                        // auxiliary-family MSS beside TRUE 3C.
+                        bool ownExtraM15 = extra and not true3c and array.get(extraM15Flags,i) == 1
+                        bool ownExtraM5 = extra and not true3c and array.get(extraM5Flags,i) == 1
                         bool coreC1Ready = array.get(qaCoreC1ReadyBySlot,i)
                         bool otherC1Ready = array.get(qaOtherC1ReadyBySlot,i)
                         string otherC1Kind = array.get(qaOtherC1KindBySlot,i)
