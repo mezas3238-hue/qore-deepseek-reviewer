@@ -55,15 +55,15 @@ test("M5 break only AFTER frozen pre-sweep pivot, closed contiguous M5 and withi
  for(const expected of ["previousM5Continuous","own5.pivot5At < own5.sweepAt","barT >= own5.sweepAt","barEnd <= own5.sweepH4Start + 2 * H4MS","prevClose <= own5.pivot5","prevClose >= own5.pivot5","own5.mss5At := barEnd","not ownN5.doubleSweep","ownN5.pivot5At < ownN5.sweepAt","bucketH4 == ownN5.terminalH4Start","ownN5.mss5At := barEnd"])assert.ok(s.includes(expected),expected);
  assert.ok(radar.includes("extraMss5Causal ? extraC1 : na"));
  assert.ok(radar.includes("extraSelectInside or extraSelectMultiN"));
- assert.ok(radar.includes("bool extraDisplayed = extra and (not true3c or array.get(qaExtraKindBySlot,i) == \\"3C TRUE QA\\")"));
- assert.ok(radar.includes("bool ownExtraM15 = extra and not true3c"));
+ assert.ok(radar.includes('bool extraDisplayed = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")'));
+ assert.ok(radar.includes('bool ownExtraM15 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")'));
  // Coincident 3C TRUE and INSIDE must not display INSIDE's MSS as 3C.
- assert.ok(radar.includes("bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == \\"3C TRUE QA\\")"));
+ assert.ok(radar.includes('bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")'));
  assert.ok(radar.includes("extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000"));
  assert.ok(!radar.includes("qaMulti4Mss5At"));
 });
 test("Radar displays QA SI for M5 only on same-family cause, not true3C or Multi4 inferred",()=>{
- for(const expected of ["var array<int> extraM5Flags =","bool family5QA = extraValidQA","s.extraFamilyM5C1 == s.extraFamilyC1","s.extraFamilyM5PivotAt < s.extraFamilySweepAt","s.extraFamilyM5At > s.extraFamilySweepAt","array.set(extraM5Flags, i, family5QA ? 1 : 0)","bool ownExtraM5 = extra and not true3c and array.get(extraM5Flags,i) == 1","ownExtraM5 ? \"QA SI\"","extraM5 and extraM15 ? 0"]){assert.ok(radar.includes(expected),expected);}
+ for(const expected of ["var array<int> extraM5Flags =","bool family5QA = extraValidQA","s.extraFamilyM5C1 == s.extraFamilyC1","s.extraFamilyM5PivotAt < s.extraFamilySweepAt","s.extraFamilyM5At > s.extraFamilySweepAt","array.set(extraM5Flags, i, family5QA ? 1 : 0)",'bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM5Flags,i) == 1',"ownExtraM5 ? \"QA SI\"","extraM5 and extraM15 ? 0"]){assert.ok(radar.includes(expected),expected);}
 });
 test("Chart B draws extra M5 level only when same family & same C1 as its C1 lines",()=>{
  const s=between(chart,"bool extraOwnM5 =","// Visual independiente:");
