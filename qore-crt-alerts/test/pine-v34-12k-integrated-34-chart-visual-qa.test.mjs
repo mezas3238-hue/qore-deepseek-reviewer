@@ -56,7 +56,7 @@ test("Native feed phase is QA by default ONLY in integrated candidate, strict RA
  assert.ok(combined.includes('bool observedCoreQA = structuralCoreObserved and not scanCrtValid'));
  assert.ok(combined.includes('role = not feedOK ? "SIN FEED" : core ? "2C RAT" : qaCore ? "2C QA"'));
  assert.ok(combined.includes('displayFamily = chartCoreC1 ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA")'));
- assert.ok(!/\\balert\\s*\\(|\\balertcondition\\s*\\(/.test(combined));
+ assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(combined));
 });
 test("H-K2 is refuted: M15 swing history is cleared at M5 gaps before Multi4, no stale Friday pivots",()=>{
  const reset=engine(combined).slice(engine(combined).indexOf('if (na(qaExtraM5SegmentStart) or not previousM5Continuous)'),engine(combined).indexOf('// ---- CERRAR M15 ANTERIOR ----'));
@@ -69,5 +69,5 @@ test("H-K2 is refuted: M15 swing history is cleared at M5 gaps before Multi4, no
 test("historical window documents 600 not 1500, indicator still 34 slots",()=>{
  assert.ok(combined.includes("this feed's 600-bar M5 lookback"));
  assert.ok(!combined.includes("this feed's 1500-bar M5 lookback"));
- assert.equal([...combined.matchAll(/^s\\d\\d = input\\.symbol\\(/gm)].length,34);
+ assert.equal([...combined.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
 });
