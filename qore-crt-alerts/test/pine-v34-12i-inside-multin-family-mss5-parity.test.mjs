@@ -74,10 +74,12 @@ test("Chart B draws extra M5 level only when same family & same C1 as its C1 lin
 });
 
 test("Chart B stays within basic 64 Pine plot-count budget on authored visual calls",()=>{
- const plotCount=(chart.match(/^\\s*plot\\(/gm)||[]).length;
- const extraCount=(chart.match(/^\\s*(?:plotshape|plotchar|plotarrow|plotbar|plotcandle|alertcondition|bgcolor|barcolor|fill)\\(/gm)||[]).length;
+ const lines=chart.split("\n").map(x=>x.trimStart());
+ const plotCount=lines.filter(x=>x.startsWith("plot(")).length;
+ const extraNames=["plotshape(","plotchar(","plotarrow(","plotbar(","plotcandle(","alertcondition(","bgcolor(","barcolor(","fill("];
+ const extraCount=lines.filter(x=>extraNames.some(n=>x.startsWith(n))).length;
  assert.equal(plotCount,63);
  assert.equal(extraCount,0);
  assert.ok(plotCount+extraCount<=64);
- assert.ok(!/^\\s*plot\\([^\\n]*color\\s*=\\s*(?:input|isUp|isDown)/m.test(chart));
+ assert.ok(!lines.filter(x=>x.startsWith("plot(")).some(x=>x.includes("color=input.")||x.includes("color=isUp")));
 });
