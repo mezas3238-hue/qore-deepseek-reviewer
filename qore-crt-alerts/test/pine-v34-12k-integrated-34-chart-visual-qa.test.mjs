@@ -126,3 +126,42 @@ test("V34.12N remains offline QA no new request, no motor/MSS changes or live pr
  assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
  assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(combined));
 });
+
+test("V34.12N PDH/PDL exported for ALL valid sessions via Signal constructor positions 44-46",()=>{
+ const declaration=combined.slice(combined.indexOf("type Signal\n")+"type Signal\n".length,combined.indexOf("\n//",combined.indexOf("type Signal\n")));
+ const fields=declaration.split("\n").map(line=>line.match(/^\s+(?:int|float|bool|string|FamilyVisual)\s+(\w+)/)).filter(Boolean).map(match=>match[1]);
+ const argsLine=combined.split("\n").find(line=>line.trim().startsWith("Signal.new("));
+ assert.ok(argsLine,"Signal constructor exists");
+ const args=argsLine.trim().slice("Signal.new(".length,-1).split(",").map(x=>x.trim());
+ assert.equal(fields.length,132);
+ assert.equal(args.length,132);
+ for(const [name,position,value] of [
+  ["pdhStatus",15,"outPdhStatus"],["pdlStatus",16,"outPdlStatus"],
+  ["nyPDH",44,"hasLiquidityRef ? prev_PDH : na"],
+  ["nyPDL",45,"hasLiquidityRef ? prev_PDL : na"],
+  ["nyPDHReferenceAt",46,"hasLiquidityRef ? prev_timestamp : na"]]){
+   assert.equal(fields[position-1],name,name+" Signal field at "+position);
+   assert.equal(args[position-1],value,name+" value at "+position);
+ }
+ const f=engine(combined);
+ assert.ok(f.includes("if isBTC"));
+ assert.ok(f.includes("else\n        // Sesiones originales de Forex e indices: no alterarlas."));
+ assert.ok(f.includes("prev_PDH := curr_H"));
+ assert.ok(f.includes("prev_PDL := curr_L"));
+ assert.ok(f.includes("bool hasLiquidityRef = prev_valid and not na(prev_timestamp) and not na(prev_PDH) and not na(prev_PDL)"));
+ assert.ok(combined.includes("own.nyPDH > own.nyPDL"));
+ assert.ok(combined.includes('own.pdhStatus != "N/D"'));
+ assert.ok(combined.includes('own.pdlStatus != "N/D"'));
+});
+test("M15 pivots and Multi4 candidates never bridge a gap M5; H-K2 friday pivots cannot survive",()=>{
+ const f=engine(combined);
+ const from=f.indexOf("if (na(qaExtraM5SegmentStart) or not previousM5Continuous)");
+ const to=f.indexOf("// ---- CERRAR M15 ANTERIOR ----",from);
+ assert.ok(from>=0 && to>from);
+ const reset=f.slice(from,to);
+ for(const gate of ["array.clear(highs15)","array.clear(lows15)","array.clear(times15)",
+  "lastHigh15 := na","lastLow15 := na","lastHigh15At := na","lastLow15At := na",
+  "array.clear(qaMulti4MssCandidates)"]) assert.ok(reset.includes(gate),gate);
+ assert.ok(f.includes("lastHigh15At >= qaExtraM5SegmentStart"));
+ assert.ok(f.includes("lastLow15At >= qaExtraM5SegmentStart"));
+});
