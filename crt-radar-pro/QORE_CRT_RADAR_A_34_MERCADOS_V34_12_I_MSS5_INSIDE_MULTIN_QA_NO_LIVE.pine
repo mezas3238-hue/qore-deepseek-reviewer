@@ -375,6 +375,23 @@ type MultiNMssCandidate
     int pivot5At
     int mss5At
 
+// 3C TRUE QA: solo esta C1 y esta C3 son dueñas de sus pivotes.
+// La observacion solo se publicara si C3 completa ratifica su geometria.
+type True3CMssCandidate
+    int c1Start
+    int c3Start
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+
 // M5A INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
 // Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
 // QA multi-candle: solo OHLC de 4 velas H4 CERRADAS.
@@ -835,6 +852,8 @@ f_engine() =>
     var int qaLastCandidate2CAt = na
     var int qaLastCandidate2CCycle = na
     var int qaTrue3CSignedAt = na
+    var True3CMssCandidate qaTrue3CPending = na
+    var True3CMssCandidate qaTrue3CConfirmed = na
     var int qaLastRatified2CAt = na
     var int qaLastRejectedExpansionAt = na
     var int qaLastConfirmed3CAt = na
@@ -909,6 +928,8 @@ f_engine() =>
         qaMultiNPivot15 := na
         qaMultiNPivot15At := na
         qaMultiNSweepAt := na
+        // La barrida 3C nunca puede cruzar una discontinuidad M5.
+        qaTrue3CPending := na
         if array.size(insideCandidates) > 0
             for z = 0 to array.size(insideCandidates) - 1
                 InsideCandidate stale = array.get(insideCandidates, z)
@@ -996,6 +1017,14 @@ f_engine() =>
                 bool crossedRatifiedMulti = qaMultiNDir == 1 ? m15Close > qaMultiNPivot15 and prev15Close <= qaMultiNPivot15 : qaMultiNDir == -1 ? m15Close < qaMultiNPivot15 and prev15Close >= qaMultiNPivot15 : false
                 if eligibleRatifiedMulti and crossedRatifiedMulti
                     qaMultiNMss15At := closed15At
+                // 3C TRUE: pivote M15 PRE-barrida propio, cierre de TRES
+                // M5 del proveedor, nunca una confirmacion prestada del 2C.
+                if not na(qaTrue3CPending)
+                    True3CMssCandidate q3 = qaTrue3CPending
+                    bool eligible3M15 = q3.direction != 0 and not q3.doubleSweep and not na(q3.sweepAt) and not na(q3.pivot15) and not na(q3.pivot15At) and q3.pivot15At < q3.sweepAt and na(q3.mss15At) and closed15At > q3.sweepAt and closed15At <= q3.c3Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool crossed3M15 = q3.direction == 1 ? m15Close > q3.pivot15 and prev15Close <= q3.pivot15 : q3.direction == -1 ? m15Close < q3.pivot15 and prev15Close >= q3.pivot15 : false
+                    if eligible3M15 and crossed3M15
+                        q3.mss15At := closed15At
                 // QA RETEST M15: nunca disparar en la misma barra MSS,
                 // ni por una M5, ni reusar el pivote de un CRT distinto.
                 int qaCycle = c3Active ? c1Start3 : c2Active ? c1Start2 : na
@@ -1203,6 +1232,7 @@ f_engine() =>
                 qaMultiNAt := na
                 qaMultiNC1 := na
                 qaMultiNDir := 0
+                qaTrue3CPending := na
             else
                 array.push(qaMultiNHistory, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
                 if array.size(qaMultiNHistory) > 7
@@ -1230,6 +1260,22 @@ f_engine() =>
                         // Structural evidence only: MSS5/15 remain UNVERIFIED
                         // until first sweep and pivots are recorded separately.
                         qaTrue3CSignedAt := (c3LowRaid ? 1 : -1) * trueC3.endAt
+                        // Aceptar solo el mismo C1 y C3, tras evidencia M5
+                        // cerrada y sin barrida contraria; si falta, queda N/V.
+                        if not na(qaTrue3CPending)
+                            True3CMssCandidate owned3 = qaTrue3CPending
+                            int expectedDir3 = c3LowRaid ? 1 : -1
+                            if owned3.c1Start == trueC1.startAt and owned3.c3Start == trueC3.startAt and owned3.direction == expectedDir3 and not owned3.doubleSweep and not na(owned3.sweepAt)
+                                qaTrue3CConfirmed := owned3
+                // Preparar EL PROXIMO C3, solo con C1 y C2 completas,
+                // contiguas y sin barrida C1. No usar el MSS de Inside.
+                qaTrue3CPending := na
+                if nHistory >= 2
+                    MultiH4 preC1 = array.get(qaMultiNHistory, nHistory - 2)
+                    MultiH4 preC2 = array.get(qaMultiNHistory, nHistory - 1)
+                    bool preReady3 = preC1.valid and preC2.valid and preC1.endAt == preC2.startAt and preC2.endAt == bucketH4 and f_allowed(hour(preC1.startAt, TZ), isIndex) and preC2.hi <= preC1.hi and preC2.lo >= preC1.lo and preC2.cl > preC1.lo and preC2.cl < preC1.hi
+                    if preReady3
+                        qaTrue3CPending := True3CMssCandidate.new(preC1.startAt, bucketH4, preC1.hi, preC1.lo, 0, na, na, na, na, na, na, na, false)
                 if nHistory >= 4
                     bool multiNAuditable = false
                     bool multiNMatched = false
@@ -1656,6 +1702,33 @@ f_engine() =>
                     cand.pivot5 := na
                     cand.pivot5At := na
 
+    // Barrida inicial de TRUE 3C en la C3 propia: solo M5 cerradas,
+    // niveles de C1 propia, doble barrida bloqueante y pivotes congelados.
+    if not na(qaTrue3CPending) and not na(barT) and bucketH4 == qaTrue3CPending.c3Start
+        True3CMssCandidate q3 = qaTrue3CPending
+        bool low3 = bL < q3.c1Low
+        bool high3 = bH > q3.c1High
+        if q3.direction == 0 and not q3.doubleSweep and (low3 or high3)
+            if low3 and high3
+                q3.doubleSweep := true
+            else
+                q3.direction := low3 ? 1 : -1
+                q3.sweepAt := barEnd
+                bool fresh3M5 = q3.direction == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000
+                q3.pivot5 := fresh3M5 ? (q3.direction == 1 ? lastHigh5 : lastLow5) : na
+                q3.pivot5At := fresh3M5 ? (q3.direction == 1 ? lastHigh5At : lastLow5At) : na
+                bool fresh3M15 = q3.direction == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000
+                q3.pivot15 := fresh3M15 ? (q3.direction == 1 ? lastHigh15 : lastLow15) : na
+                q3.pivot15At := fresh3M15 ? (q3.direction == 1 ? lastHigh15At : lastLow15At) : na
+        else if q3.direction != 0 and (low3 and high3 or q3.direction == 1 and high3 or q3.direction == -1 and low3)
+            q3.doubleSweep := true
+            q3.mss5At := na
+            q3.mss15At := na
+            q3.pivot5 := na
+            q3.pivot5At := na
+            q3.pivot15 := na
+            q3.pivot15At := na
+
     // Multi-N propio: antes de cerrar H4 terminal, cada C1 viable
     // tiene un candidato diferente (max. 4). No usar el MSS del CRT 3C.
     // La validacion ESTRUCTURAL sigue ocurriendo al cierre H4.
@@ -1780,6 +1853,15 @@ f_engine() =>
             c3M5At := barEnd
             if lastC1 == c1Start3
                 lastM5 := barEnd
+
+    // 3C TRUE M5 propio: cierre cruzado posterior al sweep de C3.
+    // No se acepta la vela de la barrida ni se copia MSS del 2C.
+    if previousM5Continuous and not na(qaTrue3CPending) and bucketH4 == qaTrue3CPending.c3Start
+        True3CMssCandidate q3 = qaTrue3CPending
+        bool eligible3M5 = q3.direction != 0 and not q3.doubleSweep and not na(q3.sweepAt) and not na(q3.pivot5) and not na(q3.pivot5At) and q3.pivot5At < q3.sweepAt and barT >= q3.sweepAt and barEnd <= q3.c3Start + H4MS and na(q3.mss5At)
+        bool crossed3M5 = q3.direction == 1 ? bC > q3.pivot5 and prevClose <= q3.pivot5 : q3.direction == -1 ? bC < q3.pivot5 and prevClose >= q3.pivot5 : false
+        if eligible3M5 and crossed3M5
+            q3.mss5At := barEnd
 
     // QA M5 causal para Inside y Multi-N; no se hereda el MSS 2C.
     // Solo M5 cerradas y CONTIGUAS, pivote congelado en primera barrida,
@@ -1957,21 +2039,27 @@ f_engine() =>
     // SOLO el evento QA mas reciente: nunca atribuir MSS del CRT base.
     bool extraMulti = multiVisible and not na(qaMulti4C1) and (qaMulti4Kind == "MULTI4 BULL QA" or qaMulti4Kind == "MULTI4 BEAR QA")
     bool extraMultiN = not na(qaMultiNAt) and barEnd >= qaMultiNAt and barEnd - qaMultiNAt < H4MS and not na(qaMultiNC1) and (qaMultiNDir == 1 or qaMultiNDir == -1)
-    bool extraFamily = extraInside or extraMulti or extraMultiN
-    bool extraSelectInside = extraInside and (not extraMulti or extraInsideAt >= qaMulti4At) and (not extraMultiN or extraInsideAt >= qaMultiNAt)
-    bool extraSelectMultiN = not extraSelectInside and extraMultiN and (not extraMulti or qaMultiNAt >= qaMulti4At)
-    string extraKind = not extraFamily ? "NONE" : extraSelectInside ? "INSIDE QA" : extraSelectMultiN ? "MULTI-N QA" : "MULTI4 QA"
-    int extraC1 = not extraFamily ? na : extraSelectInside ? extraInsideC1 : extraSelectMultiN ? qaMultiNC1 : qaMulti4C1
-    int extraDirection = not extraFamily ? 0 : extraSelectInside ? extraInsideDir : extraSelectMultiN ? qaMultiNDir : qaMulti4Kind == "MULTI4 BULL QA" ? 1 : -1
-    int extraAt = not extraFamily ? na : extraSelectInside ? extraInsideAt : extraSelectMultiN ? qaMultiNAt : qaMulti4At
-    int extraSweepAt = not extraFamily ? na : extraSelectInside ? extraInsideSweep : extraSelectMultiN ? qaMultiNSweepAt : na
-    float extraPivot15 = not extraFamily ? na : extraSelectInside ? extraInsidePivot : extraSelectMultiN ? qaMultiNPivot15 : na
-    int extraPivotAt = not extraFamily ? na : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
-    int extraMssAt = not extraFamily ? na : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
-    float extraPivot5 = not extraFamily ? na : extraSelectInside ? extraInsidePivot5 : extraSelectMultiN ? qaMultiNPivot5 : na
-    int extraPivot5At = not extraFamily ? na : extraSelectInside ? extraInsidePivot5At : extraSelectMultiN ? qaMultiNPivot5At : na
-    int extraMss5At = not extraFamily ? na : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : na
-    bool extraMss5Causal = extraFamily and (extraSelectInside or extraSelectMultiN) and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
+    // Solo un 3C TRUE con evidencia pre-sweep y C1/H4 propios puede
+    // ocupar los campos QA de confirmacion; de otro modo permanece N/V.
+    bool extraTrue3C = false
+    if not na(qaTrue3CConfirmed) and not na(qaTrue3CSignedAt) and not na(barEnd)
+        True3CMssCandidate q3 = qaTrue3CConfirmed
+        extraTrue3C := q3.c3Start + H4MS == math.abs(qaTrue3CSignedAt) and q3.direction == (qaTrue3CSignedAt > 0 ? 1 : -1) and not q3.doubleSweep and not na(q3.sweepAt) and barEnd >= q3.c3Start + H4MS and barEnd < q3.c3Start + 2 * H4MS
+    bool extraFamily = extraTrue3C or extraInside or extraMulti or extraMultiN
+    bool extraSelectInside = not extraTrue3C and extraInside and (not extraMulti or extraInsideAt >= qaMulti4At) and (not extraMultiN or extraInsideAt >= qaMultiNAt)
+    bool extraSelectMultiN = not extraTrue3C and not extraSelectInside and extraMultiN and (not extraMulti or qaMultiNAt >= qaMulti4At)
+    string extraKind = not extraFamily ? "NONE" : extraTrue3C ? "3C TRUE QA" : extraSelectInside ? "INSIDE QA" : extraSelectMultiN ? "MULTI-N QA" : "MULTI4 QA"
+    int extraC1 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c1Start : extraSelectInside ? extraInsideC1 : extraSelectMultiN ? qaMultiNC1 : qaMulti4C1
+    int extraDirection = not extraFamily ? 0 : extraTrue3C ? qaTrue3CConfirmed.direction : extraSelectInside ? extraInsideDir : extraSelectMultiN ? qaMultiNDir : qaMulti4Kind == "MULTI4 BULL QA" ? 1 : -1
+    int extraAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c3Start + H4MS : extraSelectInside ? extraInsideAt : extraSelectMultiN ? qaMultiNAt : qaMulti4At
+    int extraSweepAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.sweepAt : extraSelectInside ? extraInsideSweep : extraSelectMultiN ? qaMultiNSweepAt : na
+    float extraPivot15 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15 : extraSelectInside ? extraInsidePivot : extraSelectMultiN ? qaMultiNPivot15 : na
+    int extraPivotAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15At : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
+    int extraMssAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss15At : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
+    float extraPivot5 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5 : extraSelectInside ? extraInsidePivot5 : extraSelectMultiN ? qaMultiNPivot5 : na
+    int extraPivot5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5At : extraSelectInside ? extraInsidePivot5At : extraSelectMultiN ? qaMultiNPivot5At : na
+    int extraMss5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss5At : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : na
+    bool extraMss5Causal = extraFamily and (extraTrue3C or extraSelectInside or extraSelectMultiN) and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
     // Distinta C1 y M15; no se hereda el pivote del CRT principal.
     bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and f_m15_phase_ok(extraMssAt, qaNativeSourcePhaseMin) and extraMssAt <= extraAt + H4MS
     // Chart-level C1 evidence comes from the SAME f_engine M5 source.
@@ -2282,7 +2370,7 @@ for i = 0 to 33
         array.set(qaHistMultiNBySlot, i, available ? s.qaLastMultiNAt : na)
         array.set(qaHistRetest15BySlot, i, available ? s.qaLastRetest15At : na)
         array.set(statuses, i, st)
-        bool extraValidQA = available and s.extraFamilyValid and not na(s.extraFamilyC1) and s.extraFamilyC1 > 0 and not na(s.extraFamilyRatifiedAt) and (s.extraFamilyDirection == 1 or s.extraFamilyDirection == -1) and (s.extraFamilyKind == "INSIDE QA" or s.extraFamilyKind == "MULTI4 QA" or s.extraFamilyKind == "MULTI-N QA")
+        bool extraValidQA = available and s.extraFamilyValid and not na(s.extraFamilyC1) and s.extraFamilyC1 > 0 and not na(s.extraFamilyRatifiedAt) and (s.extraFamilyDirection == 1 or s.extraFamilyDirection == -1) and (s.extraFamilyKind == "INSIDE QA" or s.extraFamilyKind == "MULTI4 QA" or s.extraFamilyKind == "MULTI-N QA" or s.extraFamilyKind == "3C TRUE QA")
         bool anyStructuralCRT = scanCrtValid or extraValidQA
         array.set(validCrtFlags, i, anyStructuralCRT)
         array.set(validCoreFlags, i, scanCrtValid)
@@ -2561,7 +2649,7 @@ f_renderRadarDashboard() =>
             // TRUE 3C has priority in visible QA role. Its MSS5/15
             // are N/V until owned by its distinct C1/sweep. Never
             // borrow Inside/Multi-N MSS under a 3C TRUE label.
-            bool extraDisplayed = extra and not true3c
+            bool extraDisplayed = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")
             bool extraM15 = extraDisplayed and array.get(extraM15Flags,i) == 1
             bool extraM5 = extraDisplayed and array.get(extraM5Flags,i) == 1
             int rank = not requested ? 5 : (core or qaCore) ? (m5 and m15 ? 0 : m15 ? 1 : m5 ? 2 : 3) : extraM5 and extraM15 ? 0 : extraM15 ? 1 : extraM5 ? 2 : otherStructural ? 4 : 5
@@ -2615,8 +2703,8 @@ f_renderRadarDashboard() =>
                         bool ownM15 = array.get(ownM15BySlot,i)
                         // Match dashboard priority: do not show an
                         // auxiliary-family MSS beside TRUE 3C.
-                        bool ownExtraM15 = extra and not true3c and array.get(extraM15Flags,i) == 1
-                        bool ownExtraM5 = extra and not true3c and array.get(extraM5Flags,i) == 1
+                        bool ownExtraM15 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM15Flags,i) == 1
+                        bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM5Flags,i) == 1
                         bool coreC1Ready = array.get(qaCoreC1ReadyBySlot,i)
                         bool otherC1Ready = array.get(qaOtherC1ReadyBySlot,i)
                         string otherC1Kind = array.get(qaOtherC1KindBySlot,i)
