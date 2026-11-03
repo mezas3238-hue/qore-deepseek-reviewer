@@ -14,7 +14,7 @@ test("300 / 600 probes change exactly requested M5 history, never the 34-symbol 
  for(const [s,n] of [[p300,300],[p600,600]]){
   assert.equal(trimProbe(s),original,"only request depth and adjacent descriptive comment changed");
   assert.equal(engine(s),engine(original));
-  assert.match(s,new RegExp("Signal s = request.security\\(symbol, \\"5\\", f_engine_snapshot\\(\\), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count="+n+"\\)"));
+  assert.ok(s.includes('Signal s = request.security(symbol, "5", f_engine_snapshot(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count='+n+')'));
   assert.equal([...s.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
   assert.ok(s.includes('memoryScan = input.string("34 instrumentos (experimental)"'));
   assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(s));
