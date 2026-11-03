@@ -101,3 +101,28 @@ Del material verificado se distinguen **4 familias estructurales**: (1) 2C_RETUR
 4. DeepSeek no tiene acceso a GitHub en la sesión del propietario: debe recibir contenido íntegro de cada archivo (no solo URL), y material de pruebas si se desea auditoría secundaria. **No tratar un archivo truncado como auditoría completa**.
 5. No preguntar de nuevo decisiones cerradas: dos indicadores, 34 feeds, BTC horario Forex, Android independiente de TradingView, sin LIVE/PUSH antes de certificación. No etiquetar "7 familias certificadas" sin láminas y tests de modelos independientes.
 6. Actualizar matriz \`PASS VERIFIED / PASS OFFLINE / NO VERIFICADO / FAIL / BLOQUEADO\`, commit, evidencia y próximas acciones en el PR. Prioridad terminar sin falsas certificaciones, respetando usuario móvil.
+
+
+---
+
+## ACTUALIZACIÓN DE CONTINUIDAD — posterior al corte V34.12I (2026-11-02)
+
+**Línea base actual:** HEAD previo al addendum `3bb4542f4bc267f508407a6faa25838f1aa5606e`, PR #74 OPEN DRAFT, NO MERGE / NO LIVE / NO PUSH.
+
+### Cambios efectivos en esta sesión de continuidad
+
+- `8b3263603ec0` + `fc09bce72c81`: TRUE 3C MSS M5 y M15 con candidato propio, pivotes previos confirmados y cruces posteriores por cierre en el mismo C1/C3; sin reutilizar confirmaciones 2C/Inside. Documentado en `docs/CRT_V34_12I_TRUE3C_OWN_MSS5_MSS15_QA_2026_11_02.md`.
+- `cfbffcb897df` + `36fb1f2b6bcc`: Multi4 MSS M5 propio en C2a, retención solo hasta cuarta H4, mismo C1 y doble barrida inválida; MSS M15 Multi4 **sigue N/V**. Documento `docs/CRT_V34_12I_MULTI4_OWN_MSS5_QA_2026_11_02.md`.
+- CI GitHub `36fb1f2b6bcc`: Foundation **720/720 PASS** 0 FAIL (run #41560266899); CRT Radar QA y DeepSeek Harness SUCCESS; Android QA BUILD SUCCESSFUL. **No representa certificación Pine real ni entrega FCM**.
+- `1a71f1ac1c39`: se descargaron y verificaron en contenedor **33 ZIP originales** de calibración del preflight, con SHA-256 del ZIP igual al catálogo, 45/47 sumas internas verificadas por archivo, 0 divergencias; sus manifiestos declaran **24.377.420 M5**. Evidencia: `trader-lab/33-archive-content-integrity-audit-2026-11-02.{md,json}`. Los 12 ZIP antiguos y 21 nuevos tienen identidades de captura distintas. **No declarar** por esto licencia, paridad de broker, holdout ni aptitud LIVE. **BTCUSD sigue faltante**.
+- `3bb4542f4bc2`: se recuperó en la Biblioteca del usuario el `DOSSIER_VISUAL_CRT.pdf`, se inspeccionaron visualmente las láminas **08/20** (cuatro modelos estructurales), **09/20** (variaciones 2C), **19/20** (confirmaciones LTF) y **20/20** (time-based); la **10/20 falta**. Ver `docs/ROWDY_FX_FUENTE_VISUAL_4_MODELOS_V34_12I_2026_11_02.md`. **Siete roles QA NO son siete familias CRT**.
+
+### Puertas de aceptación todavía BLOQUEADAS
+
+1. Compilar A/B V34.12I **en Pine Editor real**, corregir errores reportados y cotejar gráficos H4/C1, MSS5/MSS15, broker, timestamps, H4 de 48 M5 y DST NY. Ninguna compilación Pine real fue ejecutada aquí.
+2. MSS M15 propio de Multi4, pruebas geométricas positivas/negativas de 2C/3C TRUE/Inside/Multi4/Multi-N; verificar independencia y misma familia/C1/ciclo en A/B.
+3. Identidad proveedor↔ticker↔TradingView exacta, permisos/licencias de uso, sesiones, BTCUSD; separar archivos de investigación previa de holdout no observado, registrarlo formalmente antes de replay; conservar todos los flags de licencia/holdout en falso.
+4. Investigar causalmente (no por parches) variación de contadores históricos, deduplicación 3C/Inside, rango dibujado y ranking 34 mercados.
+5. QORE CRT ALERTS: feed M5 autorizado continuo, paridad del motor autónomo con Pine, seguridad de tokens y dispositivos, FCM real a teléfono físico, deduplicación y controles de usuario.
+
+**No publicar indicador como certificado, no merge, no alertas LIVE, no push Android, no inferir PASS externo a partir de CI.**
