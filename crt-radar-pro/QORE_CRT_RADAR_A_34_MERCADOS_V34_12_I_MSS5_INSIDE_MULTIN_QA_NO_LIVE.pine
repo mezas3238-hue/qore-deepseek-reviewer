@@ -881,7 +881,10 @@ f_engine() =>
     // QA: al aparecer una nueva M5 despues de un hueco, descartar
     // acumuladores y swings M15 de la cadena anterior. No permitir que
     // pivotes confirmados con barras discontinuas crucen a un nuevo CRT.
-    if not previousM5Continuous and not na(barT)
+    // Explicitly initialize on the first usable CLOSED M5 bar.
+    // On subsequent disconnections, a stale pre-gap pivot is forbidden.
+    // Pine v6 bool never na; this guard documents first-segment intent.
+    if (na(qaExtraM5SegmentStart) or not previousM5Continuous) and not na(barT)
         qaExtraM5SegmentStart := barT
         lastCompleteM15CloseAt := na
         m15Bucket := na
