@@ -38,7 +38,10 @@ test("chart plots ONLY from Signal of the exact provider-and-symbol match",()=>{
 });
 test("Chart B exact drawing block adapted only for user toggle",()=>{
  const b=draw(chart);
- const a=draw(combined).replace("if showIntegratedChart and showLevels and visible","if showLevels and visible");
+ const begin=combined.lastIndexOf("if barstate.islast\\n    if showIntegratedChart and showLevels and visible");
+ const end=combined.indexOf("// V34.12N: CONTEXTO VISUAL adicional",begin);
+ assert.ok(begin>=0 && end>begin,"bound original Chart B rendering before new QA context");
+ const a=combined.slice(begin,end).trim().replace("if showIntegratedChart and showLevels and visible","if showLevels and visible");
  assert.equal(a,b,"same Chart B CRH/CRL & MSS M5/M15 lines and cleanup, with only visibility toggle");
  assert.ok(combined.includes("q4.mss15At := closed15At"),"Multi4 M15 remains independent");
  assert.ok(combined.includes('max_lines_count=8'));
