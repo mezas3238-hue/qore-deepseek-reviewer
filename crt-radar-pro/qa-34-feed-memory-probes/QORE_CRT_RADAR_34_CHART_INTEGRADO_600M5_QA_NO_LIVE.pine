@@ -1,5 +1,5 @@
 //@version=6
-indicator("QORE CRT RADAR + CHART | 34 mercados V34.12K QA", shorttitle="QORE CRT 34+Chart QA", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+indicator("QORE CRT RADAR + CHART | 34 mercados V34.12L QA", shorttitle="QORE CRT 34+Chart 12L", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
 
 // MODULO 5B CANDIDATO V34.10b NO INTEGRADO: manejo conservador de pausas de sesion. Requiere auditoria TradingView.
 // MODULO 5A INTEGRADO (AUTORIZADO): deteccion interna FVG H1/H4. Validacion TradingView pendiente.
@@ -87,7 +87,7 @@ qaFamilyHistoryView = input.bool(false, "QA: historial 2C/3C/Inside/Multi por me
 qaHistoryFollowChart = input.bool(true, "QA historial: seguir el simbolo del grafico (mismo broker)", group=grp3, tooltip="Para el detalle de UTCmin toma el simbolo exacto del grafico solo si ticker.standard coincide en proveedor y simbolo con uno de los 34 feeds. Si no coincide: SIN SLOT. Desactiva para elegir el numero de instrumento manualmente.")
 showNonBtcCohortQA = input.bool(false, "QA: auditar los 33 instrumentos sin BTC", group=grp3, tooltip="Muestra 33 feeds sin BTCUSD, por 4 por pagina: H4 evaluadas/incompletas, C1 validas y estados. BTC mantiene motor independiente y no participa en estadistica.")
 qa33RootView = input.bool(true, "QA 33: mostrar causas H4 (inicio/fin/conteo)", group=grp3, tooltip="En la auditoria 33 alterna al desglose POR instrumento: bloques con inicio de NY distinto, fin diferente y cantidad M5 distinta de 48. No modifica reglas CRT.")
-qaPhase1NonBtc = input.bool(false, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
+qaPhase1NonBtc = input.bool(true, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
 showSlotEventAudit = input.bool(false, "QA: ver tiempos CRT/MSS de 1 instrumento", group=grp3, tooltip="Esta vista desplaza temporalmente el catalogo 34: muestra solo el evento actual. Para el ultimo evento historico, activar la opcion inferior; no autoriza trading.")
 qaHistoricLast = input.bool(false, "QA: ver ultimo evento historico por categoria", group=grp3, tooltip="En la vista de tiempos, reemplaza los contadores inferiores por las marcas de tiempo mas recientes de 2C provisional, 2C ratificada, expansion rechazada, 3C, Inside retorno/continuacion, Multi4/Multi-N y retest M15. Nunca reconstruye ni inventa MSS15. No es certificado.")
 qaReadableUtc = input.bool(true, "QA: mostrar fechas UTC (DD/MM HH:mm)", group=grp3, tooltip="Solo cambia la presentacion: ON = fecha UTC legible para Android; OFF = minutos Unix UTC exactos de V34.11L para reconciliacion con Trader Lab. Sin cambios de motor, velas, MSS o alertas.")
@@ -2329,6 +2329,8 @@ f_name(string sym) =>
 
 string[] scanNames = array.from(f_name(s01), f_name(s02), f_name(s03), f_name(s04), f_name(s05), f_name(s06), f_name(s07), f_name(s08), f_name(s09), f_name(s10), f_name(s11), f_name(s12), f_name(s13), f_name(s14), f_name(s15), f_name(s16), f_name(s17), f_name(s18), f_name(s19), f_name(s20), f_name(s21), f_name(s22), f_name(s23), f_name(s24), f_name(s25), f_name(s26), f_name(s27), f_name(s28), f_name(s29), f_name(s30), f_name(s31), f_name(s32), f_name(s33), f_name(s34))
 
+// V34.12L QA: default fase M5 por proveedor solo para diagnostico de 34 feeds.
+// 26 fuentes +1/+2m siguen siendo CRT QA, NO H4 NY :00 certificadas.
 // V34.12K QA: no se hace request.security() adicional para el grafico.
 // Reutilizar el Signal completo del SLOT que coincide exactamente con ticker.standard.
 // No se dibujan niveles si el proveedor del grafico NO coincide con ninguno de los 34.
@@ -2598,7 +2600,7 @@ f_monitorOwnMss(int slot) =>
 
 
 // QA 34x5 historical family matrix. These are CLOSED events retained by
-// this feed's 1500-bar M5 lookback; never current CRT or valid MSS.
+// this feed's 600-bar M5 lookback; never current CRT or valid MSS.
 f_qaHistoryDate(int t) =>
     na(t) or t <= 0 ? "—" : str.format_time(t, "dd/MM", "Etc/UTC")
 

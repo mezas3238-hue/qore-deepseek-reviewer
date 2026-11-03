@@ -16,7 +16,8 @@ test("radar with chart preserves exact same engine and 34 feed contracts",()=>{
  assert.match(combined,/calc_bars_count=600\)/);
  assert.equal([...combined.matchAll(/^\s*Signal s = request\.security\(symbol, "5", f_engine_snapshot\(\)/gm)].length,1,"one dynamic request expression, comments excluded");
  assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(combined));
- assert.ok(combined.includes('qaPhase1NonBtc = input.bool(false,'));
+ assert.ok(combined.includes('qaPhase1NonBtc = input.bool(true,'));
+ assert.ok(base.includes('qaPhase1NonBtc = input.bool(false,'), 'published 600 M5 backup remains strict by default');
  assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
 });
 test("chart plots ONLY from Signal of the exact provider-and-symbol match",()=>{
@@ -47,4 +48,26 @@ test("new integrated script remains distinct from proved Radar A backup",()=>{
  assert.ok(!base.includes("Signal integratedOwn = na"));
  assert.ok(!base.includes('showIntegratedChart = input.bool('));
  assert.ok(combined.length>base.length);
+});
+
+test("Native feed phase is QA by default ONLY in integrated candidate, strict RAT gate preserved",()=>{
+ assert.ok(combined.includes('qaPhase1NonBtc = input.bool(true,'));
+ assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
+ assert.ok(combined.includes('bool observedCoreQA = structuralCoreObserved and not scanCrtValid'));
+ assert.ok(combined.includes('role = not feedOK ? "SIN FEED" : core ? "2C RAT" : qaCore ? "2C QA"'));
+ assert.ok(combined.includes('displayFamily = chartCoreC1 ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA")'));
+ assert.ok(!/\\balert\\s*\\(|\\balertcondition\\s*\\(/.test(combined));
+});
+test("H-K2 is refuted: M15 swing history is cleared at M5 gaps before Multi4, no stale Friday pivots",()=>{
+ const reset=engine(combined).slice(engine(combined).indexOf('if (na(qaExtraM5SegmentStart) or not previousM5Continuous)'),engine(combined).indexOf('// ---- CERRAR M15 ANTERIOR ----'));
+ for(const gate of ['array.clear(highs15)','array.clear(lows15)','array.clear(times15)','lastHigh15At := na','lastLow15At := na','array.clear(qaMulti4MssCandidates)'])
+  assert.ok(reset.includes(gate),"reset missing "+gate);
+ assert.ok(combined.includes('lastHigh15At >= qaExtraM5SegmentStart'));
+ assert.ok(combined.includes('lastLow15At >= qaExtraM5SegmentStart'));
+ assert.ok(combined.includes('q4.pivot15At < q4.sweepAt'));
+});
+test("historical window documents 600 not 1500, indicator still 34 slots",()=>{
+ assert.ok(combined.includes("this feed's 600-bar M5 lookback"));
+ assert.ok(!combined.includes("this feed's 1500-bar M5 lookback"));
+ assert.equal([...combined.matchAll(/^s\\d\\d = input\\.symbol\\(/gm)].length,34);
 });
