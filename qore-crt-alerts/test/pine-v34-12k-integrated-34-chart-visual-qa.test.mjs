@@ -14,7 +14,7 @@ test("radar with chart preserves exact same engine and 34 feed contracts",()=>{
  assert.equal([...combined.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
  assert.match(combined,/for i = 0 to 33/);
  assert.match(combined,/calc_bars_count=600\)/);
- assert.equal([...combined.matchAll(/request\.security\(/g)].length,1,"one request expression in Radar A total");
+ assert.equal([...combined.matchAll(/^\s*Signal s = request\.security\(symbol, "5", f_engine_snapshot\(\)/gm)].length,1,"one dynamic request expression, comments excluded");
  assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(combined));
  assert.ok(combined.includes('qaPhase1NonBtc = input.bool(false,'));
  assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
