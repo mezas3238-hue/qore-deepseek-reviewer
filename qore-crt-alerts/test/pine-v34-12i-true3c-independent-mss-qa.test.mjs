@@ -29,7 +29,7 @@ test("3C_TRUE M5 and M15 have isolated frozen-pivot state in both exact engines"
   }
 });
 test("3C_TRUE QA never turns on LIVE or borrows Inside/2C MSS",()=>{
-  assert.ok(A.includes("useAlerts = input.bool(false"));
+  assert.ok(!A.includes("useAlerts = input.bool("));
   assert.ok(!B.includes("useAlerts = input.bool("));
   assert.ok(A.includes('s.extraFamilyKind == "3C TRUE QA"'));
   assert.ok(A.includes('qaExtraKindBySlot,i) == "3C TRUE QA"'));

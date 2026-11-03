@@ -26,6 +26,6 @@ test("four closed H4 gates and post-sweep M5 are required; no future M15 substit
  assert.equal(valid(pivotAt,sweepAt,end+M5,1,false),false);
  assert.equal(valid(pivotAt,sweepAt,sweepAt+M5,1,true),false);
  assert.equal(valid(sweepAt+M5,sweepAt,sweepAt+2*M5,1,false),false);
- assert.equal(A.includes("useAlerts = input.bool(false"),true);
+ assert.equal(!A.includes("useAlerts = input.bool("),true);
  assert.equal(!B.includes("useAlerts = input.bool("),true);
 });
