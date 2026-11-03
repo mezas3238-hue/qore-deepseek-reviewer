@@ -9,7 +9,7 @@ test("Multi4 has own QA MSS5 candidate and no synthetic MSS15",()=>{
  assert.equal(engine(A),engine(B));
  for(const s of [A,B]){
   const e=engine(s);
-  for(const x of ["type Multi4MssCandidate","var array<Multi4MssCandidate> qaMulti4MssCandidates","array.clear(qaMulti4MssCandidates)","q4.c1Start == m1.startAt","q4.c2aStart == m2.startAt","q4.sweepAt <= m2.endAt","qaMulti4Mss5At := q4.mss5At","bucketH4 == q4.c2aStart and q4.direction == 0","q4.pivot5At < q4.sweepAt","barT >= q4.sweepAt","q4.mss5At := barEnd","qaMulti4Mss5At","extraMultiN ? qaMultiNPivot5 : qaMulti4Pivot5","extraMultiN ? qaMultiNMss5At : qaMulti4Mss5At"]){assert.ok(s.includes(x),x)}
+  for(const x of ["type Multi4MssCandidate","var array<Multi4MssCandidate> qaMulti4MssCandidates","array.clear(qaMulti4MssCandidates)","q4.c1Start == m1.startAt","q4.c2aStart == m2.startAt","q4.sweepAt <= m2.endAt","qaMulti4Mss5At := q4.mss5At","bucketH4 == q4.c2aStart and q4.direction == 0","q4.pivot5At < q4.sweepAt","barT >= q4.sweepAt","q4.mss5At := barEnd","qaMulti4Mss5At","extraSelectMultiN ? qaMultiNPivot5 : qaMulti4Pivot5","extraSelectMultiN ? qaMultiNMss5At : qaMulti4Mss5At"]){assert.ok(s.includes(x),x)}
   assert.ok(e.includes("q4.doubleSweep := true"));
   assert.ok(e.includes("q4.direction == 1 and high4"));
   assert.ok(e.includes("q4.direction == -1 and low4"));
