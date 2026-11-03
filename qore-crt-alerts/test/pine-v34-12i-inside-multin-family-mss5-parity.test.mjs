@@ -60,7 +60,7 @@ test("M5 break only AFTER frozen pre-sweep pivot, closed contiguous M5 and withi
  // Coincident 3C TRUE and INSIDE must not display INSIDE's MSS as 3C.
  assert.ok(radar.includes('bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")'));
  assert.ok(radar.includes("extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000"));
- assert.ok(!radar.includes("qaMulti4Mss5At"));
+ assert.ok(radar.includes("qaMulti4Mss5At := q4.mss5At"));
 });
 test("Radar displays QA SI for M5 only on same-family cause, not true3C or Multi4 inferred",()=>{
  for(const expected of ["var array<int> extraM5Flags =","bool family5QA = extraValidQA","s.extraFamilyM5C1 == s.extraFamilyC1","s.extraFamilyM5PivotAt < s.extraFamilySweepAt","s.extraFamilyM5At > s.extraFamilySweepAt","array.set(extraM5Flags, i, family5QA ? 1 : 0)",'bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM5Flags,i) == 1',"ownExtraM5 ? \"QA SI\"","extraM5 and extraM15 ? 0"]){assert.ok(radar.includes(expected),expected);}

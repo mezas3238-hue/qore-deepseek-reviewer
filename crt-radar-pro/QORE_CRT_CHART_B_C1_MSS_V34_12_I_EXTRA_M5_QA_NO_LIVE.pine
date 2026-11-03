@@ -389,6 +389,19 @@ type True3CMssCandidate
     int mss15At
     bool doubleSweep
 
+// MULTI4 QA M5: C1 y C2a propios, vigencia solo hasta C3 (cuarta H4).
+type Multi4MssCandidate
+    int c1Start
+    int c2aStart
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    bool doubleSweep
+
 // M5A INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
 // Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
 // QA multi-candle: solo OHLC de 4 velas H4 CERRADAS.
@@ -725,6 +738,11 @@ f_engine() =>
     var string qaMulti4Kind = "SIN 4H4"
     var int qaMulti4At = na
     var int qaMulti4C1 = na
+    var array<Multi4MssCandidate> qaMulti4MssCandidates = array.new<Multi4MssCandidate>()
+    var int qaMulti4SweepAt = na
+    var float qaMulti4Pivot5 = na
+    var int qaMulti4Pivot5At = na
+    var int qaMulti4Mss5At = na
     // QA Multi-N: C1 + 2..5 H4 de consolidacion estricta + H4
     // final que barre un solo extremo y cierra DENTRO de la C1.
     // HIPOTESIS DEEPSEEK, independiente del MULTI4 distribuido.
@@ -927,6 +945,7 @@ f_engine() =>
         qaMultiNSweepAt := na
         // La barrida 3C nunca puede cruzar una discontinuidad M5.
         qaTrue3CPending := na
+        array.clear(qaMulti4MssCandidates)
         if array.size(insideCandidates) > 0
             for z = 0 to array.size(insideCandidates) - 1
                 InsideCandidate stale = array.get(insideCandidates, z)
@@ -1197,6 +1216,11 @@ f_engine() =>
                 qaMulti4Kind := "H4 INCOMPLETA"
                 qaMulti4At := na
                 qaMulti4C1 := na
+                qaMulti4SweepAt := na
+                qaMulti4Pivot5 := na
+                qaMulti4Pivot5At := na
+                qaMulti4Mss5At := na
+                array.clear(qaMulti4MssCandidates)
             else
                 array.push(qaFourH4, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
                 if array.size(qaFourH4) > 4
@@ -1220,6 +1244,28 @@ f_engine() =>
                         qaMulti4Kind := multiBull ? "MULTI4 BULL QA" : "MULTI4 BEAR QA"
                         qaMulti4At := m4.endAt
                         qaMulti4C1 := m1.startAt
+                        qaMulti4SweepAt := na
+                        qaMulti4Pivot5 := na
+                        qaMulti4Pivot5At := na
+                        qaMulti4Mss5At := na
+                        // Solo el candidato de la misma C1 y C2a
+                        // posee la barrida M5. Aun no hay MSS15 Multi4.
+                        if array.size(qaMulti4MssCandidates) > 0
+                            for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+                                Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+                                int dir4 = multiBull ? 1 : -1
+                                if q4.c1Start == m1.startAt and q4.c2aStart == m2.startAt and q4.direction == dir4 and not q4.doubleSweep and not na(q4.sweepAt) and q4.sweepAt <= m2.endAt
+                                    qaMulti4SweepAt := q4.sweepAt
+                                    qaMulti4Pivot5 := q4.pivot5
+                                    qaMulti4Pivot5At := q4.pivot5At
+                                    qaMulti4Mss5At := q4.mss5At
+                                    break
+                // Cada H4 completa elegible puede ser una C1 de futuro
+                // MULTI4; se mantienen hasta 4 candidatos por feed.
+                if f_allowed(hour(h4Bucket, TZ), isIndex)
+                    array.push(qaMulti4MssCandidates, Multi4MssCandidate.new(h4Bucket, bucketH4, h4High, h4Low, 0, na, na, na, na, false))
+                    if array.size(qaMulti4MssCandidates) > 4
+                        array.shift(qaMulti4MssCandidates)
             // QA MULTI-N: no imponer el MULTI4 distribuido a modelos
             // C1 + N interiores + barrida terminal. Conserva los dos
             // detectores por separado; nunca crea MSS o alertas.
@@ -1726,6 +1772,32 @@ f_engine() =>
             q3.pivot15 := na
             q3.pivot15At := na
 
+    // Multi4: la primera barrida debe ocurrir en C2a, no en C2b/C3.
+    // Hasta cerrar CUATRO H4 completas, esta evidencia es solo candidata.
+    if not na(barT) and array.size(qaMulti4MssCandidates) > 0
+        for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+            Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+            bool inMulti4Window = bucketH4 >= q4.c2aStart and bucketH4 < q4.c2aStart + 3 * H4MS
+            if inMulti4Window and not q4.doubleSweep
+                bool low4 = bL < q4.c1Low
+                bool high4 = bH > q4.c1High
+                if bucketH4 == q4.c2aStart and q4.direction == 0 and (low4 or high4)
+                    if low4 and high4
+                        q4.doubleSweep := true
+                    else
+                        q4.direction := low4 ? 1 : -1
+                        q4.sweepAt := barEnd
+                        bool fresh4M5 = q4.direction == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000
+                        q4.pivot5 := fresh4M5 ? (q4.direction == 1 ? lastHigh5 : lastLow5) : na
+                        q4.pivot5At := fresh4M5 ? (q4.direction == 1 ? lastHigh5At : lastLow5At) : na
+                else if q4.direction != 0 and (low4 and high4 or q4.direction == 1 and high4 or q4.direction == -1 and low4)
+                    // Cualquier segunda barrida del extremo contrario
+                    // en C2a/C2b/C3 invalida la atribucion MSS5.
+                    q4.doubleSweep := true
+                    q4.mss5At := na
+                    q4.pivot5 := na
+                    q4.pivot5At := na
+
     // Multi-N propio: antes de cerrar H4 terminal, cada C1 viable
     // tiene un candidato diferente (max. 4). No usar el MSS del CRT 3C.
     // La validacion ESTRUCTURAL sigue ocurriendo al cierre H4.
@@ -1859,6 +1931,16 @@ f_engine() =>
         bool crossed3M5 = q3.direction == 1 ? bC > q3.pivot5 and prevClose <= q3.pivot5 : q3.direction == -1 ? bC < q3.pivot5 and prevClose >= q3.pivot5 : false
         if eligible3M5 and crossed3M5
             q3.mss5At := barEnd
+
+    // MSS M5 Multi4: solo el pivote congelado en C2a, cierre posterior
+    // y continuo hasta C3 (cuarta H4), sin arrastre de Inside/Multi-N.
+    if previousM5Continuous and array.size(qaMulti4MssCandidates) > 0
+        for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+            Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+            bool eligible4M5 = q4.direction != 0 and not q4.doubleSweep and not na(q4.sweepAt) and not na(q4.pivot5) and not na(q4.pivot5At) and q4.pivot5At < q4.sweepAt and barT >= q4.sweepAt and barEnd <= q4.c2aStart + 3 * H4MS and bucketH4 >= q4.c2aStart and na(q4.mss5At)
+            bool cross4M5 = q4.direction == 1 ? bC > q4.pivot5 and prevClose <= q4.pivot5 : q4.direction == -1 ? bC < q4.pivot5 and prevClose >= q4.pivot5 : false
+            if eligible4M5 and cross4M5
+                q4.mss5At := barEnd
 
     // QA M5 causal para Inside y Multi-N; no se hereda el MSS 2C.
     // Solo M5 cerradas y CONTIGUAS, pivote congelado en primera barrida,
@@ -2049,14 +2131,14 @@ f_engine() =>
     int extraC1 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c1Start : extraSelectInside ? extraInsideC1 : extraSelectMultiN ? qaMultiNC1 : qaMulti4C1
     int extraDirection = not extraFamily ? 0 : extraTrue3C ? qaTrue3CConfirmed.direction : extraSelectInside ? extraInsideDir : extraSelectMultiN ? qaMultiNDir : qaMulti4Kind == "MULTI4 BULL QA" ? 1 : -1
     int extraAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c3Start + H4MS : extraSelectInside ? extraInsideAt : extraSelectMultiN ? qaMultiNAt : qaMulti4At
-    int extraSweepAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.sweepAt : extraSelectInside ? extraInsideSweep : extraSelectMultiN ? qaMultiNSweepAt : na
+    int extraSweepAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.sweepAt : extraSelectInside ? extraInsideSweep : extraSelectMultiN ? qaMultiNSweepAt : qaMulti4SweepAt
     float extraPivot15 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15 : extraSelectInside ? extraInsidePivot : extraSelectMultiN ? qaMultiNPivot15 : na
     int extraPivotAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15At : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
     int extraMssAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss15At : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
-    float extraPivot5 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5 : extraSelectInside ? extraInsidePivot5 : extraSelectMultiN ? qaMultiNPivot5 : na
-    int extraPivot5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5At : extraSelectInside ? extraInsidePivot5At : extraSelectMultiN ? qaMultiNPivot5At : na
-    int extraMss5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss5At : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : na
-    bool extraMss5Causal = extraFamily and (extraTrue3C or extraSelectInside or extraSelectMultiN) and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
+    float extraPivot5 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5 : extraSelectInside ? extraInsidePivot5 : extraSelectMultiN ? qaMultiNPivot5 : qaMulti4Pivot5
+    int extraPivot5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5At : extraSelectInside ? extraInsidePivot5At : extraSelectMultiN ? qaMultiNPivot5At : qaMulti4Pivot5At
+    int extraMss5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss5At : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : qaMulti4Mss5At
+    bool extraMss5Causal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
     // Distinta C1 y M15; no se hereda el pivote del CRT principal.
     bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and f_m15_phase_ok(extraMssAt, qaNativeSourcePhaseMin) and extraMssAt <= extraAt + H4MS
     // Chart-level C1 evidence comes from the SAME f_engine M5 source.
