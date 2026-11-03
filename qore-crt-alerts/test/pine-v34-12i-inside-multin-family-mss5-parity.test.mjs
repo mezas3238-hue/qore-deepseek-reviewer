@@ -41,7 +41,7 @@ test("Inside first M5 sweep freezes pivot from same contiguous segment, not M15 
  for(const expected of ["cand.sweepAt := barEnd","cand.pivot5 := freshInside5","cand.pivot5At := freshInside5","cand.mss5At := na","cand.sweptLow and cand.sweptHigh","cand.pivot5 := na","lastHigh5At >= qaExtraM5SegmentStart","lastLow5At >= qaExtraM5SegmentStart"]){
   assert.ok(s.includes(expected),expected);
  }
- assert.ok(radar.includes("if not previousM5Continuous and not na(barT)\n        qaExtraM5SegmentStart := barT"));
+ assert.ok(radar.includes("if (na(qaExtraM5SegmentStart) or not previousM5Continuous) and not na(barT)\n        qaExtraM5SegmentStart := barT"));
  assert.ok(radar.includes("stale.mss5At := na"));
 });
 test("Multi-N 5m own freeze and double-sweep rejection; gets discarded on new H4",()=>{
