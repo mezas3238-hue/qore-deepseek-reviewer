@@ -20,7 +20,7 @@ indicator("QORE CRT RADAR | 34 mercados MSS5 EXTRA V34.12I QA", shorttitle="QORE
 // V32 30-OCT-2026: reparar visibilidad del activo abierto y CRT H4
 // Detectar durante C2, diferenciar provisional (*) de ratificado y
 // conservar el ultimo CRT confirmado por ventana parametrizable.
-// El grafico abierto va SIEMPRE primero, aun si esta en la pagina 4/5.
+// El grafico abierto va primero si el proveedor/ticker coincide exactamente con un feed.
 // IMPORTANTE: motor independiente. No copia el Pine cerrado de GoldForexDoc.
 // V31: SCAN de 34 simbolos configurables + grafico abierto independiente.
 // Todos usan el MISMO f_engine() y la MISMA fuente M5; sin exclusiones de pares.
@@ -34,7 +34,7 @@ indicator("QORE CRT RADAR | 34 mercados MSS5 EXTRA V34.12I QA", shorttitle="QORE
 // MSS = cierre que cruza swing confirmado ANTES de la barrida C2.
 // Las confirmaciones M5/M15 del mismo CRT y direccion quedan latched.
 // No usa barstate.isconfirmed dentro de request.security: analiza M5 [1] CERRADA.
-// Mostrar solo CRT actual y sus dos niveles; sin marcas historicas BT-H4.
+// RADAR A: monitor de 34 mercados; CHART B: dibujos CRH/CRL y MSS del grafico.
 // En M15 y H4, request.security(..., "5") entrega un ESTADO calculado en M5
 // pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
 
@@ -65,8 +65,6 @@ keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, gr
 maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
 
 // QA: detectar varias familias de CRT NO autoriza entradas automaticamente.
-string grpEntry = "06 / Modelos de entrada CRT (QA)"
-showEntryCatalog = input.bool(true, "Mostrar clasificacion de modelos CRT", group=grpEntry, tooltip="Solo lectura; no nuevas alertas ni ordenes. 2 velas, Inside, expansion y multicandle se muestran como diagnósticos hasta cumplir las tres H4 y MSS M15 propios.")
 string grp2 = "02 / MSS M5 y M15"
 left5 = input.int(2, "M5 swing izquierdo", minval=1, maxval=7, group=grp2)
 right5 = input.int(2, "M5 swing derecho", minval=1, maxval=7, group=grp2)
@@ -80,10 +78,8 @@ maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval
 string grpMemory = "00 / Memoria (QA)"
 memoryScan = input.string("34 instrumentos (experimental)", "Alcance escaneo", options=["34 instrumentos (experimental)", "BTCUSD solo"], group=grpMemory, tooltip="Predeterminado: solicitar los 34 simbolos y ejecutar el mismo f_engine() en cada feed M5. BTCUSD solo es un modo manual de diagnostico y NO escanea los otros 33. 34 respuestas no equivalen a 34 modelos detectados ni validados.")
 bool scanAll = memoryScan == "34 instrumentos (experimental)"
-string grp3 = "03 / Dashboard"
+string grp3 = "03 / Dashboard y auditoria QA"
 showDashboard = input.bool(true, "Mostrar dashboard", group=grp3)
-compactMobile = input.bool(true, "Panel compacto (movil)", group=grp3, tooltip="Vista compacta en 6 columnas y 7 filas; las 34 fuentes se consultan igual que antes.")
-userFocus7 = input.bool(true, "Monitor principal: CRT + MSS M5/M15 (QA)", group=grp3, tooltip="Objetivo unico: localizar CRT H4 y el MSS M5/M15 de su mismo ciclo en los 34 mercados. La fase C3 activa no es C3 cerrada. Provisionales, rechazos y retest solo se ven con ampliar 34 + inspeccionar 7 categorias (QA). No autoriza alertas reales.")
 expandFull34 = input.bool(false, "Ver los 34 instrumentos (expandir)", group=grp3, tooltip="En TradingView Pine las celdas no reciben toques. Abre Ajustes del indicador > 03 / Dashboard y activa esto. Vista compacta: solo CRT centrales ratificados, priorizando MSS M15; ampliada: los 34 feeds, con o sin señal, 4 por pagina.")
 compactPriorityRows = input.int(6, "Monitor CRT: filas prioritarias (2-6)", minval=2, maxval=6, group=grp3, tooltip="Solo para el monitor CRT + MSS compacto. Ordena primero los mercados con ambos MSS, despues M15, M5 y otros CRT. No altera los 34 feeds ni activa alertas.")
 showCatalog7 = input.bool(false, "Ampliado: inspeccionar 7 categorias CRT (QA)", group=grp3, tooltip="Solo tiene efecto en modo ampliado: 3C+MSS15, 2C candidata, expansion rechazada, Inside retorno, Inside continuacion no aprobada, Multi-Candle QA y retest M15 QA. No crea entradas ni alertas.")
@@ -91,22 +87,14 @@ qaFamilyHistoryView = input.bool(false, "QA: historial 2C/3C/Inside/Multi por me
 qaHistoryFollowChart = input.bool(true, "QA historial: seguir el simbolo del grafico (mismo broker)", group=grp3, tooltip="Para el detalle de UTCmin toma el simbolo exacto del grafico solo si ticker.standard coincide en proveedor y simbolo con uno de los 34 feeds. Si no coincide: SIN SLOT. Desactiva para elegir el numero de instrumento manualmente.")
 showNonBtcCohortQA = input.bool(false, "QA: auditar los 33 instrumentos sin BTC", group=grp3, tooltip="Muestra 33 feeds sin BTCUSD, por 4 por pagina: H4 evaluadas/incompletas, C1 validas y estados. BTC mantiene motor independiente y no participa en estadistica.")
 qa33RootView = input.bool(true, "QA 33: mostrar causas H4 (inicio/fin/conteo)", group=grp3, tooltip="En la auditoria 33 alterna al desglose POR instrumento: bloques con inicio de NY distinto, fin diferente y cantidad M5 distinta de 48. No modifica reglas CRT.")
-qaPhase1NonBtc = input.bool(true, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
+qaPhase1NonBtc = input.bool(false, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
 showSlotEventAudit = input.bool(false, "QA: ver tiempos CRT/MSS de 1 instrumento", group=grp3, tooltip="Esta vista desplaza temporalmente el catalogo 34: muestra solo el evento actual. Para el ultimo evento historico, activar la opcion inferior; no autoriza trading.")
 qaHistoricLast = input.bool(false, "QA: ver ultimo evento historico por categoria", group=grp3, tooltip="En la vista de tiempos, reemplaza los contadores inferiores por las marcas de tiempo mas recientes de 2C provisional, 2C ratificada, expansion rechazada, 3C, Inside retorno/continuacion, Multi4/Multi-N y retest M15. Nunca reconstruye ni inventa MSS15. No es certificado.")
 qaReadableUtc = input.bool(true, "QA: mostrar fechas UTC (DD/MM HH:mm)", group=grp3, tooltip="Solo cambia la presentacion: ON = fecha UTC legible para Android; OFF = minutos Unix UTC exactos de V34.11L para reconciliacion con Trader Lab. Sin cambios de motor, velas, MSS o alertas.")
 qaFollowChart = input.bool(true, "QA: seguir grafico solo si proveedor coincide", group=grp3, tooltip="Solo cambia el slot QA automaticamente si el ticker estandar con proveedor coincide exactamente con un feed del escaner. Nunca mezcla proveedores con el mismo nombre de mercado.")
 qaEventSlot = input.int(1, "QA: numero de instrumento (1-34)", minval=1, maxval=34, group=grp3)
-rowsToShow = input.int(8, "Filas solicitadas (QA reserva espacio)", minval=3, maxval=12, group=grp3, tooltip="Solo se listan activos con CRT vigente o QA confirmado, segun Vista. El catalogo de modelos del grafico reserva filas 4-6; paginas para mas resultados.")
-modeDashboard = input.string("Solo CRT", "Vista", options=["Solo CRT", "Solo CRT + QA", "Auditoría histórica (QA)", "Auditoría 34 por símbolo (QA)", "Auditoría C1 34 (QA)", "Todos los instrumentos"], group=grp3, tooltip="Ambos modos Solo CRT y Solo CRT + QA consultan por defecto 34 simbolos; Vista controla SOLO que filas mostrar. Solo CRT = patrones centrales ratificados vigentes. Solo CRT + QA = incluir Inside/Multi-N/Multi4 H4 cerrados, rotulados QA. Auditoría histórica = contadores del grafico Y resumen de los 34, sin señales. Todos = diagnostico.")
 page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=34, group=grp3)
 
-string grp4 = "04 / Grafico"
-showLevels = input.bool(true, "CRH y CRL de C1 del modelo detectado (QA)", group=grp4)
-showMssLines = input.bool(true, "Lineas MSS confirmadas", group=grp4)
-useAlerts = input.bool(false, "Alertar confirmaciones M5/M15 (QA: OFF por defecto)", group=grp4)
-showFvgAudit = input.bool(true, "QA: exportar estados FVG en ventana de datos", group=grp4, tooltip="SOLO ENSAYO: ultimo FVG H1/H4, limites, porcentaje, formedAt y gapAt. Sin cajas nuevas, sin cambiar CRT ni alertas.")
-alertFreshMinutes = input.int(20, "Ventana de alertas ratificadas (min)", minval=5, maxval=240, group=grp4, tooltip="Solo CRT H4 ratificado: MSS previo de C2 se notifica al ratificar C2, MSS nuevo de C3 al confirmarse. En graficos H4 puede haber retrasos y perdidas de eventos; ensayo en M5/M15.")
 
 // M4A PDH/PDL, diagnostico interno. NO dibuja niveles ni cambia senales.
 string grpPdh = "05 / PDH y PDL"
@@ -2386,8 +2374,6 @@ var array<string> pdhTexts = array.new_string(34, "N/D")
 var array<string> pdlTexts = array.new_string(34, "N/D")
 var array<int> pdhFlags = array.new_int(34, -1)
 var array<int> pdlFlags = array.new_int(34, -1)
-varip array<int> alert5IDs = array.new_int(34, 0)
-varip array<int> alert15IDs = array.new_int(34, 0)
 int found = 0
 int foundQA = 0
 int with5 = 0
@@ -2402,7 +2388,6 @@ int histM434 = 0
 int histMN34 = 0
 int withHistory34 = 0
 int familyQA15Count = 0
-string alertsNow = ""
 
 for i = 0 to 33
     if scanAll or i == 7
@@ -2532,23 +2517,6 @@ for i = 0 to 33
                 with5 += 1
             if m15t > 0
                 with15 += 1
-            // No alertar CRT provisional (st==1) ni historial (st==3).
-            // MSS observado durante C2 se hace elegible al confirmar la H4 (inicio C3).
-            // Una confirmacion nueva en C3 conserva el timestamp real de su MSS.
-            bool certifiedCRT = (not qaPhase1NonBtc or i == 7) and st == 2 and id > 0 and not na(s.crtC2Start) and not na(s.crtRatifiedAt)
-            bool validM5 = certifiedCRT and m5t >= s.crtC2Start
-            bool validM15 = certifiedCRT and m15t >= s.crtC2Start
-            int eligibleM5At = validM5 ? math.max(m5t, s.crtRatifiedAt) : na
-            int eligibleM15At = validM15 ? math.max(m15t, s.crtRatifiedAt) : na
-            bool alert5 = validM5 and array.get(alert5IDs, i) != id and timenow >= eligibleM5At and timenow - eligibleM5At <= alertFreshMinutes * 60000
-            bool alert15 = validM15 and array.get(alert15IDs, i) != id and timenow >= eligibleM15At and timenow - eligibleM15At <= alertFreshMinutes * 60000
-            if false and useAlerts and not qaPhase1NonBtc and barstate.isrealtime and alert5
-                alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M5 | "
-                array.set(alert5IDs, i, id)
-            if false and useAlerts and not qaPhase1NonBtc and barstate.isrealtime and alert15
-                alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M15 | "
-                array.set(alert15IDs, i, id)
-
 // External alerts remain disabled; the 34-market monitor is QA only.
 
 
@@ -2588,7 +2556,7 @@ f_qaHistoryMin(int t) =>
     na(t) or t <= 0 ? "N/D" : str.tostring(int(math.floor(t / 60000)))
 
 f_renderFamilyHistory() =>
-    if barstate.islast and showDashboard and compactMobile and userFocus7 and qaFamilyHistoryView
+    if barstate.islast and showDashboard and qaFamilyHistoryView
         table.clear(board,0,0,5,14)
         table.cell(board,0,0,"MERCADO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,0,"2C H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
@@ -2696,10 +2664,110 @@ f_renderFamilyHistory() =>
         table.cell(board,4,14,selectedFeedOK ? "C1:"+str.tostring(selectedC1Count) : "C1:N/D",bgcolor=shade,text_color=selectedC1Count == 0 ? color.orange : color.gray,text_size=size.tiny)
         table.cell(board,5,14,selectedFeedOK ? "H4:"+str.tostring(selectedH4Closed)+"/"+(na(selectedH4LastBars) ? "N/D" : str.tostring(selectedH4LastBars)) : "H4:N/D",bgcolor=shade,text_color=selectedH4Closed == 0 ? color.orange : color.gray,text_size=size.tiny)
 
+
+f_qaAuditTime(int t) =>
+    qaReadableUtc ? (na(t) or t <= 0 ? "N/D" : str.format_time(t,"dd/MM HH:mm","Etc/UTC")) : f_qaHistoryMin(t)
+
+// Read-only per-source event audit. Same Signal data, no extra requests.
+f_renderSlotEventAudit() =>
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and showSlotEventAudit
+        table.clear(board,0,0,5,14)
+        int slot = math.min(math.max(qaEventSlot - 1,0),33)
+        if not scanAll
+            slot := 7
+        else if qaFollowChart
+            slot := -1
+            string exactTicker = ticker.standard(syminfo.tickerid)
+            for i = 0 to 33
+                if ticker.standard(array.get(scanSymbols,i)) == exactTicker
+                    slot := i
+                    break
+        bool known = slot >= 0
+        bool good = known and array.get(auditFeedAvailable,slot) == 1
+        string name = known ? "S"+str.tostring(slot+1)+" "+array.get(scanNames,slot) : "SIN SLOT / BROKER"
+        string[] headers = array.from("SLOT","FEED","C1","SWEEP","RAT","MSS15")
+        string[] values = array.from(name,good ? "OK" : "N/D",
+             f_qaAuditTime(known ? array.get(qaC1BySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaSweepBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaRatBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaBreak15BySlot,slot) : na))
+        string[] h2 = array.from("MSS5","PIV5","PIV15","FASE","H4 BARRAS","C1 VALID")
+        string[] v2 = array.from(
+             f_qaAuditTime(known ? array.get(m5Times,slot) : na),
+             f_qaAuditTime(known ? array.get(m5PivotTimes,slot) : na),
+             f_qaAuditTime(known ? array.get(qaPivot15AtBySlot,slot) : na),
+             good ? str.tostring(array.get(auditFeedPhaseMin,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedH4LastBars,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1,slot)) : "N/D")
+        string[] h3 = array.from("EXTRA","C1 EX","SWEEP EX","RAT EX","M15 EX","QA")
+        string[] v3 = array.from(known ? array.get(qaExtraKindBySlot,slot) : "N/D",
+             f_qaAuditTime(known ? array.get(qaExtraC1BySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraSweepBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraRatBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraBreak15BySlot,slot) : na),"NO PUSH")
+        string[] h4 = array.from("H4 VALID","C1 CLOCK","C1 DATA","C1 RANGO","C2 RECH","H4 GAP")
+        string[] v4 = array.from(
+             good ? str.tostring(array.get(auditFeedH4Closed,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Clock,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Data,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Range,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC2Rejected,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedH4Gap,slot)) : "N/D")
+        for col = 0 to 5
+            table.cell(board,col,0,array.get(headers,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,1,array.get(values,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+            table.cell(board,col,3,array.get(h2,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,4,array.get(v2,col),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+            table.cell(board,col,6,array.get(h3,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,7,array.get(v3,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+            table.cell(board,col,9,array.get(h4,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,10,array.get(v4,col),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        if qaHistoricLast
+            string[] hh = array.from("HIST 2C","HIST 3C","HIST INS","HIST M4","HIST MN","CERRADOS")
+            int signed3 = known ? array.get(qaTrue3CSignedBySlot,slot) : na
+            string[] vv = array.from(
+                f_qaAuditTime(known ? array.get(qaHistRatified2CBySlot,slot) : na),
+                f_qaAuditTime(na(signed3) ? na : int(math.abs(signed3))),
+                f_qaAuditTime(known ? array.get(qaHistInsideReturnBySlot,slot) : na),
+                f_qaAuditTime(known ? array.get(qaHistMulti4BySlot,slot) : na),
+                f_qaAuditTime(known ? array.get(qaHistMultiNBySlot,slot) : na),"NO LIVE")
+            for col = 0 to 5
+                table.cell(board,col,12,array.get(hh,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+                table.cell(board,col,13,array.get(vv,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,14,"QA NO LIVE",bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+
+// Explicit 33 non-BTC evidence, paginated; never silently blanks the board.
+f_renderNonBtcAudit() =>
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and not showSlotEventAudit and showNonBtcCohortQA
+        table.clear(board,0,0,5,14)
+        string[] header = qa33RootView ? array.from("MERCADO","FASE","INI ERR","FIN ERR","48 ERR","GAPS") : array.from("MERCADO","FEED","C1","H4","2C","M15 QA")
+        for col = 0 to 5
+            table.cell(board,col,0,array.get(header,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        int currentPage = math.min(math.max(page,1),4)
+        int ordinal = 0
+        for i = 0 to 33
+            if i != 7
+                int row = ordinal - (currentPage-1)*10 + 1
+                if row >= 1 and row <= 10
+                    bool available = scanAll and array.get(auditFeedAvailable,i) == 1
+                    color bg = row % 2 == 0 ? shade : navy
+                    string cell1 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedPhaseMin,i)) : "OK"
+                    string cell2 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4StartMis,i)) : str.tostring(array.get(auditFeedC1,i))
+                    string cell3 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4EndMis,i)) : str.tostring(array.get(auditFeedH4Closed,i))
+                    string cell4 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4BarsMis,i)) : str.tostring(array.get(auditFeed2C,i))
+                    string cell5 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4Gap,i)) : str.tostring(array.get(auditFeedM15QA,i))
+                    string[] cells = array.from(array.get(scanNames,i),cell1,cell2,cell3,cell4,cell5)
+                    for col = 0 to 5
+                        table.cell(board,col,row,array.get(cells,col),bgcolor=bg,text_color=available ? color.white : color.orange,text_size=size.tiny)
+                ordinal += 1
+        string[] footer = array.from("QA 33 SIN BTC","P "+str.tostring(currentPage)+"/4",scanAll ? "33 FUENTES" : "BTC SOLO","R:"+str.tostring(checked)+"/"+str.tostring(scanAll ? 34 : 1),"NO LIVE","NO PUSH")
+        for col = 0 to 5
+            table.cell(board,col,12,array.get(footer,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+
 // Ranking 0=both MSS, 1=M15 only, 2=M5 only, 3=2C no MSS,
 // 4=other structural QA, 5=inactive/rejected (expanded only).
 f_renderRadarDashboard() =>
-    if barstate.islast and showDashboard and compactMobile and userFocus7 and not qaFamilyHistoryView and not showSlotEventAudit and not showNonBtcCohortQA
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and not showSlotEventAudit and not showNonBtcCohortQA
         table.clear(board,0,0,5,14)
         table.cell(board,0,0,"MERCADO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
         table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
@@ -2757,11 +2825,20 @@ f_renderRadarDashboard() =>
         int pageNow = math.min(math.max(page,1),totalPages)
         int visited = 0
         int drawn = 0
-        for priority = 0 to 5
+        // Prefer the current graph only for the exact scanned broker+symbol.
+        int chartSlot = -1
+        string chartBroker = ticker.standard(syminfo.tickerid)
+        for slot = 0 to 33
+            if (scanAll or slot == 7) and ticker.standard(array.get(scanSymbols,slot)) == chartBroker
+                chartSlot := slot
+                break
+        for priority = -1 to 5
             for i = 0 to 33
                 bool requested = scanAll or i == 7
                 int rank = array.get(rankBySlot,i)
-                bool visibleRow = requested and priority == rank and (expandFull34 or rank < 5)
+                bool chartFirst = priority == -1 and i == chartSlot
+                bool rankedOther = priority >= 0 and priority == rank and i != chartSlot
+                bool visibleRow = requested and (chartFirst or rankedOther) and (expandFull34 or rank < 5)
                 if visibleRow
                     if visited >= (pageNow-1)*onPage and drawn < onPage
                         int rowIndex = drawn + 1
@@ -2802,7 +2879,7 @@ f_renderRadarDashboard() =>
                         string dirText = core or qaCore or otherQA or true3c ? (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "N/V") : "—"
                         color bg = rowIndex % 2 == 0 ? shade : navy
                         color stateInk = core ? posInk : core or qaCore or otherQA or true3c ? color.orange : color.gray
-                        table.cell(board,0,rowIndex,array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
+                        table.cell(board,0,rowIndex,(i == chartSlot ? "▶ " : "") + array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
                         table.cell(board,1,rowIndex,role,bgcolor=bg,text_color=stateInk,text_size=size.tiny)
                         table.cell(board,2,rowIndex,dirText,bgcolor=bg,text_color=dir > 0 ? posInk : dir < 0 ? negInk : color.gray,text_size=size.tiny)
                         table.cell(board,3,rowIndex,m5Text,bgcolor=bg,text_color=core and ownM5 ? posInk : qaCore and ownM5 or ownExtraM5 ? color.orange : color.gray,text_size=size.tiny)
@@ -2812,7 +2889,7 @@ f_renderRadarDashboard() =>
                     visited += 1
         if not expandFull34 and activeCount == 0
             table.cell(board,0,1,"SIN CRT VIGENTE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
-            table.cell(board,1,1,"34 VIGILADOS",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+            table.cell(board,1,1,str.tostring(nFeeds)+" VIGILADOS",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
         int footer = onPage + 1
         table.cell(board,0,footer,expandFull34 ? "P "+str.tostring(pageNow)+"/"+str.tostring(totalPages) : "CRT:"+str.tostring(coreCount),bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
         table.cell(board,1,footer,"C:"+str.tostring(coreCount),bgcolor=navy,text_color=color.white,text_size=size.tiny)
@@ -2831,3 +2908,7 @@ f_renderRadarDashboard() =>
 f_renderRadarDashboard()
 
 f_renderFamilyHistory()
+
+f_renderSlotEventAudit()
+
+f_renderNonBtcAudit()

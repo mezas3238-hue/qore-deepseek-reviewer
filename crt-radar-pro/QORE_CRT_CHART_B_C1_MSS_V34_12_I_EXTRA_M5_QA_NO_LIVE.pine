@@ -20,7 +20,7 @@ indicator("QORE CRT CHART | MSS5 EXTRA V34.12I QA", shorttitle="QORE CRT Chart 1
 // V32 30-OCT-2026: reparar visibilidad del activo abierto y CRT H4
 // Detectar durante C2, diferenciar provisional (*) de ratificado y
 // conservar el ultimo CRT confirmado por ventana parametrizable.
-// El grafico abierto va SIEMPRE primero, aun si esta en la pagina 4/5.
+// El grafico abierto va primero si el proveedor/ticker coincide exactamente con un feed.
 // IMPORTANTE: motor independiente. No copia el Pine cerrado de GoldForexDoc.
 // V31: SCAN de 34 simbolos configurables + grafico abierto independiente.
 // Todos usan el MISMO f_engine() y la MISMA fuente M5; sin exclusiones de pares.
@@ -75,7 +75,7 @@ maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval
 // CHART B: no escanea otros 33 feeds ni muestra dashboard.
 // La fase por proveedor sigue siendo una opcion QA, no una senal.
 string grp3 = "03 / Motor QA por proveedor"
-qaPhase1NonBtc = input.bool(true, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
+qaPhase1NonBtc = input.bool(false, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
 
 string grp4 = "04 / Grafico"
 showLevels = input.bool(true, "CRH y CRL de C1 del modelo detectado (QA)", group=grp4)
