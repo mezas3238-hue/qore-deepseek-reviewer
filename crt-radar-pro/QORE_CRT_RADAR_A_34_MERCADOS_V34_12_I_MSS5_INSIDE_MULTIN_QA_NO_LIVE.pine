@@ -660,6 +660,8 @@ f_engine() =>
     var float lastLow5 = na
     var int lastHigh5At = na
     var int lastLow5At = na
+    // M5 continuity barrier for auxiliary-family frozen pivots.
+    var int qaExtraM5SegmentStart = na
 
     // Acumulador M15 sobre barras M5 completas.
     var int m15Bucket = na
@@ -880,6 +882,7 @@ f_engine() =>
     // acumuladores y swings M15 de la cadena anterior. No permitir que
     // pivotes confirmados con barras discontinuas crucen a un nuevo CRT.
     if not previousM5Continuous and not na(barT)
+        qaExtraM5SegmentStart := barT
         lastCompleteM15CloseAt := na
         m15Bucket := na
         m15Count := 0
@@ -1633,7 +1636,7 @@ f_engine() =>
                     cand.pivot15 := freshInside15 ? (cand.sweepDir == 1 ? lastHigh15 : lastLow15) : na
                     cand.pivot15At := freshInside15 ? (cand.sweepDir == 1 ? lastHigh15At : lastLow15At) : na
                     cand.mss15At := na
-                    bool freshInside5 = cand.sweepDir == 1 ? not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : cand.sweepDir == -1 ? not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
+                    bool freshInside5 = cand.sweepDir == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : cand.sweepDir == -1 ? not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
                     cand.pivot5 := freshInside5 ? (cand.sweepDir == 1 ? lastHigh5 : lastLow5) : na
                     cand.pivot5At := freshInside5 ? (cand.sweepDir == 1 ? lastHigh5At : lastLow5At) : na
                     cand.mss5At := na
@@ -1687,7 +1690,7 @@ f_engine() =>
                                 bool freshMN15 = candidateDir == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000 : false
                                 float frozenLevel = freshMN15 ? (candidateDir == 1 ? lastHigh15 : lastLow15) : na
                                 int frozenAt = freshMN15 ? (candidateDir == 1 ? lastHigh15At : lastLow15At) : na
-                                bool freshMN5 = candidateDir == 1 ? not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
+                                bool freshMN5 = candidateDir == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
                                 float frozenLevel5 = freshMN5 ? (candidateDir == 1 ? lastHigh5 : lastLow5) : na
                                 int frozenAt5 = freshMN5 ? (candidateDir == 1 ? lastHigh5At : lastLow5At) : na
                                 array.push(qaMultiNMssCandidates, MultiNMssCandidate.new(firstClosed.startAt, bucketH4, candidateDir, barEnd, frozenLevel, frozenAt, na, lowSweep and highSweep, frozenLevel5, frozenAt5, na))
