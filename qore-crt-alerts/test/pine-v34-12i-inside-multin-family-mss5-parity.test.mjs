@@ -72,3 +72,12 @@ test("Chart B draws extra M5 level only when same family & same C1 as its C1 lin
  assert.ok(chart.includes('title="QA familia extra pivote M5 precio"'));
  assert.ok(chart.includes('bool extraOwnM15 ='));
 });
+
+test("Chart B stays within basic 64 Pine plot-count budget on authored visual calls",()=>{
+ const plotCount=(chart.match(/^\\s*plot\\(/gm)||[]).length;
+ const extraCount=(chart.match(/^\\s*(?:plotshape|plotchar|plotarrow|plotbar|plotcandle|alertcondition|bgcolor|barcolor|fill)\\(/gm)||[]).length;
+ assert.equal(plotCount,63);
+ assert.equal(extraCount,0);
+ assert.ok(plotCount+extraCount<=64);
+ assert.ok(!/^\\s*plot\\([^\\n]*color\\s*=\\s*(?:input|isUp|isDown)/m.test(chart));
+});
