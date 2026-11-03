@@ -132,7 +132,16 @@ test("V34.12N PDH/PDL exported for ALL valid sessions via Signal constructor pos
  const fields=declaration.split("\n").map(line=>line.match(/^\s+(?:int|float|bool|string|FamilyVisual)\s+(\w+)/)).filter(Boolean).map(match=>match[1]);
  const argsLine=combined.split("\n").find(line=>line.trim().startsWith("Signal.new("));
  assert.ok(argsLine,"Signal constructor exists");
- const args=argsLine.trim().slice("Signal.new(".length,-1).split(",").map(x=>x.trim());
+ const sourceArgs=argsLine.trim().slice("Signal.new(".length,-1);
+ const args=[]; let depth=0, quoted=false, part="";
+ for(const ch of sourceArgs){
+  if(ch==='"') quoted=!quoted;
+  if(!quoted && ch==="(")depth++;
+  else if(!quoted && ch===")")depth--;
+  if(!quoted && ch==="," && depth===0){args.push(part.trim());part="";continue;}
+  part+=ch;
+ }
+ args.push(part.trim());
  assert.equal(fields.length,132);
  assert.equal(args.length,132);
  for(const [name,position,value] of [
