@@ -39,9 +39,9 @@ indicator("QORE CRT CHART | MSS5 EXTRA V34.12I QA", shorttitle="QORE CRT Chart 1
 // pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
 
 
-// QA V34.10c / MEMORIA: snapshot del ultimo estado M5 y BTCUSD-only por defecto.
-// ALCANCE: esta optimizacion no certifica Pine ni modo 34. Es un candidato
-// aislado para resolver "Memory limits exceeded" visto en BTCUSD H4 Android.
+// QA V34.12I / MEMORIA: CHART B consulta solo el ticker del grafico.
+// No muestra dashboard de 34 ni emite alertas de TradingView.
+// Compilacion y memoria en Pine real pendientes.
 // Esta version NO autoriza enviar alertas a Android o trading live.
 // El candidato V34.10b oficial de comparacion permanece inalterado.
 
@@ -64,9 +64,7 @@ keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, gr
 // M3B.3B: vigencia en H4 de negociacion cerradas y verificadas.
 maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
 
-// QA: detectar varias familias de CRT NO autoriza entradas automaticamente.
-string grpEntry = "06 / Modelos de entrada CRT (QA)"
-showEntryCatalog = input.bool(true, "Mostrar clasificacion de modelos CRT", group=grpEntry, tooltip="Solo lectura; no nuevas alertas ni ordenes. 2 velas, Inside, expansion y multicandle se muestran como diagnósticos hasta cumplir las tres H4 y MSS M15 propios.")
+// QA: detectar familias CRT NO autoriza entradas ni alertas.
 string grp2 = "02 / MSS M5 y M15"
 left5 = input.int(2, "M5 swing izquierdo", minval=1, maxval=7, group=grp2)
 right5 = input.int(2, "M5 swing derecho", minval=1, maxval=7, group=grp2)
@@ -74,36 +72,15 @@ left15 = input.int(2, "M15 swing izquierdo", minval=1, maxval=7, group=grp2)
 right15 = input.int(2, "M15 swing derecho", minval=1, maxval=7, group=grp2)
 maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval=15, maxval=1440, group=grp2)
 
-// V34.10t: los 34 simbolos se recorren por DEFECTO.
-// BTCUSD solo es un modo manual de emergencia para recursos limitados.
-// El modo 34 NO certifica que cada mercado produzca un CRT vigente.
-string grpMemory = "00 / Memoria (QA)"
-memoryScan = input.string("34 instrumentos (experimental)", "Alcance escaneo", options=["34 instrumentos (experimental)", "BTCUSD solo"], group=grpMemory, tooltip="Predeterminado: solicitar los 34 simbolos y ejecutar el mismo f_engine() en cada feed M5. BTCUSD solo es un modo manual de diagnostico y NO escanea los otros 33. 34 respuestas no equivalen a 34 modelos detectados ni validados.")
-bool scanAll = memoryScan == "34 instrumentos (experimental)"
-string grp3 = "03 / Dashboard"
-showDashboard = input.bool(true, "Mostrar dashboard", group=grp3)
-compactMobile = input.bool(true, "Panel compacto (movil)", group=grp3, tooltip="Vista compacta en 6 columnas y 7 filas; las 34 fuentes se consultan igual que antes.")
-userFocus7 = input.bool(true, "Monitor principal: CRT + MSS M5/M15 (QA)", group=grp3, tooltip="Objetivo unico: localizar CRT H4 y el MSS M5/M15 de su mismo ciclo en los 34 mercados. La fase C3 activa no es C3 cerrada. Provisionales, rechazos y retest solo se ven con ampliar 34 + inspeccionar 7 categorias (QA). No autoriza alertas reales.")
-expandFull34 = input.bool(false, "Ver los 34 instrumentos (expandir)", group=grp3, tooltip="En TradingView Pine las celdas no reciben toques. Abre Ajustes del indicador > 03 / Dashboard y activa esto. Vista compacta: solo CRT centrales ratificados, priorizando MSS M15; ampliada: los 34 feeds, con o sin señal, 4 por pagina.")
-showCatalog7 = input.bool(false, "Ampliado: inspeccionar 7 categorias CRT (QA)", group=grp3, tooltip="Solo tiene efecto en modo ampliado: 3C+MSS15, 2C candidata, expansion rechazada, Inside retorno, Inside continuacion no aprobada, Multi-Candle QA y retest M15 QA. No crea entradas ni alertas.")
-showNonBtcCohortQA = input.bool(false, "QA: auditar los 33 instrumentos sin BTC", group=grp3, tooltip="Muestra 33 feeds sin BTCUSD, por 4 por pagina: H4 evaluadas/incompletas, C1 validas y estados. BTC mantiene motor independiente y no participa en estadistica.")
-qa33RootView = input.bool(true, "QA 33: mostrar causas H4 (inicio/fin/conteo)", group=grp3, tooltip="En la auditoria 33 alterna al desglose POR instrumento: bloques con inicio de NY distinto, fin diferente y cantidad M5 distinta de 48. No modifica reglas CRT.")
+// CHART B: no escanea otros 33 feeds ni muestra dashboard.
+// La fase por proveedor sigue siendo una opcion QA, no una senal.
+string grp3 = "03 / Motor QA por proveedor"
 qaPhase1NonBtc = input.bool(true, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
-showSlotEventAudit = input.bool(false, "QA: ver tiempos CRT/MSS de 1 instrumento", group=grp3, tooltip="Esta vista desplaza temporalmente el catalogo 34: muestra solo el evento actual. Para el ultimo evento historico, activar la opcion inferior; no autoriza trading.")
-qaHistoricLast = input.bool(false, "QA: ver ultimo evento historico por categoria", group=grp3, tooltip="En la vista de tiempos, reemplaza los contadores inferiores por las marcas de tiempo mas recientes de 2C provisional, 2C ratificada, expansion rechazada, 3C, Inside retorno/continuacion, Multi4/Multi-N y retest M15. Nunca reconstruye ni inventa MSS15. No es certificado.")
-qaReadableUtc = input.bool(true, "QA: mostrar fechas UTC (DD/MM HH:mm)", group=grp3, tooltip="Solo cambia la presentacion: ON = fecha UTC legible para Android; OFF = minutos Unix UTC exactos de V34.11L para reconciliacion con Trader Lab. Sin cambios de motor, velas, MSS o alertas.")
-qaFollowChart = input.bool(true, "QA: seguir grafico solo si proveedor coincide", group=grp3, tooltip="Solo cambia el slot QA automaticamente si el ticker estandar con proveedor coincide exactamente con un feed del escaner. Nunca mezcla proveedores con el mismo nombre de mercado.")
-qaEventSlot = input.int(1, "QA: numero de instrumento (1-34)", minval=1, maxval=34, group=grp3)
-rowsToShow = input.int(8, "Filas solicitadas (QA reserva espacio)", minval=3, maxval=12, group=grp3, tooltip="Solo se listan activos con CRT vigente o QA confirmado, segun Vista. El catalogo de modelos del grafico reserva filas 4-6; paginas para mas resultados.")
-modeDashboard = input.string("Solo CRT", "Vista", options=["Solo CRT", "Solo CRT + QA", "Auditoría histórica (QA)", "Auditoría 34 por símbolo (QA)", "Auditoría C1 34 (QA)", "Todos los instrumentos"], group=grp3, tooltip="Ambos modos Solo CRT y Solo CRT + QA consultan por defecto 34 simbolos; Vista controla SOLO que filas mostrar. Solo CRT = patrones centrales ratificados vigentes. Solo CRT + QA = incluir Inside/Multi-N/Multi4 H4 cerrados, rotulados QA. Auditoría histórica = contadores del grafico Y resumen de los 34, sin señales. Todos = diagnostico.")
-page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=34, group=grp3)
 
 string grp4 = "04 / Grafico"
 showLevels = input.bool(true, "CRH y CRL de C1 del modelo detectado (QA)", group=grp4)
 showMssLines = input.bool(true, "Lineas MSS confirmadas", group=grp4)
-useAlerts = input.bool(false, "Alertar confirmaciones M5/M15 (QA: OFF por defecto)", group=grp4)
 showFvgAudit = input.bool(true, "QA: exportar estados FVG en ventana de datos", group=grp4, tooltip="SOLO ENSAYO: ultimo FVG H1/H4, limites, porcentaje, formedAt y gapAt. Sin cajas nuevas, sin cambiar CRT ni alertas.")
-alertFreshMinutes = input.int(20, "Ventana de alertas ratificadas (min)", minval=5, maxval=240, group=grp4, tooltip="Solo CRT H4 ratificado: MSS previo de C2 se notifica al ratificar C2, MSS nuevo de C3 al confirmarse. En graficos H4 puede haber retrasos y perdidas de eventos; ensayo en M5/M15.")
 
 // M4A PDH/PDL, diagnostico interno. NO dibuja niveles ni cambia senales.
 string grpPdh = "05 / PDH y PDL"

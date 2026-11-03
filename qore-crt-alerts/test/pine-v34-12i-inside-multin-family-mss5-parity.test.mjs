@@ -34,7 +34,7 @@ test("two indicators: identical engine, UDT, and 132-field constructor with no s
  assert.equal((radar.match(/request\.security\(/g)||[]).length,(oldRadar.match(/request\.security\(/g)||[]).length);
  assert.equal((chart.match(/request\.security\(/g)||[]).length,(oldChart.match(/request\.security\(/g)||[]).length);
  assert.ok(radar.includes("useAlerts = input.bool(false"));
- assert.ok(chart.includes("useAlerts = input.bool(false"));
+ assert.ok(!chart.includes("useAlerts = input.bool("));
 });
 test("Inside first M5 sweep freezes pivot from same contiguous segment, not M15 or 2C",()=>{
  const s=between(radar,"// ---- M3B.2 INTEGRADO: PRIMERA BARRIDA M5 DE INSIDE BAR ----","// Multi-N propio:");

@@ -39,9 +39,9 @@ indicator("QORE CRT RADAR | 34 mercados MSS5 EXTRA V34.12I QA", shorttitle="QORE
 // pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
 
 
-// QA V34.10c / MEMORIA: snapshot del ultimo estado M5 y BTCUSD-only por defecto.
-// ALCANCE: esta optimizacion no certifica Pine ni modo 34. Es un candidato
-// aislado para resolver "Memory limits exceeded" visto en BTCUSD H4 Android.
+// QA V34.12I / MEMORIA: RADAR consulta 34 feeds por defecto (experimental).
+// BTCUSD solo es modo manual de diagnostico; snapshot no certifica memoria
+// ni resuelve por si solo "Memory limits exceeded" en TradingView/Android.
 // Esta version NO autoriza enviar alertas a Android o trading live.
 // El candidato V34.10b oficial de comparacion permanece inalterado.
 
