@@ -1,0 +1,248 @@
+    int extraMss5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss5At : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : qaMulti4Mss5At
+    bool extraMss5Causal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
+    // Distinta C1 y M15; no se hereda el pivote del CRT principal.
+    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and f_m15_phase_ok(extraMssAt, qaNativeSourcePhaseMin) and extraMssAt <= extraAt + H4MS
+    // Chart-level C1 evidence comes from the SAME f_engine M5 source.
+    // Exactly one family can own these two prices. Priority will match the
+    // owner monitor: current 2C > independent true3C > Inside/Multi QA.
+    int familyC1At = na
+    float familyC1Hi = na
+    float familyC1Lo = na
+    int familyEventAt = na
+    int familyDir = 0
+    string familyVisualKind = "NONE"
+    bool ownTrue3CClosed = not na(qaTrue3CSignedAt) and not na(barEnd) and barEnd >= math.abs(qaTrue3CSignedAt) and barEnd < math.abs(qaTrue3CSignedAt) + H4MS
+    if ownTrue3CClosed and array.size(qaMultiNHistory) >= 3
+        for visI = 2 to array.size(qaMultiNHistory) - 1
+            MultiH4 visC3 = array.get(qaMultiNHistory, visI)
+            if visC3.endAt == math.abs(qaTrue3CSignedAt)
+                MultiH4 visC1 = array.get(qaMultiNHistory, visI - 2)
+                familyC1At := visC1.startAt
+                familyC1Hi := visC1.hi
+                familyC1Lo := visC1.lo
+                familyEventAt := visC3.endAt
+                familyDir := qaTrue3CSignedAt > 0 ? 1 : -1
+                familyVisualKind := "3C TRUE QA"
+                break
+    // If no true3C won, look up the exact C1 of the selected Extra
+    // family. Different families cannot borrow the base 2C's CRH/CRL.
+    if familyVisualKind == "NONE" and extraFamily and not na(extraC1)
+        if extraSelectInside and array.size(insideCandidates) > 0
+            for visI = 0 to array.size(insideCandidates) - 1
+                InsideCandidate visInside = array.get(insideCandidates, visI)
+                if visInside.c1Start == extraC1 and visInside.state == "RATIFIED" and visInside.isPatternValid
+                    familyC1At := visInside.c1Start
+                    familyC1Hi := visInside.c1High
+                    familyC1Lo := visInside.c1Low
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "INSIDE QA"
+                    break
+        else if extraSelectMultiN and array.size(qaMultiNHistory) > 0
+            for visI = 0 to array.size(qaMultiNHistory) - 1
+                MultiH4 visMultiN = array.get(qaMultiNHistory, visI)
+                if visMultiN.startAt == extraC1 and visMultiN.valid
+                    familyC1At := visMultiN.startAt
+                    familyC1Hi := visMultiN.hi
+                    familyC1Lo := visMultiN.lo
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "MULTI-N QA"
+                    break
+        else if array.size(qaFourH4) > 0
+            for visI = 0 to array.size(qaFourH4) - 1
+                MultiH4 visMulti4 = array.get(qaFourH4, visI)
+                if visMulti4.startAt == extraC1 and visMulti4.valid
+                    familyC1At := visMulti4.startAt
+                    familyC1Hi := visMulti4.hi
+                    familyC1Lo := visMulti4.lo
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "MULTI4 QA"
+                    break
+    bool familyHasOwnC1 = familyVisualKind != "NONE" and not na(familyC1At) and not na(familyC1Hi) and not na(familyC1Lo) and familyC1Hi > familyC1Lo and familyDir != 0 and not na(familyEventAt)
+    FamilyVisual outFamilyVisual = FamilyVisual.new(familyC1At, familyC1Hi, familyC1Lo, familyEventAt, familyDir, familyVisualKind, familyHasOwnC1)
+    // V34.11a: dedicated QA evidence for all SEVEN legacy category roles.
+    // Inside CONTINUATION is an observed rejection, never a live CRT.
+    bool insideContinuationNow = false
+    if array.size(insideCandidates) > 0 and not na(barEnd)
+        for catI = 0 to array.size(insideCandidates) - 1
+            InsideCandidate q = array.get(insideCandidates, catI)
+            int endOfInsideH4 = na(q.sweepH4Start) ? na : q.sweepH4Start + H4MS
+            if q.state == "CONTINUATION" and not na(endOfInsideH4) and barEnd >= endOfInsideH4 and barEnd < endOfInsideH4 + H4MS
+                insideContinuationNow := true
+    // Bit 1 is the TRUE independent 3C: C2 setup, C3 sweep of C1.
+    // Old category3C=outPhase==2 was merely the 2C pattern during C3.
+    bool category2CActiveC3 = outPhase == 2 and outValid and outModel == "CRT_2C_RETURN"
+    bool categoryTrue3C = not na(qaTrue3CSignedAt) and not na(barEnd) and barEnd >= math.abs(qaTrue3CSignedAt) and barEnd < math.abs(qaTrue3CSignedAt) + H4MS
+    bool category2CPending = outPhase == 1 and not na(outC1)
+    bool category2CExpansion = rejectedRecent
+    bool categoryInsideReturn = extraInside
+    bool categoryInsideContinuation = insideContinuationNow
+    bool categoryMultiCandle = extraMulti or extraMultiN
+    bool categoryM15Retest = retestVisible
+    int qaCatalogMask = (categoryTrue3C ? 1 : 0) + (category2CPending ? 2 : 0) + (category2CExpansion ? 4 : 0) + (categoryInsideReturn ? 8 : 0) + (categoryInsideContinuation ? 16 : 0) + (categoryMultiCandle ? 32 : 0) + (categoryM15Retest ? 64 : 0)
+    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin, qaLastM5PhaseMin, qaNativeSourcePhaseMin, qaLastCandidate2CAt, qaLastRatified2CAt, qaLastRejectedExpansionAt, qaLastConfirmed3CAt, qaLastInsideReturnAt, qaLastInsideContinuationAt, qaLastMulti4At, qaLastMultiNAt, qaLastRetest15At, qaLastCandidate2CCycle, qaTrue3CSignedAt, outFamilyVisual, extraMss5Causal ? extraPivot5 : na, extraMss5Causal ? extraPivot5At : na, extraMss5Causal ? extraMss5At : na, extraMss5Causal ? extraC1 : na)
+
+// V34.10c QA: f_engine se ejecuta EN TODAS las M5 para preservar
+// acumuladores, pivotes, C1/C2/C3 y MSS. Solo se entrega la UDT
+// del ultimo estado de la serie solicitada. No copia 42 campos de
+// cada una de las 2500 velas a cada contexto del grafico.
+f_engine_snapshot() =>
+    Signal state = f_engine()
+    barstate.islast ? state : na
+
+// M4B: texto compacto y explicitamente vinculado al CRT MOSTRADO.
+// PRE = primera barrida previa al comienzo de C2; OTR = fuera del
+// ciclo C2/C3 mostrado. Evita atribuir al CRT una barrida ajena.
+f_liqText(string status, int sweepAt, int stage, int sweepC1, int shownC1, int shownC2) =>
+    string result = status == "N/D" ? "N/D" : status == "INTACTO" ? "INT" : "T OTR"
+    if status == "TAKEN"
+        if not na(shownC1) and sweepC1 == shownC1 and stage == 2
+            result := "T C2"
+        else if not na(shownC1) and sweepC1 == shownC1 and stage == 3
+            result := "T C3"
+        else if not na(shownC2) and not na(sweepAt) and sweepAt <= shownC2
+            result := "T PRE"
+    result
+
+f_liqColor(string status) =>
+    status == "TAKEN" ? color.rgb(237, 164, 83) : status == "INTACTO" ? color.rgb(97, 192, 152) : color.gray
+
+
+// Two-slot Basic edition B: chart-only, same immutable engine source.
+f_name(string sym) =>
+    int pos = str.pos(sym, ":")
+    pos >= 0 ? str.substring(sym, pos + 1) : sym
+
+// ---- Grafico: 35a solicitud total, independiente de los 34 feeds ----
+Signal own = request.security(syminfo.tickerid, "5", f_engine_snapshot(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=1500)
+// QA BTC D: referencia directa de la ULTIMA vela diaria cerrada del
+// MISMO PROVEEDOR DEL GRAFICO, no el dia civil NY del modulo anterior.
+// high[1]/low[1] + lookahead_on es un patrón sin future leak.
+// En historico la vela D actual NUNCA contamina esta referencia.
+// Una sola solicitud tuple, independiente de los 34 instrumentos.
+[chartPrevDHigh, chartPrevDLow, chartPrevDOpenAt, chartPrevDCloseAt] = request.security(syminfo.tickerid, "D", [high[1], low[1], time[1], time_close[1]], lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true, calc_bars_count=7)
+bool chartBtcSymbol = str.upper(syminfo.ticker) == "BTCUSD"
+bool chartTfForDailyComparison = timeframe.isintraday or (timeframe.isdaily and timeframe.multiplier == 1)
+bool chartPrevDAvailable = chartBtcSymbol and chartTfForDailyComparison and not na(chartPrevDHigh) and not na(chartPrevDLow) and not na(chartPrevDOpenAt) and not na(chartPrevDCloseAt) and chartPrevDHigh >= chartPrevDLow
+// La última 1D cerrada es la única fuente de los precios PDH/PDL
+// operativos de BTC. Requerir que las M5 cerradas actuales empiecen
+// EXACTAMENTE donde terminó esa 1D, sin lagunas entre M5.
+bool chartDayAuditReady = chartPrevDAvailable and not na(own) and own.chartDayContinuous and own.chartDStart == chartPrevDCloseAt and not na(own.chartDayHighM5) and not na(own.chartDayLowM5)
+bool chartPdhTaken = chartDayAuditReady and own.chartDayHighM5 > chartPrevDHigh
+bool chartPdlTaken = chartDayAuditReady and own.chartDayLowM5 < chartPrevDLow
+string chartPdhState = not chartDayAuditReady ? "N/D" : chartPdhTaken ? "TAKEN" : "INTACTO"
+string chartPdlState = not chartDayAuditReady ? "N/D" : chartPdlTaken ? "TAKEN" : "INTACTO"
+// El simbolo abierto NUNCA se ignora: se calcula aunque no pertenezca a
+// los 34 feeds. Si ya existe con el mismo proveedor, no se muestra duplicado.
+string ownStd = ticker.standard(syminfo.tickerid)
+// No 34-instrument loop in chart-only indicator.
+bool chartAvailable = not na(own) and not na(own.phase)
+bool chartActive = chartAvailable and own.phase > 0
+string openName = f_name(syminfo.tickerid)
+// V34.10x: never draw a provisional C2 as a certified CRT H4.
+bool visualChartAligned = timeframe.isintraday and (timeframe.multiplier == 5 or timeframe.multiplier == 15 or (timeframe.multiplier == 240 and chartAvailable and not na(own.nyH4Start) and own.nyH4Start == time))
+// A NY-anchored H4 CRT cannot be placed on a broker H4 chart whose candles
+// open at different timestamps. Use chart M5/M15 or an aligned H4 feed.
+// 2C and QA 2C keep their original C1, distinct models use the
+// bounded familyVisual with OHLC from THAT family's C1 only.
+bool chartCoreC1 = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+bool chartExtraC1 = chartAvailable and not chartCoreC1 and not na(own.familyVisual) and own.familyVisual.structuralQA and not na(own.familyVisual.c1Start) and not na(own.familyVisual.eventClosedAt) and not na(own.familyVisual.c1High) and not na(own.familyVisual.c1Low) and own.familyVisual.c1High > own.familyVisual.c1Low
+// Never allow qaCatalogMask alone to draw: it also includes rejected,
+// provisional and retest diagnostic bits with NO C1 price evidence.
+int displayC1 = chartCoreC1 ? own.c1Start : chartExtraC1 ? own.familyVisual.c1Start : na
+float displayCRH = chartCoreC1 ? own.crh : chartExtraC1 ? own.familyVisual.c1High : na
+float displayCRL = chartCoreC1 ? own.crl : chartExtraC1 ? own.familyVisual.c1Low : na
+string displayFamily = chartCoreC1 ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA") : chartExtraC1 ? own.familyVisual.kind : "NONE"
+int displayEnd = chartCoreC1 ? own.c1Start + 3 * H4MS : chartExtraC1 ? own.familyVisual.eventClosedAt + H4MS : na
+bool visible = visualChartAligned and (chartCoreC1 or chartExtraC1) and not na(displayC1) and not na(displayCRH) and not na(displayCRL) and not na(displayEnd) and displayCRH > displayCRL and displayEnd > displayC1 and time_close >= displayC1
+plot(visible ? displayCRH : na, "CRH actual", color=color.new(color.orange, 100), display=display.data_window)
+plot(visible ? displayCRL : na, "CRL actual", color=color.new(color.orange, 100), display=display.data_window)
+// QA NY: estos valores son del motor M5, no de la H4 visual del broker.
+plot(chartAvailable and not na(own.nyH4Start) ? own.nyH4Start / 60000.0 : na, title="QA BTC H4 NY inicio UTC min", display=display.data_window)
+plot(chartAvailable ? own.nyH4M5Count : na, title="QA BTC H4 M5 cerradas", display=display.data_window)
+plot(chartAvailable ? own.qaC1Ready : na, title="QA C1 NY elegibles historial M5 mismo feed", display=display.data_window)
+plot(chartAvailable ? own.qaC2Ratified : na, title="QA BTC CRT C2 ratificados en historial M5", display=display.data_window)
+plot(chartAvailable ? own.qaCurrentH4Hour : na, title="QA BTC H4 hora local NY", display=display.data_window)
+plot(chartAvailable ? own.nyPDH : na, title="QA BTC PDH NY nivel", display=display.data_window)
+plot(chartAvailable ? own.nyPDL : na, title="QA BTC PDL NY nivel", display=display.data_window)
+plot(chartAvailable and not na(own.nyPDHReferenceAt) ? own.nyPDHReferenceAt / 60000.0 : na, title="QA BTC PDH PDL NY referencia UTC min", display=display.data_window)
+// Contraste directo con la vela diaria visible del mismo ticker.
+plot(chartPrevDAvailable ? chartPrevDHigh : na, title="QA BTC PDH 1D GRAFICO precio", display=display.data_window)
+plot(chartPrevDAvailable ? chartPrevDLow : na, title="QA BTC PDL 1D GRAFICO precio", display=display.data_window)
+plot(chartPrevDAvailable ? chartPrevDOpenAt / 60000.0 : na, title="QA BTC D proveedor inicio UTC min", display=display.data_window)
+plot(chartPrevDAvailable ? chartPrevDCloseAt / 60000.0 : na, title="QA BTC D proveedor cierre UTC min", display=display.data_window)
+plot(chartDayAuditReady ? own.chartDayHighM5 : na, title="QA BTC D actual maximo M5 cerradas", display=display.data_window)
+plot(chartDayAuditReady ? own.chartDayLowM5 : na, title="QA BTC D actual minimo M5 cerradas", display=display.data_window)
+plot(chartDayAuditReady ? (chartPdhTaken ? 1 : 0) : na, title="QA BTC PDH 1D tomada 1 intacta 0", display=display.data_window)
+plot(chartDayAuditReady ? (chartPdlTaken ? 1 : 0) : na, title="QA BTC PDL 1D tomada 1 intacta 0", display=display.data_window)
+var line hiLine = na
+var line loLine = na
+var line m5Line = na
+var line m15Line = na
+var label hiLabel = na
+var label loLabel = na
+// Diagnostico del mismo motor que alimenta el dashboard.
+plot(not na(own) ? own.phase : na, title="AUDIT estado CRT grafico (1=provisional 2=activo 3=ultimo)", display=display.data_window)
+plot(not na(own) ? own.direction : na, title="AUDIT direccion CRT grafico (+1/-1)", display=display.data_window)
+plot(not na(own) ? own.c1Start : na, title="AUDIT ID C1 (timestamp)", display=display.data_window)
+// QA CRT CICLO: trazas de identidad y pivotes, solo ventana de datos.
+// Los timestamps son minutos UTC desde 1970; multiplicar por 60000 para milisegundos.
+plot(chartAvailable and not na(own.c1Start) ? own.c1Start / 60000.0 : na, title="QA CRT C1 inicio UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.crtC2Start) ? own.crtC2Start / 60000.0 : na, title="QA CRT C2 inicio UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.crtRatifiedAt) ? own.crtRatifiedAt / 60000.0 : na, title="QA CRT C2 ratificacion UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.sweepAt) ? own.sweepAt / 60000.0 : na, title="QA CRT barrida C2 fin UTC min", display=display.data_window)
+plot(chartAvailable ? own.m5Level : na, title="QA CRT MSS M5 pivote precio", display=display.data_window)
+plot(chartAvailable and not na(own.m5PivotAt) ? own.m5PivotAt / 60000.0 : na, title="QA CRT MSS M5 pivote UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.m5At) ? own.m5At / 60000.0 : na, title="QA CRT MSS M5 ruptura UTC min", display=display.data_window)
+plot(chartAvailable ? own.m15Level : na, title="QA CRT MSS M15 pivote precio", display=display.data_window)
+plot(chartAvailable and not na(own.m15PivotAt) ? own.m15PivotAt / 60000.0 : na, title="QA CRT MSS M15 pivote UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.m15At) ? own.m15At / 60000.0 : na, title="QA CRT MSS M15 ruptura UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.qaLastClosedM15At) ? own.qaLastClosedM15At / 60000.0 : na, title="QA MSS M15 ultima vela cerrada UTC min", display=display.data_window)
+plot(chartAvailable ? own.qaCatalogMask : na, title="QA catalogo 7 categorias mascara grafico 1-127", display=display.data_window)
+// Exponer momento confirmado separado del dibujo M5, no inventar entrada.
+plot(chartAvailable and not na(own.entryConfirmedAt) ? own.entryConfirmedAt / 60000.0 : na, title="QA CRT modelo entrada confirmado UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.multi4DetectedAt) ? own.multi4DetectedAt / 60000.0 : na, title="QA CRT MULTI4 cierre cuarta H4 UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.retest15At) ? own.retest15At / 60000.0 : na, title="QA CRT RETEST M15 cierre UTC min", display=display.data_window)
+plot(chartAvailable ? own.retest15High : na, title="QA CRT RETEST M15 vela maximo", display=display.data_window)
+plot(chartAvailable ? own.retest15Low : na, title="QA CRT RETEST M15 vela minimo", display=display.data_window)
+plot(chartAvailable ? own.retest15Close : na, title="QA CRT RETEST M15 vela cierre precio", display=display.data_window)
+plot(chartAvailable ? own.retest15Pivot : na, title="QA CRT RETEST M15 pivote congelado", display=display.data_window)
+plot(chartAvailable and not na(own.m15At) ? own.m15At / 60000.0 : na, title="QA BTC MSS15 validado por M15 UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilyC1) ? own.extraFamilyC1 / 60000.0 : na, title="QA familia extra C1 UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilySweepAt) ? own.extraFamilySweepAt / 60000.0 : na, title="QA familia extra barrida M5 fin UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilyM15PivotAt) ? own.extraFamilyM15PivotAt / 60000.0 : na, title="QA familia extra pivot M15 inicio UTC min", display=display.data_window)
+plot(chartAvailable ? own.extraFamilyM15Pivot : na, title="QA familia extra pivot M15 precio", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilyM15At) ? own.extraFamilyM15At / 60000.0 : na, title="QA familia extra MSS M15 cierre UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilyM5At) ? own.extraFamilyM5At / 60000.0 : na, title="QA familia extra MSS M5 cierre UTC min", display=display.data_window)
+plot(chartAvailable and not na(own.extraFamilyM5PivotAt) ? own.extraFamilyM5PivotAt / 60000.0 : na, title="QA familia extra pivote M5 UTC min", display=display.data_window)
+plot(chartAvailable ? own.extraFamilyM5Pivot : na, title="QA familia extra pivote M5 precio", display=display.data_window)
+// FIN QA CRT CICLO
+// QA SOLO: valores exportables en ventana de datos; sin nuevos dibujos de chart.
+// Estados -1=ausente, 0=INTACTO, 1=PARCIAL, 2=LLENADO_TOTAL, 3=INVALIDADO, 4=DATOS_INCOMPLETOS.
+plot(showFvgAudit and chartAvailable ? own.fvgH1Count : na, title="QA FVG H1 cantidad", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH1StateCode : na, title="QA FVG H1 estado", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH1Top : na, title="QA FVG H1 techo", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH1Bottom : na, title="QA FVG H1 suelo", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH1Pen : na, title="QA FVG H1 penetracion %", display=display.data_window)
+plot(showFvgAudit and chartAvailable and not na(own.fvgH1FormAt) ? own.fvgH1FormAt / 60000.0 : na, title="QA FVG H1 formedAt UTC min", display=display.data_window)
+plot(showFvgAudit and chartAvailable and not na(own.fvgH1GapAt) ? own.fvgH1GapAt / 60000.0 : na, title="QA FVG H1 gapAt UTC min", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH4Count : na, title="QA FVG H4 cantidad", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH4StateCode : na, title="QA FVG H4 estado", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH4Top : na, title="QA FVG H4 techo", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH4Bottom : na, title="QA FVG H4 suelo", display=display.data_window)
+plot(showFvgAudit and chartAvailable ? own.fvgH4Pen : na, title="QA FVG H4 penetracion %", display=display.data_window)
+plot(showFvgAudit and chartAvailable and not na(own.fvgH4FormAt) ? own.fvgH4FormAt / 60000.0 : na, title="QA FVG H4 formedAt UTC min", display=display.data_window)
+plot(showFvgAudit and chartAvailable and not na(own.fvgH4GapAt) ? own.fvgH4GapAt / 60000.0 : na, title="QA FVG H4 gapAt UTC min", display=display.data_window)
+if barstate.islast
+    if showLevels and visible
+        int t1 = displayC1
+        // Stop drawing after the selected family event window; do not
+        // reuse prices from another C1 when the chart is opened.
+        int t2 = math.min(time_close, displayEnd)
+        color ink = chartCoreC1 and (not qaPhase1NonBtc or chartBtcSymbol) ? color.rgb(168,65,115) : color.orange
+        if na(hiLine)
+            hiLine := line.new(t1,displayCRH,t2,displayCRH,xloc=xloc.bar_time,color=ink,width=2)
+            loLine := line.new(t1,displayCRL,t2,displayCRL,xloc=xloc.bar_time,color=ink,width=2)
+            hiLabel := label.new(t2,displayCRH,"CRH "+displayFamily,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(color.white,100),size=size.tiny)

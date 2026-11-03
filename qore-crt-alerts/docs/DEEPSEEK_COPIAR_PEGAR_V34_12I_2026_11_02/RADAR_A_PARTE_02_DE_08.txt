@@ -1,0 +1,541 @@
+// Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
+// QA multi-candle: solo OHLC de 4 velas H4 CERRADAS.
+// No altera la validacion obligatoria del CRT principal de 3 velas.
+type MultiH4
+    int startAt
+    int endAt
+    float hi
+    float lo
+    float cl
+    bool valid
+
+type FvgBar
+    int startAt
+    int endAt
+    float hi
+    float lo
+    bool valid
+
+type FvgContext
+    string id
+    string tf
+    int dir
+    float top
+    float bottom
+    int formedAt
+    string state
+    int linkedCrt
+    // M5B candidato: seguimiento solo sobre M5 cerradas posteriores a formedAt.
+    int firstTouchAt
+    float maxPenetration  // Proporcion [0.0, 1.0], no porcentaje sin convertir.
+    bool dataGap         // Se interrumpio continuidad observada; estado conservador.
+    int lastEvaluatedEnd // Cierre de la ultima M5 procesada; evita duplicados.
+    int gapObservedAt    // Primera M5 de discontinuidad no explicada.
+    bool lastSessionBar // El cierre ultimo M5 evaluado fue fin de sesion segun proveedor.
+
+// Funciones Pine deben definirse en el ambito global.
+f_add_context_fvg(array<FvgContext> store, string tf, int dir, float top, float bottom, int formedAt, bool endSessionOnFormation) =>
+    string k = syminfo.tickerid + "|" + tf + "|" + str.tostring(formedAt) + "|" + str.tostring(dir)
+    bool exists = false
+    if array.size(store) > 0
+        for z = 0 to array.size(store) - 1
+            if array.get(store, z).id == k
+                exists := true
+                break
+    if not exists
+        array.push(store, FvgContext.new(k, tf, dir, top, bottom, formedAt, "INTACTO", na, na, 0.0, false, formedAt, na, endSessionOnFormation))
+        if array.size(store) > 10
+            array.shift(store)
+    not exists
+
+// M5B CANDIDATO NO INTEGRADO: actualizar un FVG con la M5 cerrada.
+// Un corte de observabilidad (incluidos cierres de mercado no clasificados)
+// congela el estado, NO inventa mitigacion en barras que faltan.
+f_update_context_fvg(FvgContext f, int start5, int end5, float lo5, float hi5, float close5, bool firstSession5, bool lastSession5) =>
+    bool eligible = not na(start5) and not na(end5) and start5 >= f.formedAt and not na(f.lastEvaluatedEnd) and end5 > f.lastEvaluatedEnd
+    if eligible and f.state != "INVALIDADO" and f.state != "DATOS_INCOMPLETOS"
+        // Solo el par ultimo-barra-sesion / primer-barra-sesion justifica
+        // tratar la pausa como no-trading. NO saltar huecos por dayofweek.
+        bool knownClosedSession = start5 > f.lastEvaluatedEnd and f.lastSessionBar and firstSession5
+        bool discontinuity = (start5 != f.lastEvaluatedEnd and not knownClosedSession) or end5 - start5 != MIN5 or na(lo5) or na(hi5) or na(close5)
+        if discontinuity
+            f.dataGap := true
+            f.gapObservedAt := start5
+            f.state := "DATOS_INCOMPLETOS"
+        else
+            float width = f.top - f.bottom
+            if width > 0.0 and (f.dir == 1 or f.dir == -1)
+                bool touched = f.dir == 1 ? lo5 <= f.top : hi5 >= f.bottom
+                if touched and na(f.firstTouchAt)
+                    f.firstTouchAt := end5
+                if touched
+                    float rawPen = f.dir == 1 ? (f.top - lo5) / width : (hi5 - f.bottom) / width
+                    f.maxPenetration := math.max(f.maxPenetration, math.min(1.0, math.max(0.0, rawPen)))
+                bool broken = f.dir == 1 ? close5 < f.bottom : close5 > f.top
+                if broken
+                    f.state := "INVALIDADO"
+                else if f.maxPenetration >= 1.0
+                    f.state := "LLENADO_TOTAL"
+                else if not na(f.firstTouchAt)
+                    // Contacto justo en el borde conserva penetracion 0%.
+                    f.state := "PARCIAL"
+                else
+                    f.state := "INTACTO"
+            else
+                f.dataGap := true
+                f.gapObservedAt := start5
+                f.state := "DATOS_INCOMPLETOS"
+        f.lastEvaluatedEnd := end5
+        f.lastSessionBar := lastSession5
+    // Modifica los campos del UDT por referencia; sin reasignar f.
+    f.state
+
+// QA: -1=no existe, 0 intacto, 1 parcial, 2 lleno, 3 invalidado, 4 datos incompletos.
+f_fvg_code(string st) =>
+    st == "INTACTO" ? 0 : st == "PARCIAL" ? 1 : st == "LLENADO_TOTAL" ? 2 : st == "INVALIDADO" ? 3 : st == "DATOS_INCOMPLETOS" ? 4 : -2
+
+// Every M15 candidate must close on this provider's own native phase.
+// 0..4 are exact minute offsets, not M5->M15 substitutions.
+f_m15_phase_ok(int closedAt, int sourcePhaseMin) =>
+    not na(closedAt) and sourcePhaseMin >= 0 and sourcePhaseMin <= 4 and closedAt % MIN15 == sourcePhaseMin * 60000
+
+// En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+// UNA peticion request.security por activo en vez de tres peticiones.
+f_engine() =>
+    bool isIndex = f_index()
+    bool isBTC = str.upper(syminfo.ticker) == "BTCUSD"
+    int barT = time[1]
+    int barEnd = time_close[1]
+    float bH = high[1]
+    float bL = low[1]
+    float bC = close[1]
+    float prevClose = close[2]
+    // Datos de sesiones del MISMO ticker M5 dentro del request.security.
+    bool firstSession5 = session.isfirstbar[1]
+    bool lastSession5 = session.islastbar[1]
+    bool previousSessionLast5 = session.islastbar[2]
+    int previousBarEnd = time_close[2]
+    // QA: la M5 previa debe finalizar exactamente donde inicia la actual.
+    // Pine [2] recorre barras, no garantiza ausencia de huecos temporales.
+    bool previousM5Continuous = not na(barT) and not na(previousBarEnd) and barT == previousBarEnd
+
+    // La frontera diaria del proveedor se obtiene en el MISMO ticker M5.
+    // time("D")[1] identifica la vela diaria a la que pertenece M5[1].
+    // Nunca se acepta una sesión cuyo comienzo se perdió en el historial.
+    var int currentChartDay = na
+    var float currentChartHigh = na
+    var float currentChartLow = na
+    var bool currentChartContinuous = false
+    int chartDayId = time("D")[1]
+    if isBTC and not na(barT) and not na(barEnd) and not na(chartDayId)
+        if na(currentChartDay) or chartDayId != currentChartDay
+            currentChartDay := chartDayId
+            currentChartHigh := bH
+            currentChartLow := bL
+            currentChartContinuous := barT == chartDayId
+        else
+            currentChartContinuous := currentChartContinuous and previousM5Continuous
+            currentChartHigh := math.max(currentChartHigh, bH)
+            currentChartLow := math.min(currentChartLow, bL)
+
+    // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
+    // prev_valid solo significa que la ULTIMA sesion finalizada paso control
+    // de calidad; no se reutiliza silenciosamente un nivel de hace dias.
+    var float curr_H = na
+    var float curr_L = na
+    var int curr_sess_id = na
+    var int curr_m5_count = 0
+    var int curr_firstT = na
+    var int curr_lastEnd = na
+    var bool curr_continuous = true
+    var float prev_PDH = na
+    var float prev_PDL = na
+    var bool prev_valid = false
+    var int prev_timestamp = na
+    var int prev_sess_id = na
+    // M4B: el ID del nivel es su fecha de confirmacion 4A.
+    // No se consulta curr_sess_id[1] ni se reevalua una vela incompleta.
+    var int liquidityRefAt = na
+    var bool pdhTaken = false
+    var bool pdlTaken = false
+    var int pdhSweepAt = na
+    var int pdlSweepAt = na
+    var int pdhSweepStage = 0
+    var int pdlSweepStage = 0
+    var int pdhSweepC1 = na
+    var int pdlSweepC1 = na
+
+    // BTCUSD no hereda sesiones de Forex: PDH/PDL del dia civil NY
+    // completo (00:00-00:00), 7 dias. Cierre M5 [1] confirmado.
+    // En DST NY el dia completo tiene 23, 24 o 25 horas.
+    bool pdhRth = isIndex and not useExtIdx
+    string pdhSession = isBTC ? "0000-0000:1234567" : pdhRth ? "0930-1600:23456" : "1700-1700:23456"
+    bool pdhInSession = not na(time("5", pdhSession, TZ)[1])
+    if isBTC
+        if pdhInSession and not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+            int startNY = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 0, 0)
+            int endNY = timestamp(TZ, year(barEnd, TZ), month(barEnd, TZ), dayofmonth(barEnd, TZ), 0, 0)
+            int dayKey = year(barT, TZ) * 10000 + month(barT, TZ) * 100 + dayofmonth(barT, TZ)
+            // Si faltó un día completo de mercado, no comparar contra
+            // un PDH viejo (debe ser EXACTAMENTE el día NY anterior).
+            if prev_valid and not na(prev_timestamp)
+                int refDayKey = year(prev_timestamp, TZ) * 10000 + month(prev_timestamp, TZ) * 100 + dayofmonth(prev_timestamp, TZ)
+                if refDayKey != dayKey
+                    prev_valid := false
+            if na(curr_sess_id) or curr_sess_id != dayKey
+                if not na(curr_sess_id)
+                    prev_valid := false
+                curr_sess_id := dayKey
+                curr_H := bH
+                curr_L := bL
+                curr_m5_count := 1
+                curr_firstT := barT
+                curr_lastEnd := barEnd
+                curr_continuous := true
+            else
+                curr_continuous := curr_continuous and barT == curr_lastEnd
+                curr_H := math.max(curr_H, bH)
+                curr_L := math.min(curr_L, bL)
+                curr_m5_count += 1
+                curr_lastEnd := barEnd
+            bool closedNYDay = endNY > startNY and barEnd == endNY
+            if closedNYDay
+                int expectedM5 = int((endNY - startNY) / MIN5)
+                bool fullNYDay = curr_continuous and curr_firstT == startNY and curr_lastEnd == endNY and curr_m5_count == expectedM5 and (expectedM5 == 276 or expectedM5 == 288 or expectedM5 == 300)
+                prev_valid := fullNYDay
+                if fullNYDay
+                    prev_PDH := curr_H
+                    prev_PDL := curr_L
+                    prev_timestamp := endNY
+                    prev_sess_id := curr_sess_id
+                curr_sess_id := na
+                curr_H := na
+                curr_L := na
+                curr_m5_count := 0
+                curr_firstT := na
+                curr_lastEnd := na
+                curr_continuous := true
+    else
+        // Sesiones originales de Forex e indices: no alterarlas.
+        if not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+            // Identidad calendario local del INICIO de sesion; segura en DST.
+            // Mediodia menos 24h identifica el DIA ANTERIOR incluso si DST
+            // cambio el desfase UTC una hora durante la madrugada.
+            int pdhNoon = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 12, 0)
+            int pdhAnchor = pdhRth or hour(barT, TZ) >= 17 ? pdhNoon : pdhNoon - 86400000
+            int pdhKey = year(pdhAnchor, TZ) * 10000 + month(pdhAnchor, TZ) * 100 + dayofmonth(pdhAnchor, TZ)
+            if pdhInSession
+                if na(curr_sess_id) or pdhKey != curr_sess_id
+                    // Si un dia termino sin vela de cierre, NO publicar parcial.
+                    if not na(curr_sess_id)
+                        prev_valid := false
+                    curr_sess_id := pdhKey
+                    curr_H := bH
+                    curr_L := bL
+                    curr_m5_count := 1
+                    curr_firstT := barT
+                    curr_lastEnd := barEnd
+                    curr_continuous := true
+                else
+                    curr_continuous := curr_continuous and barT == curr_lastEnd
+                    curr_H := math.max(curr_H, bH)
+                    curr_L := math.min(curr_L, bL)
+                    curr_m5_count += 1
+                    curr_lastEnd := barEnd
+                // Con la ultima M5 (15:55-16 o 16:55-17) se cierra
+                // la sesion, aunque el proveedor no tenga velas posteriores.
+                int endHour = pdhRth ? 16 : 17
+                bool sessClosed = hour(barEnd, TZ) == endHour and minute(barEnd, TZ) == 0
+                if sessClosed
+                    int firstHour = pdhRth ? 9 : 17
+                    int firstMinute = minute(curr_firstT, TZ)
+                    bool startedOnTime = hour(curr_firstT, TZ) == firstHour and (pdhRth ? firstMinute == 30 : firstMinute <= 5)
+                    bool complete = curr_continuous and startedOnTime and curr_m5_count >= (pdhRth ? 78 : 280)
+                    prev_valid := complete
+                    if complete
+                        prev_PDH := curr_H
+                        prev_PDL := curr_L
+                        prev_timestamp := barEnd
+                        prev_sess_id := curr_sess_id
+                    // Valores historicos se conservan con prev_valid=false.
+                    curr_sess_id := na
+                    curr_H := na
+                    curr_L := na
+                    curr_m5_count := 0
+                    curr_firstT := na
+                    curr_lastEnd := na
+                    curr_continuous := true
+            else if not na(curr_sess_id)
+                // Fin de sesion sin M5 de cierre: no falsificar PDH/PDL.
+                prev_valid := false
+                curr_sess_id := na
+                curr_m5_count := 0
+                curr_H := na
+                curr_L := na
+                curr_firstT := na
+                curr_lastEnd := na
+                curr_continuous := true
+    // Pivot M5: calculo en la barra cerrada [1]; nunca es una barra futura.
+    float pH5 = ta.pivothigh(high, left5, right5)[1]
+    float pL5 = ta.pivotlow(low, left5, right5)[1]
+    var float lastHigh5 = na
+    var float lastLow5 = na
+    var int lastHigh5At = na
+    var int lastLow5At = na
+    // M5 continuity barrier for auxiliary-family frozen pivots.
+    var int qaExtraM5SegmentStart = na
+
+    // Acumulador M15 sobre barras M5 completas.
+    var int m15Bucket = na
+    var float m15High = na
+    var float m15Low = na
+    var float m15Close = na
+    var int m15Count = 0
+    var int m15LastEnd = na
+    var int m15Start = na
+    var array<float> highs15 = array.new_float()
+    var array<float> lows15 = array.new_float()
+    var array<int> times15 = array.new_int()
+    var float lastHigh15 = na
+    var float lastLow15 = na
+    var int lastHigh15At = na
+    var int lastLow15At = na
+    var float prev15Close = na
+    // QA: solo comparar cierres M15 consecutivos completos (no saltar sesiones).
+    var int prev15End = na
+    var int lastCompleteM15CloseAt = na
+
+    // H4 reconstruida desde datos de M5 del mismo proveedor.
+    var int h4Bucket = na
+    var float h4High = na
+    var float h4Low = na
+    var float h4Close = na
+    var int h4Count = 0
+    var int h4FirstT = na
+    var int h4LastEnd = na
+    // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+    var bool h4Continuous = true
+
+    // M5A: Reconstruccion H1 desde M5 cerradas y memoria de 3 barras TF.
+    var int h1Bucket = na
+    var int h1FirstT = na
+    var int h1LastEnd = na
+    var float h1High = na
+    var float h1Low = na
+    var int h1Count = 0
+    var bool h1Continuous = true
+    var FvgBar h1Prev = na
+    var FvgBar h1Prev2 = na
+    var FvgBar h4Prev = na
+    var FvgBar h4Prev2 = na
+    // Maximo cuatro H4 completas en el mismo feed, memoria O(4).
+    var array<MultiH4> qaFourH4 = array.new<MultiH4>()
+    var string qaMulti4Kind = "SIN 4H4"
+    var int qaMulti4At = na
+    var int qaMulti4C1 = na
+    var array<Multi4MssCandidate> qaMulti4MssCandidates = array.new<Multi4MssCandidate>()
+    var int qaMulti4SweepAt = na
+    var float qaMulti4Pivot5 = na
+    var int qaMulti4Pivot5At = na
+    var int qaMulti4Mss5At = na
+    // QA Multi-N: C1 + 2..5 H4 de consolidacion estricta + H4
+    // final que barre un solo extremo y cierra DENTRO de la C1.
+    // HIPOTESIS DEEPSEEK, independiente del MULTI4 distribuido.
+    // Hasta 7 H4 cerradas del mismo proveedor (O(7) por símbolo).
+    var array<MultiH4> qaMultiNHistory = array.new<MultiH4>()
+    var string qaMultiNKind = "MULTI-N ESP"
+    var int qaMultiNAt = na
+    var int qaMultiNC1 = na
+    var int qaMultiNDir = 0
+    var array<MultiNMssCandidate> qaMultiNMssCandidates = array.new<MultiNMssCandidate>()
+    var int qaMultiNSweepAt = na
+    var float qaMultiNPivot15 = na
+    var int qaMultiNPivot15At = na
+    var int qaMultiNMss15At = na
+    var float qaMultiNPivot5 = na
+    var int qaMultiNPivot5At = na
+    var int qaMultiNMss5At = na
+    // Retest: cierre M15 propio POSTERIOR al MSS15 del mismo C1.
+    var string qaRetest15State = "SIN MSS15"
+    var int qaRetest15At = na
+    // OHLC cerrado de LA vela M15 del retest; no del último M15 visible.
+    var float qaRetest15High = na
+    var float qaRetest15Low = na
+    var float qaRetest15Close = na
+    var float qaRetest15Pivot = na
+    var int qaRetestCycleC1 = na
+    var int qaRetestSourceMssAt = na
+    var array<FvgContext> fvgsH1 = array.new<FvgContext>()
+    var array<FvgContext> fvgsH4 = array.new<FvgContext>()
+
+    // C2 actual: puede coexistir con la C3 del CRT anterior.
+    // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+    var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+
+    var bool c2Active = false
+    var int c2Start = na
+    var int c1Start2 = na
+    var float c1High2 = na
+    var float c1Low2 = na
+    var int c2Dir = 0
+    var bool c2StrictSweep = false
+    var bool c2Double = false
+    var bool c2Returned = false
+    var int c2SweepEnd = na
+    var float c2Pivot5 = na
+    var float c2Pivot15 = na
+    var int c2Pivot5At = na
+    var int c2Pivot15At = na
+    var int c2M5At = na
+    var int c2M15At = na
+
+    // C3 ratificada: los MSS de C2 se heredan, los faltantes se esperan en C3.
+    var bool c3Active = false
+    var int c3Start = na
+    var int c1Start3 = na
+    var float c1High3 = na
+    var float c1Low3 = na
+    var int c3Dir = 0
+    var int c3SweepEnd = na
+    var float c3Pivot5 = na
+    var float c3Pivot15 = na
+    var int c3Pivot5At = na
+    var int c3Pivot15At = na
+    var int c3M5At = na
+    var int c3M15At = na
+    var float c3Invalidation = na
+    // Metadatos del CRT ratificado que se encuentra en C3.
+    var string c3ModelKind = "NONE"
+    var bool c3PatternValid = false
+    var int c3ModelC1 = na
+    var int c3C2Start = na // Solo metadato para asociar PDH/PDL, sin alterar MSS.
+
+    // Clasificacion diagnostica del ultimo cierre C2, aun si no es operativo.
+    var string last2CClassification = "NONE"
+    var int last2CClassificationAt = na
+
+    // Memoria controlada del ULTIMO CRT realmente ratificado, NO de
+    // cualquier MSS aislado. Los flags se copian desde C2/C3 y no se
+    // inventan desde eventos antiguos no vinculados al ciclo.
+    var int lastC1 = na
+    var int lastDir = 0
+    var int lastConfirmedAt = na
+    var float lastHi = na
+    var float lastLo = na
+    var int lastSweepAt = na
+    var int lastM5 = na
+    var int lastM15 = na
+    var float lastM5Level = na
+    var float lastM15Level = na
+    var int lastM5PivotAt = na
+    var int lastM15PivotAt = na
+    var string lastModelKind = "NONE"
+    var bool lastPatternValid = false
+    var int lastModelC1 = na
+    var int lastC2Start = na // Memoria del mismo CRT ratificado.
+    // Conteos solo del historial M5 efectivamente cargado. No
+    // certifican que existan alertas ni muestran CRT antiguos.
+    var int qaC1Ready = 0
+    var int qaC2Ratified = 0
+    var string qaLastC2Gate = "ESPERA C1"
+    // Auditoria acumulada en M5 cargadas; cada contador cambia SOLO
+    // en un cierre H4 o transicion terminal de candidato Inside.
+    var int qaAudit2C = 0
+    var int qaAudit3C = 0
+    var int qaAuditInside = 0
+    var int qaAuditM4 = 0
+    var int qaAuditMN = 0
+    var int qaAuditC2Data = 0
+    var int qaAuditC2Double = 0
+    var int qaAuditC2NoSweep = 0
+    var int qaAuditC2Outside = 0
+    var int qaAuditC2Hour = 0
+    var int qaAuditC3Invalid = 0
+    var int qaAuditInsideData = 0
+    var int qaAuditInsideDouble = 0
+    var int qaAuditInsideOther = 0
+    var int qaAuditInsideExpire = 0
+    var int qaAuditMNNoTerminal = 0
+    var int qaAuditMNDouble = 0
+    var int qaAuditMNOutside = 0
+    // V34.11L historical markers, updated on CLOSED M5/H4 transitions.
+    var int qaLastCandidate2CAt = na
+    var int qaLastCandidate2CCycle = na
+    var int qaTrue3CSignedAt = na
+    var True3CMssCandidate qaTrue3CPending = na
+    var True3CMssCandidate qaTrue3CConfirmed = na
+    var int qaLastRatified2CAt = na
+    var int qaLastRejectedExpansionAt = na
+    var int qaLastConfirmed3CAt = na
+    var int qaLastInsideReturnAt = na
+    var int qaLastInsideContinuationAt = na
+    var int qaLastMulti4At = na
+    var int qaLastMultiNAt = na
+    var int qaLastRetest15At = na
+    var int qaAuditH4Incomplete = 0
+    // Una H4 no-48 NO implica siempre feed defectuoso. Disjuntas:
+    // DST NY, sesion/parcial, discontinuidad M5 INTERNA.
+    var int qaAuditH4DST = 0
+    var int qaAuditH4Session = 0
+    var int qaAuditH4Internal = 0
+    var int qaAuditC1H4Closed = 0
+    var int qaAuditC1HourCandidates = 0
+    var int qaAuditC1BadClock = 0
+    var int qaAuditC1BadData = 0
+    var int qaAuditC1BadRange = 0
+    // H4 evidence: these count violated boundary/count predicates, not
+    // necessarily broken market data. Any one H4 may fail several.
+    var int qaH4BadStart = 0
+    var int qaH4BadEnd = 0
+    var int qaH4BadBars = 0
+    var int qaH4LastBars = na
+    var int qaH4LastStartOffsetMin = na
+    var int qaH4LastEndOffsetMin = na
+
+    // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
+    // f_engine() debe evaluarse incondicionalmente en cada barra M5.
+    // V34.11j: measure each 33 feed independently on its LAST CLOSED M5.
+    // A phase +2 on metals cannot be normalized to +1 from NZDCAD.
+    // Reject nonzero seconds; BTC clock and model remain untouched.
+    int qaLastM5PhaseMin = not na(barT) ? minute(barT, TZ) % 5 : na
+    int qaNativeSourcePhaseMin = qaPhase1NonBtc and not isBTC and not na(barT) and second(barT, TZ) == 0 ? qaLastM5PhaseMin : 0
+    // A native +p M15 is :p/:15+p/:30+p/:45+p; H1 is at hh:p.
+    // Native-source QA is NOT a validated NY :00 entry setup.
+    int bucketH1 = qaNativeSourcePhaseMin > 0 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), qaNativeSourcePhaseMin, 0) : time("60")[1]
+    int nativeM15Minute = int(math.floor(minute(barT, TZ) / 15)) * 15 + qaNativeSourcePhaseMin
+    int bucket15 = qaNativeSourcePhaseMin > 0 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), nativeM15Minute, 0) : time("15")[1]
+    int bucketH4NY = isBTC ? f_btc_crt_h4_ny(barT) : isIndex ? f_index_crt_h4_ny(barT) : f_forex_metal_crt_h4_ny(barT)
+    int bucketH4 = bucketH4NY + qaNativeSourcePhaseMin * 60000
+
+    // QA: al aparecer una nueva M5 despues de un hueco, descartar
+    // acumuladores y swings M15 de la cadena anterior. No permitir que
+    // pivotes confirmados con barras discontinuas crucen a un nuevo CRT.
+    // Explicitly initialize on the first usable CLOSED M5 bar.
+    // On subsequent disconnections, a stale pre-gap pivot is forbidden.
+    // Pine v6 bool never na; this guard documents first-segment intent.
+    if (na(qaExtraM5SegmentStart) or not previousM5Continuous) and not na(barT)
+        qaExtraM5SegmentStart := barT
+        lastCompleteM15CloseAt := na
+        m15Bucket := na
+        m15Count := 0
+        m15LastEnd := na
+        m15Start := na
+        prev15Close := na
+        prev15End := na
+        array.clear(highs15)
+        array.clear(lows15)
+        array.clear(times15)
+        lastHigh15 := na
+        lastLow15 := na
+        lastHigh15At := na
+        lastLow15At := na
+        // Un hueco M5 invalida los pivotes/MSS auxiliares pendientes.
+        array.clear(qaMultiNMssCandidates)
+        qaMultiNMss15At := na
+        qaMultiNMss5At := na
+        qaMultiNPivot5 := na
+        qaMultiNPivot5At := na
+        qaMultiNPivot15 := na
+        qaMultiNPivot15At := na
+        qaMultiNSweepAt := na
+        // La barrida 3C nunca puede cruzar una discontinuidad M5.

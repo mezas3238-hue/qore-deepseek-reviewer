@@ -1,0 +1,110 @@
+            bool extra = requested and array.get(validCrtFlags,i) and not core and not qaCore
+            int mask = requested ? array.get(qaCatalogPerFeed,i) : 0
+            bool true3c = requested and not core and not qaCore and int(math.floor(mask / 1)) % 2 == 1 and not na(array.get(qaTrue3CSignedBySlot,i))
+            bool insideObserved = requested and not core and not qaCore and int(math.floor(mask / 8)) % 2 == 1
+            bool multiObserved = requested and not core and not qaCore and int(math.floor(mask / 32)) % 2 == 1
+            bool otherStructural = (true3c or extra or insideObserved or multiObserved) and not core and not qaCore
+            [m5,m15] = f_monitorOwnMss(i)
+            // TRUE 3C has priority in visible QA role. Its MSS5/15
+            // are N/V until owned by its distinct C1/sweep. Never
+            // borrow Inside/Multi-N MSS under a 3C TRUE label.
+            bool extraDisplayed = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")
+            bool extraM15 = extraDisplayed and array.get(extraM15Flags,i) == 1
+            bool extraM5 = extraDisplayed and array.get(extraM5Flags,i) == 1
+            int rank = not requested ? 5 : (core or qaCore) ? (m5 and m15 ? 0 : m15 ? 1 : m5 ? 2 : 3) : extraM5 and extraM15 ? 0 : extraM15 ? 1 : extraM5 ? 2 : otherStructural ? 4 : 5
+            array.set(rankBySlot,i,rank)
+            array.set(ownM5BySlot,i,m5)
+            array.set(ownM15BySlot,i,m15)
+            if requested
+                if core
+                    coreCount += 1
+                    if m15
+                        coreM15Count += 1
+                else if qaCore or otherStructural
+                    qaStructCount += 1
+                if qaCore and m5 or extraM5
+                    qaM5Count += 1
+                if qaCore and m15 or extraM15
+                    qaM15Count += 1
+                if rank < 5
+                    activeCount += 1
+        int onPage = expandFull34 ? 10 : compactPriorityRows
+        int visibleCount = expandFull34 ? nFeeds : activeCount
+        int totalPages = math.max(1,int(math.ceil(visibleCount * 1.0 / onPage)))
+        int pageNow = math.min(math.max(page,1),totalPages)
+        int visited = 0
+        int drawn = 0
+        for priority = 0 to 5
+            for i = 0 to 33
+                bool requested = scanAll or i == 7
+                int rank = array.get(rankBySlot,i)
+                bool visibleRow = requested and priority == rank and (expandFull34 or rank < 5)
+                if visibleRow
+                    if visited >= (pageNow-1)*onPage and drawn < onPage
+                        int rowIndex = drawn + 1
+                        bool core = array.get(validCoreFlags,i)
+                        bool qaCore = array.get(qaCoreObservedFlags,i)
+                        bool extra = array.get(validCrtFlags,i) and not core and not qaCore
+                        int mask = array.get(qaCatalogPerFeed,i)
+                        bool catTrue3 = int(math.floor(mask / 1)) % 2 == 1
+                        bool cat2 = int(math.floor(mask / 2)) % 2 == 1
+                        bool catExpansion = int(math.floor(mask / 4)) % 2 == 1
+                        bool catInsideReturn = int(math.floor(mask / 8)) % 2 == 1
+                        bool catInsideCont = int(math.floor(mask / 16)) % 2 == 1
+                        bool catMulti = int(math.floor(mask / 32)) % 2 == 1
+                        bool catRetest = int(math.floor(mask / 64)) % 2 == 1
+                        int signed3 = array.get(qaTrue3CSignedBySlot,i)
+                        bool true3c = catTrue3 and not core and not qaCore and not na(signed3)
+                        bool otherQA = rank == 4 or extra
+                        int dir = true3c ? (signed3 > 0 ? 1 : -1) : core or extra ? array.get(directions,i) : qaCore ? array.get(qaObservedDirectionBySlot,i) : 0
+                        bool feedOK = array.get(auditFeedAvailable,i) == 1
+                        bool ownM5 = array.get(ownM5BySlot,i)
+                        bool ownM15 = array.get(ownM15BySlot,i)
+                        // Match dashboard priority: do not show an
+                        // auxiliary-family MSS beside TRUE 3C.
+                        bool ownExtraM15 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM15Flags,i) == 1
+                        bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM5Flags,i) == 1
+                        bool coreC1Ready = array.get(qaCoreC1ReadyBySlot,i)
+                        bool otherC1Ready = array.get(qaOtherC1ReadyBySlot,i)
+                        string otherC1Kind = array.get(qaOtherC1KindBySlot,i)
+                        string extraKind = array.get(familyLabels,i)
+                        bool c1Ready = (core or qaCore) ? coreC1Ready : true3c ? otherC1Ready and otherC1Kind == "3C TRUE QA" : extra ? otherC1Ready and otherC1Kind == extraKind : false
+                        bool qaDiagnostics = expandFull34 and showCatalog7
+                        string role = not feedOK ? "SIN FEED" : core ? "2C RAT" : qaCore ? "2C QA" : true3c ? "3C TRUE QA" : extra ? extraKind : catInsideReturn ? "INS RET QA" : catMulti ? "MULTI QA" : qaDiagnostics ? catExpansion ? "EXP RECH" : catInsideCont ? "INS RECH" : cat2 ? "2C*" : catRetest ? "RETEST QA" : "—" : "—"
+                        string stage = not feedOK ? "SIN FEED" : core ? "C3 ACT" : qaCore ? "C3 QA" : true3c ? "C3 CERR QA" : otherQA ? "QA H4" : qaDiagnostics ? catExpansion or catInsideCont ? "RECHAZO" : cat2 ? "PENDIENTE" : catRetest ? "QA MSS" : "ESPERA" : "ESPERA"
+                        bool lacksC1 = (core or qaCore or otherQA or true3c) and not c1Ready
+                        string visibleStage = lacksC1 ? "C1 N/D" : stage
+                        string m5Text = core ? (ownM5 ? "SI" : "NO") : qaCore ? (ownM5 ? "QA SI" : "QA --") : ownExtraM5 ? "QA SI" : otherQA ? "N/V" : "—"
+                        string m15Text = core ? (ownM15 ? "SI" : "NO") : qaCore ? (ownM15 ? "QA SI" : "QA --") : ownExtraM15 ? "QA SI" : otherQA ? "N/V" : "—"
+                        string dirText = core or qaCore or otherQA or true3c ? (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "N/V") : "—"
+                        color bg = rowIndex % 2 == 0 ? shade : navy
+                        color stateInk = core ? posInk : core or qaCore or otherQA or true3c ? color.orange : color.gray
+                        table.cell(board,0,rowIndex,array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
+                        table.cell(board,1,rowIndex,role,bgcolor=bg,text_color=stateInk,text_size=size.tiny)
+                        table.cell(board,2,rowIndex,dirText,bgcolor=bg,text_color=dir > 0 ? posInk : dir < 0 ? negInk : color.gray,text_size=size.tiny)
+                        table.cell(board,3,rowIndex,m5Text,bgcolor=bg,text_color=core and ownM5 ? posInk : qaCore and ownM5 or ownExtraM5 ? color.orange : color.gray,text_size=size.tiny)
+                        table.cell(board,4,rowIndex,m15Text,bgcolor=bg,text_color=core and ownM15 ? posInk : qaCore and ownM15 or ownExtraM15 ? color.orange : color.gray,text_size=size.tiny)
+                        table.cell(board,5,rowIndex,visibleStage,bgcolor=bg,text_color=lacksC1 ? color.orange : stateInk,text_size=size.tiny)
+                        drawn += 1
+                    visited += 1
+        if not expandFull34 and activeCount == 0
+            table.cell(board,0,1,"SIN CRT VIGENTE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+            table.cell(board,1,1,"34 VIGILADOS",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        int footer = onPage + 1
+        table.cell(board,0,footer,expandFull34 ? "P "+str.tostring(pageNow)+"/"+str.tostring(totalPages) : "CRT:"+str.tostring(coreCount),bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,1,footer,"C:"+str.tostring(coreCount),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,footer,"QA:"+str.tostring(qaStructCount),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,footer,"M5q:"+str.tostring(qaM5Count),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,footer,"M15q:"+str.tostring(qaM15Count),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,footer,"R:"+str.tostring(checked)+"/"+str.tostring(nFeeds),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        int infoRow = onPage + 2
+        table.cell(board,0,infoRow,"M15c:"+str.tostring(coreM15Count),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,1,infoRow,"QA NO CERT",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,2,infoRow,showCatalog7 ? "7 ROLES QA" : "4 BASE + VAR",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,infoRow,"M5/M15 IND",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,4,infoRow,"NO LIVE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,5,infoRow,"NO PUSH",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+
+f_renderRadarDashboard()
+
+f_renderFamilyHistory()

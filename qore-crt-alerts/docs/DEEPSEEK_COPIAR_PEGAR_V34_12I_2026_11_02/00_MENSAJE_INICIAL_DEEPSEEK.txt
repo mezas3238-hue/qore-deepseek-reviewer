@@ -1,0 +1,24 @@
+INSTRUCCIONES PARA DEEPSEEK — QORE CRT V34.12I (QA / NO LIVE)
+
+ATENCIÓN: No tienes acceso a GitHub. Te voy a PEGAR manualmente el contenido COMPLETO de los dos scripts Pine v6 existentes, dividido por motivos de tamaño:
+- RADAR A: 8 partes, RADAR_A_PARTE_01_DE_08 hasta RADAR_A_PARTE_08_DE_08.
+- CHART B: 7 partes, CHART_B_PARTE_01_DE_07 hasta CHART_B_PARTE_07_DE_07.
+
+ESTA INSTRUCCIÓN NO ES EL CÓDIGO. Después de ella te pegaré 15 partes del código sin modificar.
+
+Al recibir cada parte, responde solamente "RECIBIDA [nombre de la parte]". NO HAGAS NINGÚN ANÁLISIS ANTES de que te envíe el mensaje exacto "FIN DE CÓDIGOS. COMIENZA AUDITORÍA". Si detectas una parte faltante, solicítala por nombre y nunca inventes el contenido.
+
+Los fragmentos contienen CÓDIGO PURO sin cabeceras añadidas, y se unen exactamente en orden de número. No se compilan por separado. El RADAR íntegro consta de 2.834 líneas; CHART B, de 2.436 líneas. No confundas una parte con un archivo truncado original.
+
+Tras recibir los 15 fragmentos completos:
+1. Revisa potenciales errores de compilación Pine v6. Distingue análisis estático de compilación real.
+2. Contrasta los 132 campos Signal/Signal.new y que f_engine() sea idéntico en Radar A y Chart B.
+3. Verifica independencia de MSS M5 y M15 en 2C RETURN, 3C TRUE, INSIDE RETURN y MULTI-CANDLE (Multi4/Multi-N). Multi4 MSS M15 sigue pendiente.
+4. Verifica pivote L2/R2 confirmado, precio y tiempo anterior a barrida, cierre posterior, misma C1/dirección/broker y cero uso futuro.
+5. Revisa 34 feeds, memoria, sesiones NY/DST, 48 M5 contiguas por H4, dobles barridas y huecos.
+6. No reintroduzcas los supuestos bugs A.1/A.2 refutados sin pruebas; no cuentes 7 roles QA como 7 familias.
+7. Por cada fallo describe severidad, archivo, fragmento exacto, causa raíz, escenario reproducible, arreglo mínimo y pruebas positiva y negativa.
+
+Si no puedes conservar los 15 fragmentos en contexto, explícame el límite y qué partes olvidaste. Nunca declares que los auditaste sin leerlos realmente.
+
+NO MERGE / NO LIVE / NO PUSH / NO CERTIFICACIÓN hasta compilación oficial y replay real.

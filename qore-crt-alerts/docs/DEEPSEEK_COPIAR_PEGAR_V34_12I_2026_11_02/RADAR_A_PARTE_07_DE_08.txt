@@ -1,0 +1,326 @@
+int hist2C34 = 0
+int hist3C34 = 0
+int histInside34 = 0
+int histM434 = 0
+int histMN34 = 0
+int withHistory34 = 0
+int familyQA15Count = 0
+string alertsNow = ""
+
+for i = 0 to 33
+    if scanAll or i == 7
+        string symbol = array.get(scanSymbols, i)
+        // El UDT cuenta como un campo de retorno, evita 34*12 campos de tupla.
+        Signal s = request.security(symbol, "5", f_engine_snapshot(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=1500)
+        bool available = not na(s) and not na(s.phase)
+        int st = available ? s.phase : 0
+        int dr = available ? s.direction : 0
+        int id = available and not na(s.c1Start) ? s.c1Start : 0
+        int m5t = available and not na(s.m5At) ? s.m5At : 0
+        int m15t = available and not na(s.m15At) ? s.m15At : 0
+        bool structuralCoreObserved = available and st == 2 and s.isPatternValid and s.modelKind == "CRT_2C_RETURN" and id > 0 and (dr == 1 or dr == -1) and not na(s.sweepAt) and s.sweepAt > s.crtC2Start and not na(s.crtC2Start) and not na(s.crtRatifiedAt) and s.crtRatifiedAt >= s.crtC2Start + H4MS
+        // Preserve prior validation gate. Only non-core, exact H4 ratified
+        // sources are eligible to have their own MSS evidence shown as QA.
+        bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)
+        bool observedCoreQA = structuralCoreObserved and not scanCrtValid
+        bool ownCoreC1Ready = structuralCoreObserved and not na(s.crh) and not na(s.crl) and s.crh > s.crl
+        bool ownOtherC1Ready = available and not na(s.familyVisual) and s.familyVisual.structuralQA and not na(s.familyVisual.c1Start) and not na(s.familyVisual.c1High) and not na(s.familyVisual.c1Low) and s.familyVisual.c1High > s.familyVisual.c1Low and not na(s.familyVisual.eventClosedAt) and s.familyVisual.eventClosedAt >= s.familyVisual.c1Start and s.familyVisual.direction != 0
+        array.set(qaCoreC1ReadyBySlot,i,ownCoreC1Ready)
+        array.set(qaOtherC1ReadyBySlot,i,ownOtherC1Ready)
+        array.set(qaOtherC1KindBySlot,i,ownOtherC1Ready ? s.familyVisual.kind : "NONE")
+        array.set(qaCatalogPerFeed, i, available ? nz(s.qaCatalogMask, 0) : 0)
+        array.set(qaC1BySlot, i, available ? s.c1Start : na)
+        array.set(qaC2BySlot, i, available ? s.crtC2Start : na)
+        array.set(qaSweepBySlot, i, available ? s.sweepAt : na)
+        array.set(qaRatBySlot, i, available ? s.crtRatifiedAt : na)
+        array.set(qaPivot15AtBySlot, i, available ? s.m15PivotAt : na)
+        array.set(qaPivot15PriceBySlot, i, available ? s.m15Level : na)
+        array.set(qaBreak15BySlot, i, available ? s.m15At : na)
+        array.set(qaClosed15BySlot, i, available ? s.qaLastClosedM15At : na)
+        array.set(qaExtraKindBySlot, i, available ? s.extraFamilyKind : "NONE")
+        array.set(qaExtraC1BySlot, i, available ? s.extraFamilyC1 : na)
+        array.set(qaExtraSweepBySlot, i, available ? s.extraFamilySweepAt : na)
+        array.set(qaExtraPivot15AtBySlot, i, available ? s.extraFamilyM15PivotAt : na)
+        array.set(qaExtraPivot15PriceBySlot, i, available ? s.extraFamilyM15Pivot : na)
+        array.set(qaExtraBreak15BySlot, i, available ? s.extraFamilyM15At : na)
+        array.set(qaExtraRatBySlot, i, available ? s.extraFamilyRatifiedAt : na)
+        array.set(qaHistCandidate2CBySlot, i, available ? s.qaLastCandidate2CAt : na)
+        array.set(qaHistRatified2CBySlot, i, available ? s.qaLastRatified2CAt : na)
+        array.set(qaHistRejectedExpansionBySlot, i, available ? s.qaLastRejectedExpansionAt : na)
+        array.set(qaHistConfirmed3CBySlot, i, available ? s.qaLastConfirmed3CAt : na)
+        array.set(qaTrue3CSignedBySlot, i, available ? s.qaTrue3CSignedAt : na)
+        array.set(qaHistInsideReturnBySlot, i, available ? s.qaLastInsideReturnAt : na)
+        array.set(qaHistInsideContinuationBySlot, i, available ? s.qaLastInsideContinuationAt : na)
+        array.set(qaHistMulti4BySlot, i, available ? s.qaLastMulti4At : na)
+        array.set(qaHistMultiNBySlot, i, available ? s.qaLastMultiNAt : na)
+        array.set(qaHistRetest15BySlot, i, available ? s.qaLastRetest15At : na)
+        array.set(statuses, i, st)
+        bool extraValidQA = available and s.extraFamilyValid and not na(s.extraFamilyC1) and s.extraFamilyC1 > 0 and not na(s.extraFamilyRatifiedAt) and (s.extraFamilyDirection == 1 or s.extraFamilyDirection == -1) and (s.extraFamilyKind == "INSIDE QA" or s.extraFamilyKind == "MULTI4 QA" or s.extraFamilyKind == "MULTI-N QA" or s.extraFamilyKind == "3C TRUE QA")
+        bool anyStructuralCRT = scanCrtValid or extraValidQA
+        array.set(validCrtFlags, i, anyStructuralCRT)
+        array.set(validCoreFlags, i, scanCrtValid)
+        array.set(qaCoreObservedFlags, i, observedCoreQA)
+        array.set(familyLabels, i, scanCrtValid ? "3C" : extraValidQA ? s.extraFamilyKind : "NONE")
+        array.set(directions, i, scanCrtValid ? dr : extraValidQA ? s.extraFamilyDirection : 0)
+        array.set(c1IDs, i, id)
+        array.set(m5Flags, i, m5t > 0 ? 1 : 0)
+        array.set(m15Flags, i, m15t > 0 ? 1 : 0)
+        bool family15QA = extraValidQA and not na(s.extraFamilyC1) and s.extraFamilyM15C1 == s.extraFamilyC1 and not na(s.extraFamilySweepAt) and not na(s.extraFamilyM15PivotAt) and s.extraFamilyM15PivotAt < s.extraFamilySweepAt and not na(s.extraFamilyM15Pivot) and not na(s.extraFamilyM15At) and s.extraFamilyM15At > s.extraFamilySweepAt and f_m15_phase_ok(s.extraFamilyM15At, s.qaSourcePhaseMin) and not na(s.qaLastClosedM15At) and s.extraFamilyM15At <= s.qaLastClosedM15At
+        array.set(extraM15Flags, i, family15QA ? 1 : 0)
+        bool family5QA = extraValidQA and not na(s.extraFamilyC1) and s.extraFamilyM5C1 == s.extraFamilyC1 and not na(s.extraFamilySweepAt) and not na(s.extraFamilyM5Pivot) and not na(s.extraFamilyM5PivotAt) and s.extraFamilyM5PivotAt < s.extraFamilySweepAt and not na(s.extraFamilyM5At) and s.extraFamilyM5At > s.extraFamilySweepAt and not na(s.qaSourcePhaseMin) and s.extraFamilyM5At % MIN5 == s.qaSourcePhaseMin * 60000
+        array.set(extraM5Flags, i, family5QA ? 1 : 0)
+        array.set(m5Times, i, m5t)
+        array.set(m5PivotTimes, i, available ? s.m5PivotAt : na)
+        array.set(qaObservedDirectionBySlot, i, available ? dr : 0)
+        array.set(qaSourcePhaseBySlot, i, available ? s.qaSourcePhaseMin : na)
+        array.set(m15Times, i, m15t)
+        string hStatus = available ? s.pdhStatus : "N/D"
+        string lStatus = available ? s.pdlStatus : "N/D"
+        array.set(pdhFlags, i, hStatus == "N/D" ? -1 : hStatus == "TAKEN" ? 1 : 0)
+        array.set(pdlFlags, i, lStatus == "N/D" ? -1 : lStatus == "TAKEN" ? 1 : 0)
+        array.set(pdhTexts, i, available ? f_liqText(hStatus, s.pdhSweepAt, s.pdhSweepStage, s.pdhSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+        array.set(pdlTexts, i, available ? f_liqText(lStatus, s.pdlSweepAt, s.pdlSweepStage, s.pdlSweepC1, s.c1Start, s.crtC2Start) : "N/D")
+        // Identidad del SLOT de feed. Conteos de historial LIMITADO:
+        // calc_bars_count=1500 M5, por fuente, no todo el mercado.
+        array.set(auditFeedAvailable, i, available ? 1 : 0)
+        array.set(auditFeedC1, i, available ? nz(s.qaC1Ready, 0) : 0)
+        array.set(auditFeedH4Closed, i, available ? nz(s.auditC1H4Closed, 0) : 0)
+        array.set(auditFeedC1Hours, i, available ? nz(s.auditC1HourCandidates, 0) : 0)
+        array.set(auditFeedC1Clock, i, available ? nz(s.auditC1BadClock, 0) : 0)
+        array.set(auditFeedC1Data, i, available ? nz(s.auditC1BadData, 0) : 0)
+        array.set(auditFeedC1Range, i, available ? nz(s.auditC1BadRange, 0) : 0)
+        array.set(auditFeed2C, i, available ? nz(s.audit2C, 0) : 0)
+        array.set(auditFeed3C, i, available ? nz(s.audit3C, 0) : 0)
+        array.set(auditFeedInside, i, available ? nz(s.auditInside, 0) : 0)
+        array.set(auditFeedM4, i, available ? nz(s.auditM4, 0) : 0)
+        array.set(auditFeedMN, i, available ? nz(s.auditMN, 0) : 0)
+        array.set(auditFeedH4StartMis, i, available ? nz(s.qaH4BadStart, 0) : 0)
+        array.set(auditFeedH4EndMis, i, available ? nz(s.qaH4BadEnd, 0) : 0)
+        array.set(auditFeedH4BarsMis, i, available ? nz(s.qaH4BadBars, 0) : 0)
+        array.set(auditFeedPhaseMin, i, available ? s.qaLastM5PhaseMin : na)
+        array.set(auditFeedH4LastBars, i, available ? s.qaH4LastBars : na)
+        array.set(auditFeedH4StartShift, i, available ? s.qaH4LastStartOffsetMin : na)
+        array.set(auditFeedH4EndShift, i, available ? s.qaH4LastEndOffsetMin : na)
+        array.set(auditFeedH4Gap, i, available ? nz(s.auditH4Incomplete, 0) : 0)
+        array.set(auditFeedH4DST, i, available ? nz(s.auditH4DST, 0) : 0)
+        array.set(auditFeedH4Session, i, available ? nz(s.auditH4Session, 0) : 0)
+        array.set(auditFeedH4Internal, i, available ? nz(s.auditH4Internal, 0) : 0)
+        int c2RejectSum = available ? nz(s.auditC2Data, 0) + nz(s.auditC2Double, 0) + nz(s.auditC2NoSweep, 0) + nz(s.auditC2Outside, 0) + nz(s.auditC2Hour, 0) : 0
+        array.set(auditFeedC2Rejected, i, c2RejectSum)
+        array.set(auditFeedM15QA, i, family15QA ? 1 : 0)
+        if not available
+            missing += 1
+        else
+            checked += 1
+            int h2 = nz(s.audit2C, 0)
+            int h3 = nz(s.audit3C, 0)
+            int hi = nz(s.auditInside, 0)
+            int hm4 = nz(s.auditM4, 0)
+            int hmn = nz(s.auditMN, 0)
+            hist2C34 += h2
+            hist3C34 += h3
+            histInside34 += hi
+            histM434 += hm4
+            histMN34 += hmn
+            if h2 + h3 + hi + hm4 + hmn > 0
+                withHistory34 += 1
+            if family15QA
+                familyQA15Count += 1
+        if scanCrtValid
+            found += 1
+        if extraValidQA and not scanCrtValid
+            foundQA += 1
+        if scanCrtValid
+            if m5t > 0
+                with5 += 1
+            if m15t > 0
+                with15 += 1
+            // No alertar CRT provisional (st==1) ni historial (st==3).
+            // MSS observado durante C2 se hace elegible al confirmar la H4 (inicio C3).
+            // Una confirmacion nueva en C3 conserva el timestamp real de su MSS.
+            bool certifiedCRT = (not qaPhase1NonBtc or i == 7) and st == 2 and id > 0 and not na(s.crtC2Start) and not na(s.crtRatifiedAt)
+            bool validM5 = certifiedCRT and m5t >= s.crtC2Start
+            bool validM15 = certifiedCRT and m15t >= s.crtC2Start
+            int eligibleM5At = validM5 ? math.max(m5t, s.crtRatifiedAt) : na
+            int eligibleM15At = validM15 ? math.max(m15t, s.crtRatifiedAt) : na
+            bool alert5 = validM5 and array.get(alert5IDs, i) != id and timenow >= eligibleM5At and timenow - eligibleM5At <= alertFreshMinutes * 60000
+            bool alert15 = validM15 and array.get(alert15IDs, i) != id and timenow >= eligibleM15At and timenow - eligibleM15At <= alertFreshMinutes * 60000
+            if false and useAlerts and not qaPhase1NonBtc and barstate.isrealtime and alert5
+                alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M5 | "
+                array.set(alert5IDs, i, id)
+            if false and useAlerts and not qaPhase1NonBtc and barstate.isrealtime and alert15
+                alertsNow += array.get(scanNames,i) + " " + (dr > 0 ? "BULLISH" : "BEARISH") + " MSS M15 | "
+                array.set(alert15IDs, i, id)
+
+// External alerts remain disabled; the 34-market monitor is QA only.
+
+
+ // Two-slot Basic edition A: scan all 34 symbols; same full CRT/MSS engine.
+var table board = table.new(position.top_right,6,15,frame_color=color.new(color.gray,70),frame_width=1,border_width=0)
+color navy = color.rgb(24,36,56)
+color shade = color.rgb(33,44,62)
+color posInk = color.rgb(65,190,138)
+color negInk = color.rgb(240,113,108)
+plot(checked, title="QORE QA fuentes respondidas", display=display.data_window)
+// Closed MSS evidence from the SAME symbol and 2C-C1 cycle, not another
+// timeframe or the previously saved MSS of a different model.
+f_monitorOwnMss(int slot) =>
+    bool coreOrQa = array.get(validCoreFlags,slot) or array.get(qaCoreObservedFlags,slot)
+    int c1T = array.get(qaC1BySlot,slot)
+    int sweepT = array.get(qaSweepBySlot,slot)
+    int ratT = array.get(qaRatBySlot,slot)
+    int p5 = array.get(m5PivotTimes,slot)
+    int b5 = array.get(m5Times,slot)
+    int p15 = array.get(qaPivot15AtBySlot,slot)
+    int b15 = array.get(m15Times,slot)
+    int lastClosed15 = array.get(qaClosed15BySlot,slot)
+    int phase = array.get(qaSourcePhaseBySlot,slot)
+    bool cycleRoot = coreOrQa and not na(c1T) and not na(sweepT) and not na(ratT) and sweepT > c1T and ratT >= sweepT
+    bool phaseOK = not na(phase) and phase >= 0 and phase <= 4
+    bool m5Confirmed = cycleRoot and phaseOK and not na(p5) and p5 < sweepT and b5 > sweepT and b5 % MIN5 == phase * 60000
+    bool m15Confirmed = cycleRoot and phaseOK and not na(p15) and p15 < sweepT and b15 > sweepT and not na(lastClosed15) and b15 <= lastClosed15 and f_m15_phase_ok(b15,phase)
+    [m5Confirmed,m15Confirmed]
+
+
+// QA 34x5 historical family matrix. These are CLOSED events retained by
+// this feed's 1500-bar M5 lookback; never current CRT or valid MSS.
+f_qaHistoryDate(int t) =>
+    na(t) or t <= 0 ? "—" : str.format_time(t, "dd/MM", "Etc/UTC")
+
+f_qaHistoryMin(int t) =>
+    na(t) or t <= 0 ? "N/D" : str.tostring(int(math.floor(t / 60000)))
+
+f_renderFamilyHistory() =>
+    if barstate.islast and showDashboard and compactMobile and userFocus7 and qaFamilyHistoryView
+        table.clear(board,0,0,5,14)
+        table.cell(board,0,0,"MERCADO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,0,"2C H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,0,"3C H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,3,0,"INS H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,4,0,"M4 H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,5,0,"MN H",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        int nFeeds = scanAll ? 34 : 1
+        int onPage = 10
+        int totalPages = math.max(1,int(math.ceil(nFeeds * 1.0 / onPage)))
+        int pageNow = math.min(math.max(page,1),totalPages)
+        int count2C = 0
+        int countTrue3C = 0
+        int countInside = 0
+        int countM4 = 0
+        int countMN = 0
+        int exact3cInsideCloses = 0
+        for i = 0 to 33
+            if scanAll or i == 7
+                int c2 = array.get(qaHistRatified2CBySlot,i)
+                // Use ONLY the distinct signed true3C closed-C3 event. The
+                // legacy qaLastConfirmed3CAt means a 2C distributing in C3.
+                int true3cSigned = array.get(qaTrue3CSignedBySlot,i)
+                int true3c = na(true3cSigned) ? na : int(math.abs(true3cSigned))
+                int inside = array.get(qaHistInsideReturnBySlot,i)
+                int multi4 = array.get(qaHistMulti4BySlot,i)
+                int multin = array.get(qaHistMultiNBySlot,i)
+                // Exact same CLOSED H4 end, not same calendar date.
+                // Coincidence is diagnostic only; C1 geometry may differ.
+                bool closeOverlap = not na(true3c) and not na(inside) and true3c == inside
+                if closeOverlap
+                    exact3cInsideCloses += 1
+                if not na(c2) and c2 > 0
+                    count2C += 1
+                if not na(true3c) and true3c > 0
+                    countTrue3C += 1
+                if not na(inside) and inside > 0
+                    countInside += 1
+                if not na(multi4) and multi4 > 0
+                    countM4 += 1
+                if not na(multin) and multin > 0
+                    countMN += 1
+                int ordinal = scanAll ? i : 0
+                int rowIndex = ordinal - (pageNow - 1) * onPage + 1
+                if rowIndex >= 1 and rowIndex <= onPage
+                    color bg = rowIndex % 2 == 0 ? shade : navy
+                    // The * is an overlap of LAST closed-event times, not
+                    // a second CRT, MSS proof, or verified common C1.
+                    string collisionTag = closeOverlap ? "*" : ""
+                    table.cell(board,0,rowIndex,array.get(scanNames,i) + collisionTag,bgcolor=bg,text_color=closeOverlap ? color.orange : color.white,text_size=size.tiny)
+                    table.cell(board,1,rowIndex,f_qaHistoryDate(c2),bgcolor=bg,text_color=color.gray,text_size=size.tiny)
+                    table.cell(board,2,rowIndex,f_qaHistoryDate(true3c) + collisionTag,bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,3,rowIndex,f_qaHistoryDate(inside) + collisionTag,bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,4,rowIndex,f_qaHistoryDate(multi4),bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,5,rowIndex,f_qaHistoryDate(multin),bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,11,"P "+str.tostring(pageNow)+"/"+str.tostring(totalPages),bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,1,11,"2C:"+str.tostring(count2C),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,11,"3C:"+str.tostring(countTrue3C),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,11,"INS:"+str.tostring(countInside),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,11,"M4:"+str.tostring(countM4),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,11,"MN:"+str.tostring(countMN),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        int selected = math.min(math.max(qaEventSlot - 1,0),33)
+        if not scanAll
+            selected := 7
+        else if qaHistoryFollowChart
+            selected := -1
+            string selectedBrokerSymbol = ticker.standard(syminfo.tickerid)
+            for slot = 0 to 33
+                if ticker.standard(array.get(scanSymbols,slot)) == selectedBrokerSymbol
+                    selected := slot
+                    break
+        // No fallback to AUDJPY/S1 when GBP/AUD is opened in a
+        // different broker. Last-event timestamps must NEVER cross feeds.
+        bool selectedReady = selected >= 0
+        int selected3cs = selectedReady ? array.get(qaTrue3CSignedBySlot,selected) : na
+        int selected3c = na(selected3cs) ? na : int(math.abs(selected3cs))
+        int selectedInside = selectedReady ? array.get(qaHistInsideReturnBySlot,selected) : na
+        bool same3cInsideClose = not na(selected3c) and not na(selectedInside) and selected3c == selectedInside
+        bool sameDayOnly = not same3cInsideClose and not na(selected3c) and not na(selectedInside) and str.format_time(selected3c,"yyyy-MM-dd","Etc/UTC") == str.format_time(selectedInside,"yyyy-MM-dd","Etc/UTC")
+        string overlapLabel = same3cInsideClose ? "MISMO CIERRE" : sameDayOnly ? "MISMO DIA" : na(selected3c) or na(selectedInside) ? "N/D" : "CIERRE DIST"
+        string selectedLabel = selectedReady ? "S"+str.tostring(selected+1)+" "+array.get(scanNames,selected) : "SIN SLOT / BROKER"
+        table.cell(board,0,12,selectedLabel,bgcolor=shade,text_color=selectedReady ? color.aqua : color.orange,text_size=size.tiny)
+        table.cell(board,1,12,"2C UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,2,12,"3C UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,3,12,"INS UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,4,12,"M4 UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,5,12,"MN UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,0,13,"HIST NO PUSH",bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,1,13,f_qaHistoryMin(selectedReady ? array.get(qaHistRatified2CBySlot,selected) : na),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,13,f_qaHistoryMin(selected3c),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,13,f_qaHistoryMin(selectedInside),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,13,f_qaHistoryMin(selectedReady ? array.get(qaHistMulti4BySlot,selected) : na),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,13,f_qaHistoryMin(selectedReady ? array.get(qaHistMultiNBySlot,selected) : na),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,14,overlapLabel,bgcolor=shade,text_color=same3cInsideClose ? color.orange : color.gray,text_size=size.tiny)
+        table.cell(board,1,14,"*3C=INS:"+str.tostring(exact3cInsideCloses),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        // Measured source responses, not a hardcoded "34 FEEDS".
+        // When history is empty, these distinguish no source response
+        // from a responding source that did not form an eligible C1.
+        bool selectedFeedOK = selectedReady and array.get(auditFeedAvailable,selected) == 1
+        int selectedC1Count = selectedFeedOK ? array.get(auditFeedC1,selected) : 0
+        int selectedH4Closed = selectedFeedOK ? array.get(auditFeedH4Closed,selected) : 0
+        int selectedH4LastBars = selectedFeedOK ? array.get(auditFeedH4LastBars,selected) : na
+        table.cell(board,2,14,"R:"+str.tostring(checked)+"/"+str.tostring(nFeeds),bgcolor=shade,text_color=checked == nFeeds ? color.gray : color.orange,text_size=size.tiny)
+        table.cell(board,3,14,not selectedReady ? "S:NO BROKER" : selectedFeedOK ? "S:FEED OK" : "S:SIN FEED",bgcolor=shade,text_color=selectedFeedOK ? color.gray : color.orange,text_size=size.tiny)
+        table.cell(board,4,14,selectedFeedOK ? "C1:"+str.tostring(selectedC1Count) : "C1:N/D",bgcolor=shade,text_color=selectedC1Count == 0 ? color.orange : color.gray,text_size=size.tiny)
+        table.cell(board,5,14,selectedFeedOK ? "H4:"+str.tostring(selectedH4Closed)+"/"+(na(selectedH4LastBars) ? "N/D" : str.tostring(selectedH4LastBars)) : "H4:N/D",bgcolor=shade,text_color=selectedH4Closed == 0 ? color.orange : color.gray,text_size=size.tiny)
+
+// Ranking 0=both MSS, 1=M15 only, 2=M5 only, 3=2C no MSS,
+// 4=other structural QA, 5=inactive/rejected (expanded only).
+f_renderRadarDashboard() =>
+    if barstate.islast and showDashboard and compactMobile and userFocus7 and not qaFamilyHistoryView and not showSlotEventAudit and not showNonBtcCohortQA
+        table.clear(board,0,0,5,14)
+        table.cell(board,0,0,"MERCADO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,0,"DIR",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,3,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,4,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,5,0,"ETAPA",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        var array<int> rankBySlot = array.new_int(34,5)
+        var array<bool> ownM5BySlot = array.new_bool(34,false)
+        var array<bool> ownM15BySlot = array.new_bool(34,false)
+        int nFeeds = scanAll ? 34 : 1
+        int coreCount = 0
+        int qaStructCount = 0
+        int coreM15Count = 0
+        int qaM5Count = 0
+        int qaM15Count = 0
+        int activeCount = 0
+        for i = 0 to 33
+            bool requested = scanAll or i == 7
+            bool core = requested and array.get(validCoreFlags,i)
+            bool qaCore = requested and array.get(qaCoreObservedFlags,i)
