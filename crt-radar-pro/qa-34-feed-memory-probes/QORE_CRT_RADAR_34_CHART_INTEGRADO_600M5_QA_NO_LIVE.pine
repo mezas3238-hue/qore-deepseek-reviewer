@@ -1,5 +1,5 @@
 //@version=6
-indicator("QORE CRT RADAR + CHART | 34 mercados V34.12M QA", shorttitle="QORE CRT 34+Chart 12M", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+indicator("QORE CRT RADAR + CHART | 34 mercados V34.12N QA", shorttitle="QORE CRT 34+Chart 12N", overlay=true, max_lines_count=8, max_labels_count=8, max_boxes_count=2, dynamic_requests=true)
 
 // MODULO 5B CANDIDATO V34.10b NO INTEGRADO: manejo conservador de pausas de sesion. Requiere auditoria TradingView.
 // MODULO 5A INTEGRADO (AUTORIZADO): deteccion interna FVG H1/H4. Validacion TradingView pendiente.
@@ -101,6 +101,14 @@ string grpChart = "04 / Chart integrado (QA, mercado abierto)"
 showIntegratedChart = input.bool(true, "Dibujar CRT y MSS en el grafico abierto", group=grpChart, tooltip="Reutiliza el Signal del mismo slot entre los 34 feeds. Sin coincidencia exacta de proveedor/ticker, NO dibuja para evitar atribucion falsa.")
 showLevels = input.bool(true, "CRH/CRL del C1 validado (QA)", group=grpChart)
 showMssLines = input.bool(true, "Lineas MSS M5 y M15 propias", group=grpChart, tooltip="MSS solo del mismo modelo, con pivote previo a barrida. M15 naranja si el nivel esta pendiente y azul tras cierre M15 confirmado.")
+
+// V34.12N: contexto QA sobre el MISMO feed del Chart integrado.
+// No altera C1/C2/C3, ni MSS, ni agregados del dashboard.
+showChartPDHPDL = input.bool(true, "Mostrar PDH/PDL de sesion validada (QA)", group=grpChart, tooltip="Mismos precios del motor M5 del feed; solo sesiones anteriores completas. N/D implica no dibujar, no inventar valores.")
+showChartH4Fvg = input.bool(true, "Mostrar ultimo FVG H4 cercano al CRT (QA)", group=grpChart, tooltip="Solo el FVG H4 MAS RECIENTE exportado: intacto/parcial, temporalmente relacionado con el CRT y cercano en precio; NO garantiza ser el mas cercano de TODOS los FVG historicos.")
+chartFvgRangeMult = input.float(1.5, "FVG H4: distancia maxima en rangos C1", minval=0.25, maxval=5.0, step=0.25, group=grpChart)
+chartFvgLookbackH4 = input.int(6, "FVG H4: antiguedad maxima antes C1 (H4)", minval=1, maxval=10, group=grpChart)
+
 
 
 
@@ -3006,6 +3014,23 @@ bool visible = visualChartAligned and (chartCoreC1 or chartExtraC1) and not na(d
 plot(integratedSlot >= 0 ? integratedSlot + 1 : na, title="QA Chart integrado slot 1-34", display=display.data_window)
 plot(showIntegratedChart and visible ? displayCRH : na, title="QA Chart integrado CRH", display=display.data_window)
 plot(showIntegratedChart and visible ? displayCRL : na, title="QA Chart integrado CRL", display=display.data_window)
+// V34.12N QA: PDH/PDL del UDT del MISMO proveedor y referencia temporal valida.
+// Evitar dibujar niveles viejos, diarios parciales o cruzados con otro broker.
+bool qaSessionLevelsOK = chartAvailable and visualChartAligned and own.pdhStatus != "N/D" and own.pdlStatus != "N/D" and not na(own.nyPDH) and not na(own.nyPDL) and not na(own.nyPDHReferenceAt) and own.nyPDH > own.nyPDL and own.nyPDHReferenceAt <= time_close
+bool showPDLevels = showIntegratedChart and showChartPDHPDL and qaSessionLevelsOK
+plot(showPDLevels ? own.nyPDH : na, title="QA Chart PDH del mismo proveedor", display=display.data_window)
+plot(showPDLevels ? own.nyPDL : na, title="QA Chart PDL del mismo proveedor", display=display.data_window)
+
+// No se atribuye un FVG reciente a una C1 distinta: unicamente un
+// FVG H4 del mismo snapshot, formado ANTES o durante el CRT actual.
+// No presentar el ultimo FVG como la mejor zona historica absoluta.
+float crtC1Range = visible ? displayCRH - displayCRL : na
+bool latestFvgH4Valid = chartAvailable and visible and showIntegratedChart and showChartH4Fvg and (own.fvgH4StateCode == 0 or own.fvgH4StateCode == 1) and not na(own.fvgH4Top) and not na(own.fvgH4Bottom) and not na(own.fvgH4FormAt) and own.fvgH4Top > own.fvgH4Bottom and not na(crtC1Range) and crtC1Range > 0 and own.fvgH4FormAt >= displayC1 - chartFvgLookbackH4 * H4MS and own.fvgH4FormAt <= displayEnd and own.fvgH4FormAt < time_close
+float fvgH4Distance = latestFvgH4Valid ? own.fvgH4Bottom > displayCRH ? own.fvgH4Bottom - displayCRH : own.fvgH4Top < displayCRL ? displayCRL - own.fvgH4Top : 0.0 : na
+bool showNearFvgH4 = latestFvgH4Valid and not na(fvgH4Distance) and fvgH4Distance <= crtC1Range * chartFvgRangeMult
+plot(showNearFvgH4 ? own.fvgH4Top : na, title="QA Chart ultimo FVG H4 cercano techo", display=display.data_window)
+plot(showNearFvgH4 ? own.fvgH4Bottom : na, title="QA Chart ultimo FVG H4 cercano suelo", display=display.data_window)
+
 
 var line hiLine = na
 var line loLine = na
@@ -3094,3 +3119,68 @@ if barstate.islast
         if not na(loLabel)
             label.delete(loLabel)
             loLabel := na
+
+    
+// V34.12N: CONTEXTO VISUAL adicional, independiente del gate MSS.
+// Hasta 6 lineas totales (CRH/CRL + M5/M15 + PDH/PDL),
+// 1 FVG box, 5 etiquetas maximo. Sin request.security adicional.
+// Solo mercado abierto con proveedor identico a un slot del Radar A.
+var line pdhChartLine = na
+var line pdlChartLine = na
+var label pdhChartLabel = na
+var label pdlChartLabel = na
+var box fvgH4ChartBox = na
+var label fvgH4ChartLabel = na
+if barstate.islast
+    if showPDLevels
+        int pdStart = math.max(own.nyPDHReferenceAt, visible ? displayC1 : time_close - 2 * H4MS)
+        int pdEnd = time_close
+        color pdhInk = color.aqua
+        color pdlInk = color.fuchsia
+        if pdEnd > pdStart
+            if na(pdhChartLine)
+                pdhChartLine := line.new(pdStart,own.nyPDH,pdEnd,own.nyPDH,xloc=xloc.bar_time,color=pdhInk,style=line.style_dotted,width=1)
+                pdlChartLine := line.new(pdStart,own.nyPDL,pdEnd,own.nyPDL,xloc=xloc.bar_time,color=pdlInk,style=line.style_dotted,width=1)
+                pdhChartLabel := label.new(pdEnd,own.nyPDH,"PDH NY QA",xloc=xloc.bar_time,style=label.style_label_left,textcolor=pdhInk,color=color.new(color.black,100),size=size.tiny)
+                pdlChartLabel := label.new(pdEnd,own.nyPDL,"PDL NY QA",xloc=xloc.bar_time,style=label.style_label_left,textcolor=pdlInk,color=color.new(color.black,100),size=size.tiny)
+            line.set_xy1(pdhChartLine,pdStart,own.nyPDH)
+            line.set_xy2(pdhChartLine,pdEnd,own.nyPDH)
+            line.set_xy1(pdlChartLine,pdStart,own.nyPDL)
+            line.set_xy2(pdlChartLine,pdEnd,own.nyPDL)
+            label.set_xy(pdhChartLabel,pdEnd,own.nyPDH)
+            label.set_xy(pdlChartLabel,pdEnd,own.nyPDL)
+            label.set_text(pdhChartLabel,"PDH QA "+own.pdhStatus)
+            label.set_text(pdlChartLabel,"PDL QA "+own.pdlStatus)
+    else
+        if not na(pdhChartLine)
+            line.delete(pdhChartLine)
+            pdhChartLine := na
+        if not na(pdlChartLine)
+            line.delete(pdlChartLine)
+            pdlChartLine := na
+        if not na(pdhChartLabel)
+            label.delete(pdhChartLabel)
+            pdhChartLabel := na
+        if not na(pdlChartLabel)
+            label.delete(pdlChartLabel)
+            pdlChartLabel := na
+
+    if showNearFvgH4
+        int fvgStart = math.max(own.fvgH4FormAt, displayC1 - H4MS)
+        int fvgEnd = math.min(time_close, displayEnd)
+        color fvgInk = color.purple
+        if fvgEnd > fvgStart
+            if na(fvgH4ChartBox)
+                fvgH4ChartBox := box.new(left=fvgStart,top=own.fvgH4Top,right=fvgEnd,bottom=own.fvgH4Bottom,xloc=xloc.bar_time,border_color=color.new(fvgInk,40),bgcolor=color.new(fvgInk,88))
+                fvgH4ChartLabel := label.new(fvgEnd,own.fvgH4Top,"FVG H4 QA",xloc=xloc.bar_time,style=label.style_label_left,textcolor=fvgInk,color=color.new(color.black,100),size=size.tiny)
+            box.set_lefttop(fvgH4ChartBox,fvgStart,own.fvgH4Top)
+            box.set_rightbottom(fvgH4ChartBox,fvgEnd,own.fvgH4Bottom)
+            label.set_xy(fvgH4ChartLabel,fvgEnd,own.fvgH4Top)
+            label.set_text(fvgH4ChartLabel,own.fvgH4StateCode == 0 ? "ULT FVG H4 QA INT" : "ULT FVG H4 QA PAR")
+    else
+        if not na(fvgH4ChartBox)
+            box.delete(fvgH4ChartBox)
+            fvgH4ChartBox := na
+        if not na(fvgH4ChartLabel)
+            label.delete(fvgH4ChartLabel)
+            fvgH4ChartLabel := na

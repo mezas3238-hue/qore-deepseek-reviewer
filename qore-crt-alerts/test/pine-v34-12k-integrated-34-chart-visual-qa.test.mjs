@@ -96,3 +96,30 @@ test("Multi4 QA diagnostics do not certify a visually annotated MSS or change sc
  assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
  assert.ok(!combined.includes('request.security(syminfo.tickerid'));
 });
+
+test("V34.12N draws PDH/PDL and last nearby H4 FVG from existing SAME-SLOT Signal",()=>{
+ assert.ok(combined.includes("showChartPDHPDL = input.bool(true,"));
+ assert.ok(combined.includes("showChartH4Fvg = input.bool(true,"));
+ assert.ok(combined.includes('max_lines_count=8, max_labels_count=8, max_boxes_count=2'));
+ assert.ok(combined.includes("own.pdhStatus != \"N/D\""));
+ assert.ok(combined.includes("own.pdlStatus != \"N/D\""));
+ assert.ok(combined.includes("own.nyPDHReferenceAt <= time_close"));
+ assert.ok(combined.includes("own.fvgH4StateCode == 0 or own.fvgH4StateCode == 1"));
+ assert.ok(combined.includes("own.fvgH4FormAt <= displayEnd"));
+ assert.ok(combined.includes("own.fvgH4FormAt >= displayC1 - chartFvgLookbackH4 * H4MS"));
+ assert.ok(combined.includes("fvgH4Distance <= crtC1Range * chartFvgRangeMult"));
+ assert.ok(combined.includes("pdStart = math.max(own.nyPDHReferenceAt"));
+ assert.ok(combined.includes("box.new(left=fvgStart"));
+ assert.ok(combined.includes("box.set_lefttop(fvgH4ChartBox"));
+ assert.ok(combined.includes("box.set_rightbottom(fvgH4ChartBox"));
+ assert.ok(!combined.includes("request.security(syminfo.tickerid"));
+});
+test("V34.12N remains offline QA no new request, no motor/MSS changes or live promotion",()=>{
+ assert.equal(engine(combined),engine(base));
+ assert.equal(engine(combined),engine(chart));
+ assert.equal([...combined.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
+ assert.equal([...combined.matchAll(/^\s*Signal s = request\.security\(symbol, "5", f_engine_snapshot\(\)/gm)].length,1);
+ assert.ok(combined.includes('qaPhase1NonBtc = input.bool(true,'));
+ assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
+ assert.ok(!/\balert\s*\(|\balertcondition\s*\(/.test(combined));
+});
