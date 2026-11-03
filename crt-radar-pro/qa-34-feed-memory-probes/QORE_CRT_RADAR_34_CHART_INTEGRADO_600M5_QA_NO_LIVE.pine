@@ -1,5 +1,5 @@
 //@version=6
-indicator("QORE CRT RADAR + CHART | 34 mercados V34.12L QA", shorttitle="QORE CRT 34+Chart 12L", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+indicator("QORE CRT RADAR + CHART | 34 mercados V34.12M QA", shorttitle="QORE CRT 34+Chart 12M", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
 
 // MODULO 5B CANDIDATO V34.10b NO INTEGRADO: manejo conservador de pausas de sesion. Requiere auditoria TradingView.
 // MODULO 5A INTEGRADO (AUTORIZADO): deteccion interna FVG H1/H4. Validacion TradingView pendiente.
@@ -2786,6 +2786,25 @@ f_renderSlotEventAudit() =>
             for col = 0 to 5
                 table.cell(board,col,12,array.get(hh,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
                 table.cell(board,col,13,array.get(vv,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        else
+            // QA 12M: diagnostico Multi4 del mismo slot, SOLO usando la
+            // UDT del scan actual. No inventa pivotes ni agrega security().
+            bool selectedMulti4 = good and array.get(qaExtraKindBySlot,slot) == "MULTI4 QA"
+            int m4Sweep = selectedMulti4 ? array.get(qaExtraSweepBySlot,slot) : na
+            int m4Pivot15At = selectedMulti4 ? array.get(qaExtraPivot15AtBySlot,slot) : na
+            float m4Pivot15 = selectedMulti4 ? array.get(qaExtraPivot15PriceBySlot,slot) : na
+            int m4Mss15 = selectedMulti4 ? array.get(qaExtraBreak15BySlot,slot) : na
+            bool m4Mss5OK = selectedMulti4 and array.get(extraM5Flags,slot) == 1
+            bool m4Mss15OK = selectedMulti4 and array.get(extraM15Flags,slot) == 1
+            bool pivot15BeforeSweep = not na(m4Pivot15At) and not na(m4Sweep) and m4Pivot15At < m4Sweep and not na(m4Pivot15)
+            string m4Status = not selectedMulti4 ? "NO MULTI4" : na(m4Sweep) ? "SIN SWEEP" : not pivot15BeforeSweep ? "SIN PIV15" : m4Mss15OK ? "M15 QA SI" : na(m4Mss15) ? "SIN MSS15" : "GATE M15"
+            string[] m4Labels = array.from("M4 SWEEP","PIV15 PRE","PIV15 PR","MSS15 EX","MSS5 EX","M4 CAUSA")
+            string[] m4Values = array.from(f_qaAuditTime(m4Sweep), f_qaAuditTime(m4Pivot15At),
+                 na(m4Pivot15) ? "N/D" : str.tostring(m4Pivot15,format.mintick),
+                 f_qaAuditTime(m4Mss15), m4Mss5OK ? "QA SI" : "NO VALID", m4Status)
+            for col = 0 to 5
+                table.cell(board,col,12,array.get(m4Labels,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+                table.cell(board,col,13,array.get(m4Values,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
         table.cell(board,0,14,"QA NO LIVE",bgcolor=navy,text_color=color.orange,text_size=size.tiny)
 
 // Explicit 33 non-BTC evidence, paginated; never silently blanks the board.

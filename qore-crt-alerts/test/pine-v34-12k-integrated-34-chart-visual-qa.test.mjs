@@ -71,3 +71,28 @@ test("historical window documents 600 not 1500, indicator still 34 slots",()=>{
  assert.ok(!combined.includes("this feed's 1500-bar M5 lookback"));
  assert.equal([...combined.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
 });
+
+test("USDCAD QA Multi4 audit exposes exact-source sweep/pivot15/confirmation without assuming a cross",()=>{
+ const audit=combined.slice(combined.indexOf('f_renderSlotEventAudit() =>'),combined.indexOf('f_renderNonBtcAudit() =>'));
+ assert.ok(audit.includes('array.get(qaExtraKindBySlot,slot) == "MULTI4 QA"'));
+ assert.ok(audit.includes('array.get(qaExtraSweepBySlot,slot)'));
+ assert.ok(audit.includes('array.get(qaExtraPivot15AtBySlot,slot)'));
+ assert.ok(audit.includes('array.get(qaExtraPivot15PriceBySlot,slot)'));
+ assert.ok(audit.includes('array.get(qaExtraBreak15BySlot,slot)'));
+ assert.ok(audit.includes('array.get(extraM5Flags,slot) == 1'));
+ assert.ok(audit.includes('array.get(extraM15Flags,slot) == 1'));
+ assert.ok(audit.includes('m4Pivot15At < m4Sweep'));
+ for(const stage of ['NO MULTI4','SIN SWEEP','SIN PIV15','SIN MSS15','GATE M15'])
+  assert.ok(audit.includes(stage),stage);
+ assert.ok(audit.includes('else\n            // QA 12M'));
+ assert.ok(!audit.includes('request.security('));
+});
+test("Multi4 QA diagnostics do not certify a visually annotated MSS or change scan/source conditions",()=>{
+ assert.equal(engine(combined),engine(base));
+ assert.equal(engine(combined),engine(chart));
+ assert.equal([...combined.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
+ assert.ok(combined.includes('calc_bars_count=600)'));
+ assert.ok(combined.includes('qaPhase1NonBtc = input.bool(true,'));
+ assert.ok(combined.includes('bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)'));
+ assert.ok(!combined.includes('request.security(syminfo.tickerid'));
+});
