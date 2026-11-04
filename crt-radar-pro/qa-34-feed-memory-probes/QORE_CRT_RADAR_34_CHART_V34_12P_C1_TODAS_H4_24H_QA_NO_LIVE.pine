@@ -3007,7 +3007,7 @@ bool chartBtcSymbol = str.upper(syminfo.ticker) == "BTCUSD"
 bool chartAvailable = integratedSlot >= 0 and not na(own) and not na(own.phase)
 // H4 chart puede iniciar en hora distinta al bloque H4 reconstruido por
 // el feed M5 exacto (+1/+2 min o calendario del proveedor). Requerir
-// own.nyH4Start == time suprimia dibujos validos EN H4. El dibujo usa
+// exigir igualdad exacta con time suprimia dibujos validos EN H4. El dibujo usa
 // xloc.bar_time, C1/C2 y OHLC del mismo slot, no H4 del chart mezclada.
 bool visualChartAligned = timeframe.isintraday and (timeframe.multiplier == 5 or timeframe.multiplier == 15 or timeframe.multiplier == 240)
 // Nunca dibujar una C2 provisional o un bit de mascara sin C1 y OHLC verificados.
