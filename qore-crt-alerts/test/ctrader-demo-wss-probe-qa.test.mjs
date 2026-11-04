@@ -38,7 +38,7 @@ class WssFake {
    case 2116: payload={ctidTraderAccountId:String(ACCOUNT),
       symbol:[{symbolId:77,digits:5}]};break;
    case 2137: payload={ctidTraderAccountId:String(ACCOUNT),
-      symbolId:77,trendbar:[
+      symbolId:77,period:5,trendbar:[
        {utcTimestampInMinutes:(now-900000)/60000,low:100000,
         deltaHigh:900,deltaOpen:500,deltaClose:600}
       ]};break;
