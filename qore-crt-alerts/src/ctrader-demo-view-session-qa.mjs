@@ -3,6 +3,7 @@
 // This state machine does not open sockets, log credentials or certify
 // equivalence to TradingView's IC: feed. All replies are untrusted.
 import {randomUUID} from "node:crypto";
+import {INSTRUMENTS} from "./instruments.mjs";
 import {normalizeClosedCtraderTrendbar} from "./ctrader-readonly-m5-qa.mjs";
 
 export const CTRADER_DEMO_JSON_URL="wss://demo.ctraderapi.com:5036";
@@ -30,6 +31,7 @@ export class CtraderDemoViewSessionQa {
  #maxBars;#now;#idFn;
  constructor({clientId,clientSecret,accessToken,demoAccountId,
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
+  sampleInstrumentId=null,
   maxBars=300,now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
@@ -38,10 +40,14 @@ export class CtraderDemoViewSessionQa {
     maxBars<48||maxBars>500||typeof now!=="function"||
     typeof idFn!=="function"||
     ((chosenId===null)!==(sampleSymbolName===null))||
-    (chosenId!==null&&!safeName(sampleSymbolName)))
+    ((chosenId===null)!==(sampleInstrumentId===null))||
+    (chosenId!==null&&(!safeName(sampleSymbolName)||
+       !INSTRUMENTS.some(x=>x.id===sampleInstrumentId&&
+         x.tvSymbol.startsWith("IC:")))))
     throw Error("CTRADER_VIEW_ONLY_DEMO_CONFIG_REQUIRED");
   this.#config={clientId,clientSecret,accessToken,demoAccountId:accountId,
-    expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName};
+    expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName,
+    sampleInstrumentId};
   this.#maxBars=maxBars;this.#now=now;this.#idFn=idFn;
  }
  #message(type,payload,state,expected){
@@ -138,7 +144,6 @@ export class CtraderDemoViewSessionQa {
    const stamp=this.#now();
    if(!Number.isSafeInteger(stamp)||stamp<=0)
     return this.#hold("CTRADER_CLOCK_INVALID");
-   this.#lastHistoryRequestAt=stamp;
    return this.#message(VIEW_ONLY_TYPES.HISTORY,
     {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
      period:5,count:this.#maxBars,fromTimestamp:stamp-72*3600000,
@@ -157,7 +162,7 @@ export class CtraderDemoViewSessionQa {
     let normalized;
     try{normalized=normalizeClosedCtraderTrendbar({
        trendbar:bar,
-       binding:{...this.#symbol,instrumentId:this.#symbol.brokerSymbolName},
+       binding:{...this.#symbol,instrumentId:c.sampleInstrumentId},
        observedAtMs:nowMs,provenClosedAtMs:nowMs,period:"M5"
       });}
     catch{return this.#hold("CTRADER_HISTORY_INVALID_OR_NOT_CLOSED");}
