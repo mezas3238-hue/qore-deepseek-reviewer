@@ -98,6 +98,14 @@ test("confirmed native-chart H4 FVG, non-repainting, independently of CRT, 3 are
  assert.ok(!fvgPart.includes('a1 := time[k]'),"no zone should be drawn before third H4 CLOSE");
 });
 
+test("Pine chart variables must precede all FVG chart predicates",()=>{
+ assert.ok(fixed.indexOf('bool chartAvailable =') > 0);
+ assert.ok(fixed.indexOf('bool fvgChartOK =') > fixed.indexOf('bool chartAvailable ='));
+ assert.ok(fixed.indexOf('bool visible =') < fixed.indexOf('bool fvgChartOK ='));
+ assert.ok(fixed.indexOf('bool drawFvg1 =') > fixed.indexOf('bool fvgChartOK ='));
+ assert.ok(fixed.indexOf('var box fvgH4ChartBox1 =') > fixed.indexOf('bool drawFvg1 ='));
+});
+
 test("TradingView Basic budget still has 34 M5 feeds plus 1D/H4 exact ticker = 36 unique requests",()=>{
  const lines=execSecurity(fixed);
  assert.equal(lines.length,3,lines.join("\n"));
