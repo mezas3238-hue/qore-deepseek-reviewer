@@ -96,3 +96,48 @@ class NotificationPolicyTest {
     }
 
 }
+
+class QaCrtStatusV2ContractTests {
+    private fun valid()=mapOf(
+        "schema" to "QORE_CRT_STAGING_V2",
+        "mode" to "STAGING_APPROVED",
+        "certified" to "true",
+        "kind" to "CRT_STATUS",
+        "instrumentId" to "USDCAD",
+        "tvSymbol" to "IC:USDCAD",
+        "family" to "MULTI4",
+        "direction" to "BULLISH",
+        "mssM5" to "AWAITING",
+        "mssM15" to "AWAITING",
+        "c1StartMs" to "1793336400000",
+        "eventAtMs" to "1793365200000",
+        "eventType" to "CRT_OBSERVED",
+        "eventId" to "IC|USDCAD|1793336400000|1|CRT_OBSERVED|1793365200000",
+        "ohlcSha256" to "b".repeat(64)
+    )
+    @Test fun qaBuildAlwaysBlocksFutureContract() {
+        assertEquals("BUILD_LOCKED",NotificationPolicy.evaluate(
+            valid(),BuildConfig.STAGING_NOTIFICATIONS_ENABLED).reason)
+    }
+    @Test fun crtAndMssAreSeparatelyRepresentedByFutureContract() {
+        val a=NotificationPolicy.evaluate(valid(),true)
+        assertTrue(a.accepted)
+        assertEquals("CRT_OBSERVED",a.eventType)
+        assertEquals("MULTI4",a.family)
+        assertEquals("AWAITING",a.mssM15)
+    }
+    @Test fun unconfirmedMssAndForeignBrokerRejected() {
+        assertEquals("UNCONFIRMED_MSS",NotificationPolicy.evaluate(
+            valid()+("eventType" to "MSS_M15_OBSERVED"),true).reason)
+        assertEquals("SOURCE_MISMATCH",NotificationPolicy.evaluate(
+            valid()+("tvSymbol" to "OANDA:USDCAD"),true).reason)
+        assertEquals("UNCERTIFIED_SOURCE",NotificationPolicy.evaluate(
+            valid()+("certified" to "false"),true).reason)
+    }
+    @Test fun forgedEventAndPhaseRejected() {
+        assertEquals("EVENT_ID_MISMATCH",NotificationPolicy.evaluate(
+            valid()+("eventId" to "IC|EURUSD|1793336400000|1|CRT_OBSERVED|1793365200000"),true).reason)
+        assertEquals("NATIVE_PHASE_MISMATCH",NotificationPolicy.evaluate(
+            valid()+("eventAtMs" to "1793365260000"),true).reason)
+    }
+}
