@@ -94,7 +94,7 @@ export class BlockedQaInbox {
        event.sendPush!==false||event.actionable!==false||
        event.transport!=="DISABLED"||event.certification!=="NOT_VERIFIED"||
        event.requiresRealFeedAndPineParity!==true||
-       !positive(event.eventAtMs)||
+       !positive(event.eventAtMs)||!families.has(event.family)||
        typeof event.eventId!=="string"||
        event.eventId!==key({tvSymbol:event.tvSymbol,
          instrumentId:event.instrumentId,c1StartMs:event.c1StartMs,
@@ -102,11 +102,14 @@ export class BlockedQaInbox {
          kind:event.eventType,at:event.eventAtMs})||
        !INSTRUMENTS.some(x=>x.id===event.instrumentId&&x.tvSymbol===event.tvSymbol))
        throw Error("NOT_A_QUARANTINED_CRT_EVENT");
-    const existing=this.#events.get(event.eventId);
+    // Wire eventId V2 is unchanged. Deduplication MUST include the family,
+    // otherwise simultaneous CRT_2C_RETURN and MULTI4 collide silently.
+    const scopedEventId=event.eventId+"|"+event.family;
+    const existing=this.#events.get(scopedEventId);
     if(existing)
       return freeze({state:JSON.stringify(existing)===JSON.stringify(event)?
         "DUPLICATE_HELD":"CONFLICT_HELD",sendPush:false});
-    this.#events.set(event.eventId,freeze({...event}));
+    this.#events.set(scopedEventId,freeze({...event}));
     return freeze({state:"QA_RECORDED_NO_DELIVERY",sendPush:false});
   }
   list(){return freeze([...this.#events.values()].sort((a,b)=>a.eventAtMs-b.eventAtMs));}
