@@ -71,6 +71,9 @@ test("confirmed native-chart H4 FVG, non-repainting, independently of CRT, 3 are
   'if high[j] >= top',
   'if high[j] >= bottom',
   'if not fullFill and found < 3',
+  'a1 := time_close[k]',
+  'a2 := time_close[k]',
+  'a3 := time_close[k]',
   'request.security(syminfo.tickerid, "240", f_chartH4Fvgs(chartFvgLookbackH4), lookahead=barmerge.lookahead_on',
   'var float currentH4HighSeen = na',
   'var float currentH4LowSeen = na',
@@ -92,6 +95,7 @@ test("confirmed native-chart H4 FVG, non-repainting, independently of CRT, 3 are
  assert.ok(!fvgPart.includes('own.fvgH4Bottom'));
  assert.ok(!fvgPart.includes('low[0]'));
  assert.ok(!fvgPart.includes('high[0]'));
+ assert.ok(!fvgPart.includes('a1 := time[k]'),"no zone should be drawn before third H4 CLOSE");
 });
 
 test("TradingView Basic budget still has 34 M5 feeds plus 1D/H4 exact ticker = 36 unique requests",()=>{
