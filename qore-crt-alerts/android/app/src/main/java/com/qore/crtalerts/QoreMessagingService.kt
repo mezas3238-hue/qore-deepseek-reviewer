@@ -52,18 +52,16 @@ class QoreMessagingService : FirebaseMessagingService() {
         val notification = if (Build.VERSION.SDK_INT >= 26)
             Notification.Builder(this, channelId)
         else Notification.Builder(this)
+        val preview = QaCrtNotificationText.render(result)
         manager.notify(eventId.hashCode(),
             notification.setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(if (result.eventType != null)
-                    "QORE CRT • " + result.instrument + " • " + result.family
-                    else "QORE CRT • " + result.instrument)
+                    preview.title else "QORE CRT • " + result.instrument)
                 .setContentText(if (result.eventType != null)
-                    (if (result.eventType == "CRT_OBSERVED") "CRT H4 detectado"
-                     else if (result.eventType == "MSS_M5_OBSERVED") "MSS M5 confirmado"
-                     else "MSS M15 confirmado") +
-                    " • M5: " + result.mssM5 + " • M15: " + result.mssM15 +
-                    " • STAGING"
-                    else "MSS M15 " + result.direction + " • STAGING")
+                    preview.collapsed else "MSS M15 • STAGING")
+                .setStyle(Notification.BigTextStyle().bigText(
+                    if (result.eventType != null) preview.expanded
+                    else "MSS M15 • STAGING"))
                 .setAutoCancel(true).build())
     }
 }
