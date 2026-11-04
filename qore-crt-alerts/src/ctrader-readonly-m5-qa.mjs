@@ -107,9 +107,13 @@ export function planM5Subscription(coverageRow,context){
   const symbolId=coverageRow.ctraderSymbolId;
   const common={ctidTraderAccountId:context?.accountId,symbolId};
   // Spec mandates spots first, live trendbars second. No connection attempted.
-  const spots=planReadOnlyRequest("ProtoOASubscribeSpotsReq",common,context);
+  // ProtoOASubscribeSpotsReq.symbolId is REPEATED int64.
+  // LiveTrendbarReq.symbolId is scalar; ProtoOATrendbarPeriod.M5 = 5.
+  const spots=planReadOnlyRequest("ProtoOASubscribeSpotsReq",
+    {ctidTraderAccountId:context.accountId,symbolId:[symbolId],
+     subscribeToSpotTimestamp:true},context);
   const bars=planReadOnlyRequest("ProtoOASubscribeLiveTrendbarReq",
-    {...common,period:"M5"},context);
+    {...common,period:5},context);
   return freeze({requests:freeze([spots,bars]),transport:"NOT_CONNECTED",
     sendPush:false,mode:CTRADER_QA_MODE});
 }
