@@ -54,14 +54,23 @@ export function buildBlockedCrtMssInboxEvents({
   const ctx={tvSymbol,instrumentId,family,direction,c1StartMs};
   const m5Status=projection.mssM5,m15Status=projection.mssM15;
   const crtAt=coreCrt?c2RatifiedAtMs:observedAtMs;
-  const out=[make(ctx,"CRT_OBSERVED",crtAt,m5Status,m15Status)];
+  // Causal event snapshot: a CRT alert must NEVER see a later MSS as
+  // already confirmed (offline replay can know the future otherwise).
+  const atState=(status,breakAtMs,atMs)=>
+    status==="CONFIRMED" && (!positive(breakAtMs)||breakAtMs>atMs)?
+      "AWAITING":status;
+  const out=[make(ctx,"CRT_OBSERVED",crtAt,
+    atState(m5Status,m5.breakAtMs,crtAt),
+    atState(m15Status,m15.breakAtMs,crtAt))];
   // Confirmation is for the same signed C1. A QA extra cannot claim a MSS.
   if(coreCrt && m5Status==="CONFIRMED" && positive(m5.breakAtMs) &&
       m5.breakAtMs<=observedAtMs)
-    out.push(make(ctx,"MSS_M5_OBSERVED",m5.breakAtMs,"CONFIRMED",m15Status));
+    out.push(make(ctx,"MSS_M5_OBSERVED",m5.breakAtMs,"CONFIRMED",
+      atState(m15Status,m15.breakAtMs,m5.breakAtMs)));
   if(coreCrt && m15Status==="CONFIRMED" && positive(m15.breakAtMs) &&
       m15.breakAtMs<=observedAtMs)
-    out.push(make(ctx,"MSS_M15_OBSERVED",m15.breakAtMs,m5Status,"CONFIRMED"));
+    out.push(make(ctx,"MSS_M15_OBSERVED",m15.breakAtMs,
+      atState(m5Status,m5.breakAtMs,m15.breakAtMs),"CONFIRMED"));
   return freeze(out);
 }
 

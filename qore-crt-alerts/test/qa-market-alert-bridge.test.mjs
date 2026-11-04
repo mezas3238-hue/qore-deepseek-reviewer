@@ -27,7 +27,10 @@ test("separate CRT, MSS M5 and MSS M15 events identify exact pair and family",()
   assert.equal(x.deliveryState,"BLOCKED_NOT_CERTIFIED");
   assert.equal(x.actionable,false);
  }
- assert.equal(a[0].mssM15,"CONFIRMED");
+ assert.equal(a[0].mssM5,"AWAITING", "later M5 must not leak into CRT time");
+ assert.equal(a[0].mssM15,"AWAITING", "later M15 must not leak into CRT time");
+ assert.equal(a[1].mssM15,"AWAITING", "M5 event cannot see later M15");
+ assert.equal(a[2].mssM5,"CONFIRMED", "M15 can show earlier M5");
 });
 test("M5 alone is not projected as an M15",()=>{
  const a=buildBlockedCrtMssInboxEvents({...good(),m15:{}});
@@ -68,4 +71,16 @@ test("wire event identity is exactly backend broker prefix expected by Android V
   "IC|USDCAD|"+c1+"|1|MSS_M5_OBSERVED|"+m5At);
  assert.equal(a[2].eventId,
   "IC|USDCAD|"+c1+"|1|MSS_M15_OBSERVED|"+m15At);
+});
+
+test("causal event snapshots allow MSS already confirmed before C2 close",()=>{
+ const root=good();
+ const earlyM5=sweep+300000;
+ const a=buildBlockedCrtMssInboxEvents({
+  ...root,m5:{...root.m5,breakAtMs:earlyM5},
+  m15:{} 
+ });
+ assert.equal(a[0].mssM5,"CONFIRMED");
+ assert.equal(a[0].mssM15,"AWAITING");
+ assert.equal(a[1].eventAtMs,earlyM5);
 });
