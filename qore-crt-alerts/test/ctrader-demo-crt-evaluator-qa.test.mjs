@@ -6,7 +6,7 @@ import {evaluateCtraderDemoCrtMssQA} from "../src/ctrader-demo-crt-evaluator-qa.
 const start=Date.parse("2026-10-30T05:00:00Z"),five=300000;
 const account={ctidTraderAccountId:888888,isLive:false,brokerName:"DemoBroker"};
 const coverage=evaluateCtrader34Coverage({account,scope:"accounts",
- discoveredSymbols:[{symbolId:37,symbolName:"EURUSD",digits:5}],
+ discoveredSymbols:[{symbolId:37,symbolName:"EURUSD",digits:5,enabled:true}],
  approvedMappings:[{instrumentId:"EURUSD",tvSymbol:"IC:EURUSD",
   symbolId:37,brokerSymbolName:"EURUSD",ownerApproved:true}]});
 const row=coverage.rows.find(r=>r.instrumentId==="EURUSD");
