@@ -10,9 +10,9 @@ import {
 const account={ctidTraderAccountId:12345678,isLive:false,brokerName:"DemoBroker"};
 const scope="accounts";
 const context=()=>verifyDemoScope({account,scope});
-const symbols=[{symbolId:37,symbolName:"USDCAD",digits:5},
-  {symbolId:42,symbolName:"EURUSD",digits:5},
-  {symbolId:88,symbolName:"BTCUSD",digits:2}];
+const symbols=[{symbolId:37,symbolName:"USDCAD",digits:5,enabled:true},
+  {symbolId:42,symbolName:"EURUSD",digits:5,enabled:true},
+  {symbolId:88,symbolName:"BTCUSD",digits:2,enabled:true}];
 const map=[
  {instrumentId:"USDCAD",tvSymbol:"IC:USDCAD",symbolId:37,
   brokerSymbolName:"USDCAD",ownerApproved:true},
@@ -84,6 +84,11 @@ test("broker symbol missing or wrongly named is blocked even if the pair looks s
    {...s,symbolName:"USDCAD.pro"}:s)});
  assert.equal(renamed.rows.find(v=>v.instrumentId==="USDCAD").state,
    "BROKER_SYMBOL_UNAVAILABLE");
+ const disabled=coverage({discoveredSymbols:symbols.map(s=>s.symbolId===37?
+   {...s,enabled:false}:s)});
+ assert.equal(disabled.rows.find(v=>v.instrumentId==="USDCAD").state,
+   "BROKER_SYMBOL_DISABLED");
+ assert.equal(disabled.coverage.brokerCandidates,2);
  assert.throws(()=>coverage({approvedMappings:[map[0],{...map[0]}]}),/UNIQUE/);
  assert.throws(()=>coverage({approvedMappings:[{...map[0],ownerApproved:false}]}),/REQUIRED/);
  assert.throws(()=>coverage({approvedMappings:[{...map[0],tvSymbol:"OANDA:USDCAD"}]}),/REQUIRED/);
