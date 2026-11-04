@@ -59,7 +59,7 @@ allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group
 // must NEVER enter the sovereign CRT or an Inside validation.
 showCandidate = input.bool(true, "Mostrar CRT C2 provisional (con *)", group=grp)
 showAtSweep = input.bool(true, "Mostrar barrida C2 antes del retorno (provisional *)", group=grp, tooltip="El toque del rango H4 no es confirmacion CRT; se identifica con * y no se le asignan MSS futuros. Debe retornar al rango para ratificarse.")
-keepLastCRT = input.bool(false, "Conservar ultimo CRT ratificado (solo historial)", group=grp)
+keepLastCRT = input.bool(true, "Conservar ultimo CRT ratificado (HISTORICO QA)", group=grp, tooltip="Memoria visual de maximo 48 horas por defecto, separada del CRT vigente; la etiqueta indica HIST y nunca confirma una nueva entrada.")
 keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, group=grp)
 // M3B.3B: vigencia en H4 de negociacion cerradas y verificadas.
 maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
@@ -3161,12 +3161,16 @@ bool chartAvailable = integratedSlot >= 0 and not na(own) and not na(own.phase)
 // xloc.bar_time, C1/C2 y OHLC del mismo slot, no H4 del chart mezclada.
 bool visualChartAligned = timeframe.isintraday and (timeframe.multiplier == 5 or timeframe.multiplier == 15 or timeframe.multiplier == 240)
 // Nunca dibujar una C2 provisional o un bit de mascara sin C1 y OHLC verificados.
-bool chartCoreC1 = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+// Retener un 2C verificado hasta su ventana de MEMORIA sin presentarlo
+// como CRT EN CURSO. El modelo marca phase=3 para este estado.
+bool chartCoreActive = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+bool chartCoreHistorical = chartAvailable and own.phase == 3 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+bool chartCoreC1 = chartCoreActive or chartCoreHistorical
 bool chartExtraC1 = chartAvailable and not chartCoreC1 and not na(own.familyVisual) and own.familyVisual.structuralQA and not na(own.familyVisual.c1Start) and not na(own.familyVisual.eventClosedAt) and not na(own.familyVisual.c1High) and not na(own.familyVisual.c1Low) and own.familyVisual.c1High > own.familyVisual.c1Low
 int displayC1 = chartCoreC1 ? own.c1Start : chartExtraC1 ? own.familyVisual.c1Start : na
 float displayCRH = chartCoreC1 ? own.crh : chartExtraC1 ? own.familyVisual.c1High : na
 float displayCRL = chartCoreC1 ? own.crl : chartExtraC1 ? own.familyVisual.c1Low : na
-string displayFamily = chartCoreC1 ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA") : chartExtraC1 ? own.familyVisual.kind : "NONE"
+string displayFamily = chartCoreHistorical ? "2C HIST QA" : chartCoreActive ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA") : chartExtraC1 ? own.familyVisual.kind : "NONE"
 int displayEnd = chartCoreC1 ? own.c1Start + 3 * H4MS : chartExtraC1 ? own.familyVisual.eventClosedAt + H4MS : na
 bool visible = visualChartAligned and (chartCoreC1 or chartExtraC1) and not na(displayC1) and not na(displayCRH) and not na(displayCRL) and not na(displayEnd) and displayCRH > displayCRL and displayEnd > displayC1 and time_close >= displayC1
 
@@ -3262,7 +3266,7 @@ if barstate.islast
         // Stop drawing after the selected family event window; do not
         // reuse prices from another C1 when the chart is opened.
         int t2 = math.min(time_close, displayEnd)
-        color ink = chartCoreC1 and (not qaPhase1NonBtc or chartBtcSymbol) ? color.rgb(168,65,115) : color.orange
+        color ink = chartCoreHistorical ? color.gray : chartCoreActive and (not qaPhase1NonBtc or chartBtcSymbol) ? color.rgb(168,65,115) : color.orange
         if na(hiLine)
             hiLine := line.new(t1,displayCRH,t2,displayCRH,xloc=xloc.bar_time,color=ink,width=2)
             loLine := line.new(t1,displayCRL,t2,displayCRL,xloc=xloc.bar_time,color=ink,width=2)
