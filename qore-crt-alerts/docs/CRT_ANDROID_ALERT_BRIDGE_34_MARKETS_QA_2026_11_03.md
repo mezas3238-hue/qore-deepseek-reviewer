@@ -30,3 +30,23 @@ La app Android debe informar **qué par** presenta CRT, **qué familia** (2C, 3C
 - En TradingView un script con `alert()` no crea una alerta automáticamente; el usuario tiene que configurarla. Esa vía puede servir como puente temporal en QA, pero no cumple independencia de TradingView y tampoco certifica los 34 proveedores.
 
 El objetivo de la siguiente fase es enlazar la proyección de eventos a un inbox autenticado (backend), adaptar el cliente Kotlin para las tres clases y validar caso 2C+M15 y Multi4 N/V en USDCAD. Sin aprobación para LIVE.
+
+## Entrega de continuación — 03-Nov-2026: hora y precio por confirmación
+
+Se añadió el renderizador Android `QaCrtNotificationText.kt`, integrado al futuro receptor FCM `QoreMessagingService.kt`. La notificación **CRT H4** informa el mercado, familia, dirección y MSS M5/M15 pendientes. Cuando el evento del **mismo ciclo** confirma MSS M5 o MSS M15, el texto despliega la **hora local del teléfono** (`dd/MM HH:mm`) y **precio de cierre** por separado; se utiliza `Notification.BigTextStyle` para que se lean las cuatro líneas.
+
+Contrato Android `QaCrtStatusContract.kt`: todo MSS `CONFIRMED` exige `mssM5AtMs/mssM5Price` o `mssM15AtMs/mssM15Price` según corresponda. Rechaza precio cero, negativo, no numérico; timestamps que no sean cierres nativos de M5/M15, posteriores al evento o ajenos al C1; rechaza pruebas adjuntas a estado `AWAITING/UNVERIFIED`. `NotificationPolicy.kt` comunica los datos exclusivamente después de validar el contrato. Esta validación de forma NO equivale a autenticar la fuente de datos.
+
+En el replay QA `qa-replay-to-android-inbox.mjs` busca el **cierre M5 exacto** de la ruptura respectiva para extraer `close`; `qa-market-alert-bridge.mjs` añade hora/precio **solo si** el MSS estaba CONFIRMADO en ese instante. La primera notificación no puede mostrar el precio de una ruptura futura; el MSS M5 no sustituye al MSS M15. Se amplió la batería `qa-alert-stage-price-proof.test.mjs` y `QaCrtNotificationTextTest.kt` para cubrir estados, presentación y rechazos.
+
+**Lo que NO se ha activado:** sigue `BuildConfig.STAGING_NOTIFICATIONS_ENABLED=false`; Firebase auto-init deshabilitado; el servicio mantiene `serverEnrollmentVerified=false` y `tradingEngineCertified=false`; no se recibe un feed de 34 proveedores ni se ejecuta envío FCM. Las pruebas sintéticas no son señales financieras ni validación de siete familias. Ninguna APK de esta fase debe anunciar alertas operativas.
+
+### Orden para conectar indicador y entregar al Android
+
+1. Exportar **eventos estructurados del Pine** a un endpoint STAGING autenticado, por familia, feed, ciclo C1, cierre H4/M5/M15, dirección, hora, precio y OHLC SHA. No basta con el texto de la tabla. Una alerta TradingView debe configurarse explícitamente en TradingView; requiere compatibilidad con la cuota y plan, y no garantiza por sí sola la cobertura certificada de 34 feeds.
+2. Comparar cada evento con replay independiente sobre las mismas velas y fases nativas; aislar provisionales y rechazos; ejecutar 34 mercados, negativos, holdout/no-repaint, M5/M15 independientes.
+3. Crear inbox persistente con identidad **incluyendo la familia** para no colapsar familias simultáneas, deduplicación, control de orden, credenciales backend y registro de dispositivo autorizado.
+4. Aprovisionar Firebase real, inscripción autenticada con consentimiento y permisos Android; desplegar emisor FCM sujeto a los gates y probar mensajes reales con la app cerrada.
+5. Certificar E2E por mercado y ciclo antes de encender el flag en una build de STAGING. No MERGE / NO LIVE / NO PUSH hasta aprobar los gates.
+
+**Importante:** el `eventId` V2 previo **no incluye familia**. Antes de activar suscripciones múltiples se debe introducir un identificador de deduplicación V3 que sí la incluya; esta entrega NO anuncia solución a ese faltante.
