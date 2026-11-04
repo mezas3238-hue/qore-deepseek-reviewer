@@ -61,7 +61,12 @@ def require_env(env: Mapping[str, str]) -> tuple[str, str, str, int, str]:
 def prove_view_only_demo(response: Any, wanted_account: int) -> None:
     """Never trust an environment variable saying 'DEMO' or 'view-only'."""
     scope = getattr(response, "permissionScope", None)
-    if type(scope) is not int or scope != VIEW_SCOPE:
+    present = getattr(response, "HasField", None)
+    try:
+        scope_explicit = callable(present) and present("permissionScope") is True
+    except (TypeError, ValueError):
+        scope_explicit = False
+    if not scope_explicit or type(scope) is not int or scope != VIEW_SCOPE:
         raise FailClosed("CTRADER_REQUIRES_SCOPE_VIEW_NOT_TRADING")
     accounts = getattr(response, "ctidTraderAccount", None)
     if accounts is None:
