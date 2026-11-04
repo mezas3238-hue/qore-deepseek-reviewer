@@ -12,7 +12,16 @@ const positive = x => Number.isSafeInteger(x) && x > 0;
 const key = ({tvSymbol,instrumentId,c1StartMs,direction,kind,at}) =>
   [tvSymbol.split(":")[0],instrumentId,c1StartMs,direction,kind,at].join("|");
 const freeze = x => Object.freeze(x);
-const make = (ctx,kind,at,m5,m15) => freeze({
+// Only exact confirmed closed-bar timestamps and positive close prices can
+// populate the notification detail. Pending stages expose NO future evidence.
+const stageProof = (status,evidence,at,tf) =>
+  status==="CONFIRMED" && positive(evidence?.breakAtMs) &&
+  evidence.breakAtMs<=at && Number.isFinite(evidence.breakPrice) &&
+  evidence.breakPrice>0 ? {
+    [`mss${tf}AtMs`]:evidence.breakAtMs,
+    [`mss${tf}Price`]:String(evidence.breakPrice)
+  } : {};
+const make = (ctx,kind,at,m5,m15,m5Evidence,m15Evidence) => freeze({
   schema:"QORE_CRT_MONITOR_QA_V2",mode:"OFFLINE_REPLAY",
   certification:"NOT_VERIFIED",transport:"DISABLED",
   deliveryState:"BLOCKED_NOT_CERTIFIED",sendPush:false,actionable:false,
@@ -21,6 +30,8 @@ const make = (ctx,kind,at,m5,m15) => freeze({
   direction:ctx.direction===1?"BULLISH":"BEARISH",
   c1StartMs:ctx.c1StartMs,eventAtMs:at,
   mssM5:m5,mssM15:m15,
+  ...stageProof(m5,m5Evidence,at,"M5"),
+  ...stageProof(m15,m15Evidence,at,"M15"),
   // A status is not proof of an event: never promote QA to certified alerts.
   requiresRealFeedAndPineParity:true
 });
@@ -61,16 +72,16 @@ export function buildBlockedCrtMssInboxEvents({
       "AWAITING":status;
   const out=[make(ctx,"CRT_OBSERVED",crtAt,
     atState(m5Status,m5.breakAtMs,crtAt),
-    atState(m15Status,m15.breakAtMs,crtAt))];
+    atState(m15Status,m15.breakAtMs,crtAt),m5,m15)];
   // Confirmation is for the same signed C1. A QA extra cannot claim a MSS.
   if(coreCrt && m5Status==="CONFIRMED" && positive(m5.breakAtMs) &&
       m5.breakAtMs<=observedAtMs)
     out.push(make(ctx,"MSS_M5_OBSERVED",m5.breakAtMs,"CONFIRMED",
-      atState(m15Status,m15.breakAtMs,m5.breakAtMs)));
+      atState(m15Status,m15.breakAtMs,m5.breakAtMs),m5,m15));
   if(coreCrt && m15Status==="CONFIRMED" && positive(m15.breakAtMs) &&
       m15.breakAtMs<=observedAtMs)
     out.push(make(ctx,"MSS_M15_OBSERVED",m15.breakAtMs,
-      atState(m5Status,m5.breakAtMs,m15.breakAtMs),"CONFIRMED"));
+      atState(m5Status,m5.breakAtMs,m15.breakAtMs),"CONFIRMED",m5,m15));
   return freeze(out);
 }
 
