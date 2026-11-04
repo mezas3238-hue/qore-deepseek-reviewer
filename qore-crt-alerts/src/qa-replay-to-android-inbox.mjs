@@ -40,9 +40,14 @@ export function replayClosedM5IntoBlockedInbox({
   const cycle=[source,instrumentId,c1StartMs,crt.direction].join("|");
   const fromMss=(x,timeframe)=>{
     if(!confirmed.has(x?.state))return {};
+    // Price comes only from the same-provider CLOSED M5 candle at the
+    // structural break. It is never inferred from a future bar or label.
+    const closed=candlesM5.find(bar=>bar.closedAt===x.mssAt);
     return {provider:source,instrumentId,c1StartMs,direction:crt.direction,
       cycleId:cycle,pivotAtMs:x.pivotAt,breakAtMs:x.mssAt,
-      ...(timeframe==="M15"?{lastClosedAtMs:latest-latest%900000}:{})};
+      ...(closed&&Number.isFinite(closed.close)&&closed.close>0?
+        {breakPrice:closed.close}:{}),
+      ...(timeframe==="M15"?{lastClosedAtMs:x.mssAt}:{})};
   };
   const rows=buildBlockedCrtMssInboxEvents({
     instrumentId,tvSymbol,family:"CRT_2C_RETURN",
