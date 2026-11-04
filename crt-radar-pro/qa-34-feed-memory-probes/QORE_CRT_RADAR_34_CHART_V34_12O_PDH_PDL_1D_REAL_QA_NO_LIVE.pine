@@ -3026,7 +3026,7 @@ plot(showIntegratedChart and visible ? displayCRL : na, title="QA Chart integrad
 int dailyNowOpen = time("D")
 bool sameDailySymbol = chartAvailable and integratedSlot >= 0
 bool dailyDataOK = sameDailySymbol and not na(dailyPDH) and not na(dailyPDL) and not na(dailyPrevOpen) and not na(dailyPrevClose) and not na(dailyNowOpen) and dailyPDH > dailyPDL and dailyPrevClose <= dailyNowOpen and dailyNowOpen <= time_close
-bool showPDLevels = showIntegratedChart and showChartPDHPDL and timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= 14400 and dailyDataOK
+bool showPDLevels = showIntegratedChart and showChartPDHPDL and (timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= 14400 or timeframe.isdaily and timeframe.multiplier == 1) and dailyDataOK
 plot(showPDLevels ? dailyPDH : na, title="QA Chart PDH 1D previo confirmado", display=display.data_window)
 plot(showPDLevels ? dailyPDL : na, title="QA Chart PDL 1D previo confirmado", display=display.data_window)
 plot(showPDLevels ? dailyPrevClose / 60000.0 : na, title="QA Chart referencia 1D previo cierre UTCmin", display=display.data_window)
