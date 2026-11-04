@@ -61,3 +61,19 @@ El resultado ficticio será `brokerCandidates:1`, `sourceParityCertified:0`, `se
 - El API de cTrader no cobra por sí mismo, pero esto NO garantiza acceso universal a los 34 símbolos ni licencias de redistribución de precios.
 
 Referencias: https://help.ctrader.com/open-api/account-authentication/ · https://help.ctrader.com/open-api/symbol-data/ · https://help.ctrader.com/open-api/api-application/ · https://help.ctrader.com/open-api/
+
+## Descubrimiento en QORE Core: reutilización sin permiso de trading
+
+En `mezas3238-hue/qore-core` ya existen:
+
+- `src/qore/infrastructure/ctrader_open_api_market_data_client.py`: cliente de datos del broker que consulta `ProtoOASymbolsListReq`, `ProtoOASymbolByIdReq`, `ProtoOAGetTrendbarsReq` y spots con validación de cuenta, estado `enabled`, precisión, id de instrumento y OHLC.
+- `src/qore/infrastructure/ctrader_demo_market_data.py`: contratos `CTraderTrendbar` y decodificación con escala relativa 100000; versión Python reutilizable con una capa de autorización apropiada.
+- `src/qore/infrastructure/ctrader_open_api_client.py`: transporte Protobuf TLS y autenticación implementada contra `demo.ctraderapi.com:5035`.
+
+**BLOQUEANTE DE SEGURIDAD:** el método `SpotwareCTraderOpenApiClient.connect_and_authenticate()` actual exige `permissionScope == 1` (`SCOPE_TRADE`) y su allowlist contiene mensajes de creación/cancelación de órdenes. **No reutilizar este cliente sin cambios para CRT ALERTS**. Las alertas exigirán `SCOPE_VIEW == 0` (OAuth `accounts`) y una allowlist independiente de solo datos. Se puede aprovechar el diseño de transporte/decodificador, sin alterar la semántica del runtime de órdenes. Este módulo de JavaScript solo prepara y valida; no reemplaza el SDK.
+
+**Corrección de protocolo comprobada:** `ProtoOASubscribeSpotsReq.symbolId` es un vector repetido, `ProtoOASubscribeLiveTrendbarReq.symbolId` es escalar y `ProtoOATrendbarPeriod.M5` es numérico `5`. El adaptador offline los genera correctamente. El inventario exige además `enabled === true` antes de marcar un instrumento como candidato a M5.
+
+No se ha observado ninguna sesión cTrader autenticada ni una lista de símbolos real en este trabajo. La cobertura sigue siendo desconocida, no 34/34.
+
+Referencias: https://help.ctrader.com/open-api/messages/ · https://help.ctrader.com/open-api/symbol-data/ · https://github.com/mezas3238-hue/qore-core/blob/c98d486a760056d9a71173c7041cf6f0c58bd9e9/src/qore/infrastructure/ctrader_open_api_client.py
