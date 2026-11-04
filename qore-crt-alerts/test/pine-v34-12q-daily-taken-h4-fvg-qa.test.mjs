@@ -67,9 +67,9 @@ test("confirmed native-chart H4 FVG, non-repainting, independently of CRT, 3 are
   'low[k + 2] - high[k] >= syminfo.mintick',
   'for j = 1 to k - 1',
   'if low[j] <= bottom',
-  'if low[j] < top',
+  'if low[j] <= top',
   'if high[j] >= top',
-  'if high[j] > bottom',
+  'if high[j] >= bottom',
   'if not fullFill and found < 3',
   'request.security(syminfo.tickerid, "240", f_chartH4Fvgs(chartFvgLookbackH4), lookahead=barmerge.lookahead_on',
   'var float currentH4HighSeen = na',
@@ -108,14 +108,14 @@ test("TradingView Basic budget still has 34 M5 feeds plus 1D/H4 exact ticker = 3
 test("synthetic causal FVG semantics, not a claim of Pine Editor execution",()=>{
  // Bullish: H4 candle 1 high 100, candle 3 low 102, gap [100,102].
  const zone={top:102,bottom:100,dir:1};
- const check=(lo,hi)=>({partial:zone.dir>0?lo<zone.top:hi>zone.bottom,
+ const check=(lo,hi)=>({partial:zone.dir>0?lo<=zone.top:hi>=zone.bottom,
                            full:zone.dir>0?lo<=zone.bottom:hi>=zone.top});
  assert.deepEqual(check(103,104),{partial:false,full:false});
  assert.deepEqual(check(101,104),{partial:true,full:false});
  assert.deepEqual(check(99,104),{partial:true,full:true});
  // Bearish: H4 candle 1 low 110, candle 3 high 108, gap [108,110].
  const bear={top:110,bottom:108,dir:-1};
- const checkBear=hi=>({partial:hi>bear.bottom,full:hi>=bear.top});
+ const checkBear=hi=>({partial:hi>=bear.bottom,full:hi>=bear.top});
  assert.deepEqual(checkBear(107),{partial:false,full:false});
  assert.deepEqual(checkBear(109),{partial:true,full:false});
  assert.deepEqual(checkBear(111),{partial:true,full:true});
