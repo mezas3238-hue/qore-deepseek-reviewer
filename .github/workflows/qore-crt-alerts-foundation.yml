@@ -24,3 +24,5 @@ jobs:
           node-version: '22'
       - name: Offline OHLC, sessions and gap tests (no real price feed)
         run: cd qore-crt-alerts && npm test
+      - name: Python readonly cTrader auth/inventory gate tests (offline only)
+        run: cd qore-crt-alerts && python3 -m unittest discover -s test_python -v
