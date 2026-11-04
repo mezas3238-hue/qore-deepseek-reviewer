@@ -51,7 +51,7 @@ int MIN15 = 900000
 int H4MS = 14400000
 
 string grp = "01 / Logica CRT"
-idxList = input.string("NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!", "Indices por ticker (CSV)", group=grp)
+idxList = input.string("USTEC,NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!", "Indices por ticker (CSV)", group=grp)
 // V34.12R: unico escaneo: las SEIS velas H4 de cada ciclo de 24 horas.
 allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group=grp, tooltip="Los toques exactos se muestran PROVISIONALES; el cierre H4 de C2 dentro de C1 es obligatorio para ratificar. Desactivar para exigir barrida estricta.")
 // V34.11k: C1/C2/C3/Inside require a CLOSED 48-M5 contiguous H4.
@@ -123,7 +123,7 @@ f_index() =>
     string name = str.upper(syminfo.ticker)
     string csv = "," + str.upper(str.replace_all(idxList, " ", "")) + ","
     bool listed = str.contains(csv, "," + name + ",")
-    bool typical = str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50")
+    bool typical = str.contains(name, "USTEC") or str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50")
     syminfo.type == "index" or listed or typical
 
 f_allowed(int hh, bool indexFamily) =>
