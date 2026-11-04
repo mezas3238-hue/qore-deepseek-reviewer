@@ -59,10 +59,10 @@ export function runAuthorizedDemoWssProbe({
  try{session=new CtraderDemoViewSessionQa({...config,now,...(idFn?{idFn}:{})});}
  catch{return Promise.resolve(fail("CTRADER_VIEW_ONLY_CONFIG_INVALID"));}
  return new Promise(resolve=>{
-  let socket,finished=false;
+  let socket,finished=false,heartbeat=null;
   const finish=value=>{
    if(finished)return;
-   finished=true;clearTimeout(timer);
+   finished=true;clearTimeout(timer);if(heartbeat!==null)clearInterval(heartbeat);
    try{socket?.close(1000,"QA_COMPLETE");}catch{}
    resolve(value);
   };
@@ -79,6 +79,14 @@ export function runAuthorizedDemoWssProbe({
    socket=new WebSocketImpl(CTRADER_DEMO_JSON_URL);
    socket.addEventListener("open",()=>{
     if(finished)return;
+    // cTrader recommends a heartbeat each 10 seconds on idle sockets.
+    // Heartbeat (51) carries no market/order data or authentication fields.
+    heartbeat=setInterval(()=>{
+      if(finished)return;
+      try{socket.send(JSON.stringify({payloadType:51,payload:{},
+        clientMsgId:"qa_heartbeat"}));}
+      catch{finish(fail("CTRADER_DEMO_HEARTBEAT_FAILED"));}
+    },10_000);
     try{send(session.start());}
     catch{finish(fail("CTRADER_QA_HANDSHAKE_REJECTED"));}
    });
@@ -87,7 +95,14 @@ export function runAuthorizedDemoWssProbe({
     try{
      if(typeof event.data!=="string"||event.data.length>2_000_000)
       return finish(fail("CTRADER_QA_MESSAGE_INVALID"));
-     const next=session.accept(event.data);
+     // Heartbeats are unsolicited common events; they are NOT a reply
+     // to our correlated application/account request.
+     let parsed;
+     try{parsed=JSON.parse(event.data);}catch{
+       return finish(fail("CTRADER_QA_MESSAGE_INVALID"));
+     }
+     if(parsed?.payloadType===51)return;
+     const next=session.accept(parsed);
      if(next.state==="HELD")return finish(fail(next.reason));
      if(next.state==="INVENTORY_QA_ONLY"){
       // Only after DEMO+SCOPE_VIEW+expected broker is proven.
