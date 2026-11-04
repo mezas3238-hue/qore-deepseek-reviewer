@@ -20,5 +20,7 @@ android {
 dependencies {
     implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
     implementation("com.google.firebase:firebase-messaging")
+    // Native Android WebSocket JSON for manual DEMO market reading in QA.
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     testImplementation("junit:junit:4.13.2")
 }
