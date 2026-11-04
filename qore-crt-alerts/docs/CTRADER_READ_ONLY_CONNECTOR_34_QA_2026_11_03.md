@@ -31,7 +31,7 @@ Ejemplo **FICTICIO** de formato aceptado:
   "account": {"ctidTraderAccountId": 123456, "isLive": false, "brokerName": "DemoBroker"},
   "scope": "accounts",
   "discoveredSymbols": [
-    {"symbolId": 37, "symbolName": "USDCAD", "digits": 5}
+    {"symbolId": 37, "symbolName": "USDCAD", "digits": 5, "enabled": true}
   ],
   "approvedMappings": [
     {"instrumentId": "USDCAD", "tvSymbol": "IC:USDCAD",
