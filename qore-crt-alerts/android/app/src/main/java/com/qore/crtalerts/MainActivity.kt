@@ -258,6 +258,17 @@ class MainActivity : Activity() {
             "token accounts de una cuenta DEMO.", 13f, amber
         )
         phonePanel.addView(Button(this).apply {
+            text = "Comprobar conexión a cTrader DEMO (sin credenciales)"
+            isAllCaps = false
+            setOnClickListener {
+                mobileProbe?.stop()
+                mobileProbe = CtraderMobileReadOnceQa { message ->
+                    runOnUiThread { phoneStatus.text = message }
+                }
+                mobileProbe?.testNetworkOnly()
+            }
+        })
+        phonePanel.addView(Button(this).apply {
             text = "Consultar M5 desde este teléfono (solo lectura)"
             isAllCaps = false
             setOnClickListener {
