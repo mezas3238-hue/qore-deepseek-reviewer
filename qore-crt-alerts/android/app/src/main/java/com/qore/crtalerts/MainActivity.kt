@@ -80,6 +80,12 @@ class MainActivity : Activity() {
                 "No existe conexión a precios reales ni Firebase STAGING aprobado.",
             15f, Color.WHITE
         ))
+        statusCard.addView(label(
+            "REGLA DE ALERTAS · máximo 4 horas desde cada confirmación. " +
+                "Si la estructura se invalida antes, el aviso deja de estar vigente. " +
+                "Notificaciones de mercado aún bloqueadas por QA.",
+            14f, cyan, true
+        ))
         root.addView(statusCard, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 22 })
