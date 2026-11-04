@@ -45,6 +45,9 @@ class WssFake {
    default:throw Error("Unexpected request type");
   }
   queueMicrotask(()=>this.emit("message",{data:JSON.stringify({
+    payloadType:51,payload:{}
+   })}));
+  queueMicrotask(()=>this.emit("message",{data:JSON.stringify({
     clientMsgId:req.clientMsgId,payloadType,payload
    })}));
  }
