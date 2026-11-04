@@ -5,7 +5,7 @@ import {CtraderDemoViewSessionQa,CTRADER_DEMO_JSON_URL,VIEW_ONLY_TYPES}
  from "./ctrader-demo-view-session-qa.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
-const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_.:-]{1,80}$/.test(v);
+const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
 const fail=reason=>Object.freeze({state:"BLOCKED",reason,
  sendPush:false,canTrade:false,sourceParityCertified:false});
 const allowedOutbound=new Set([
