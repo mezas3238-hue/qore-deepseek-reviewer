@@ -2999,6 +2999,138 @@ f_renderSlotEventAudit()
 f_renderNonBtcAudit()
 
 
+// V34.12Q: detector FVG nativo del H4 del ticker ABIERTO.
+ // Se solicita con lookahead_on pero solo lee H4 [1..N] CERRADAS:
+ // sin futuro, sin mezclar NY/M5 del escaner y sin depender de CRT.
+ // Formacion: tres H4 completas y consecutivas; vela #3 deja gap
+ // entre LOW 3 y HIGH 1 (alcista) o HIGH 3 y LOW 1 (bajista).
+ // Mitigacion: mecha posterior toca una zona; relleno total la retira.
+f_chartH4Fvgs(int depth) =>
+    float t1 = na
+    float b1 = na
+    int d1 = 0
+    int a1 = na
+    bool p1 = false
+    float t2 = na
+    float b2 = na
+    int d2 = 0
+    int a2 = na
+    bool p2 = false
+    float t3 = na
+    float b3 = na
+    int d3 = 0
+    int a3 = na
+    bool p3 = false
+    int found = 0
+    for k = 1 to depth
+        bool consecutive = not na(time[k + 2]) and not na(time[k + 1]) and not na(time[k]) and time[k + 1] - time[k + 2] == H4MS and time[k] - time[k + 1] == H4MS
+        bool gapBull = consecutive and not na(low[k]) and not na(high[k + 2]) and low[k] - high[k + 2] >= syminfo.mintick
+        bool gapBear = consecutive and not na(high[k]) and not na(low[k + 2]) and low[k + 2] - high[k] >= syminfo.mintick
+        if gapBull or gapBear
+            float top = gapBull ? low[k] : low[k + 2]
+            float bottom = gapBull ? high[k + 2] : high[k]
+            bool fullFill = false
+            bool partialFill = false
+            if k > 1
+                for j = 1 to k - 1
+                    if gapBull
+                        if low[j] <= bottom
+                            fullFill := true
+                        else if low[j] < top
+                            partialFill := true
+                    else
+                        if high[j] >= top
+                            fullFill := true
+                        else if high[j] > bottom
+                            partialFill := true
+            // Tres zonas MAS RECIENTES que TODAVIA NO se rellenaron.
+            if not fullFill and found < 3 and not na(top) and not na(bottom) and top > bottom
+                found += 1
+                if found == 1
+                    t1 := top
+                    b1 := bottom
+                    d1 := gapBull ? 1 : -1
+                    a1 := time[k]
+                    p1 := partialFill
+                else if found == 2
+                    t2 := top
+                    b2 := bottom
+                    d2 := gapBull ? 1 : -1
+                    a2 := time[k]
+                    p2 := partialFill
+                else
+                    t3 := top
+                    b3 := bottom
+                    d3 := gapBull ? 1 : -1
+                    a3 := time[k]
+                    p3 := partialFill
+    [t1,b1,d1,a1,p1,t2,b2,d2,a2,p2,t3,b3,d3,a3,p3]
+
+// El mismo simbolo abierto (IC:US30 no es OANDA:US30).
+// +1 solicitud unica 240m: 34 M5 + 1 Daily + 1 H4 = 36.
+[fvg1Top,fvg1Bottom,fvg1Dir,fvg1At,fvg1PartialHist,fvg2Top,fvg2Bottom,fvg2Dir,fvg2At,fvg2PartialHist,fvg3Top,fvg3Bottom,fvg3Dir,fvg3At,fvg3PartialHist] = request.security(syminfo.tickerid, "240", f_chartH4Fvgs(chartFvgLookbackH4), lookahead=barmerge.lookahead_on, ignore_invalid_symbol=true, calc_bars_count=110)
+
+// En la H4 actual, monitorizar solo la mecha OBSERVADA, sin leer
+// del futuro la high/low de una H4 que todavia no ha cerrado.
+int openNativeH4 = time("240")
+var int chartH4OpenSeen = na
+var float currentH4HighSeen = na
+var float currentH4LowSeen = na
+if not na(openNativeH4)
+    if na(chartH4OpenSeen) or openNativeH4 != chartH4OpenSeen
+        chartH4OpenSeen := openNativeH4
+        currentH4HighSeen := high
+        currentH4LowSeen := low
+    else
+        currentH4HighSeen := math.max(currentH4HighSeen, high)
+        currentH4LowSeen := math.min(currentH4LowSeen, low)
+
+bool fvgChartOK = chartAvailable and showIntegratedChart and showChartH4Fvg and timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= H4MS / 1000 and not na(openNativeH4)
+bool fvg1OK = fvgChartOK and chartFvgMaxZones >= 1 and not na(fvg1At) and fvg1Top > fvg1Bottom and fvg1Dir != 0 and fvg1At < time_close
+bool fvg2OK = fvgChartOK and chartFvgMaxZones >= 2 and not na(fvg2At) and fvg2Top > fvg2Bottom and fvg2Dir != 0 and fvg2At < time_close
+bool fvg3OK = fvgChartOK and chartFvgMaxZones >= 3 and not na(fvg3At) and fvg3Top > fvg3Bottom and fvg3Dir != 0 and fvg3At < time_close
+bool fvg1FilledNow = fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Bottom : currentH4HighSeen >= fvg1Top)
+bool fvg2FilledNow = fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Bottom : currentH4HighSeen >= fvg2Top)
+bool fvg3FilledNow = fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Bottom : currentH4HighSeen >= fvg3Top)
+bool fvg1PartialNow = fvg1PartialHist or (fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen < fvg1Top : currentH4HighSeen > fvg1Bottom))
+bool fvg2PartialNow = fvg2PartialHist or (fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen < fvg2Top : currentH4HighSeen > fvg2Bottom))
+bool fvg3PartialNow = fvg3PartialHist or (fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen < fvg3Top : currentH4HighSeen > fvg3Bottom))
+bool drawFvg1 = fvg1OK and not fvg1FilledNow
+bool drawFvg2 = fvg2OK and not fvg2FilledNow
+bool drawFvg3 = fvg3OK and not fvg3FilledNow
+plot(fvgChartOK ? (drawFvg1 ? 1 : 0) + (drawFvg2 ? 1 : 0) + (drawFvg3 ? 1 : 0) : na, title="QA FVG H4 zonas sin rellenar (0-3)", display=display.data_window)
+plot(drawFvg1 ? fvg1Top : na, title="QA FVG H4 ultimo zona 1 techo", display=display.data_window)
+plot(drawFvg1 ? fvg1Bottom : na, title="QA FVG H4 ultimo zona 1 suelo", display=display.data_window)
+
+// La funcion gestiona SOLO objetos visuales del grafico; NO actualiza
+// el detector CRT ni los calculos MSS, ni crea alertas.
+f_drawChartFvg(box existingBox, label existingLabel, bool enabled, float zoneTop, float zoneBottom, int bornAt, int dir, bool partial, int endAt) =>
+    box b = existingBox
+    label l = existingLabel
+    if enabled and not na(bornAt) and endAt > bornAt
+        color ink = dir == 1 ? color.teal : color.rgb(192, 82, 64)
+        color fillInk = color.new(ink, partial ? 88 : 83)
+        string titleText = "FVG H4 " + (dir == 1 ? "ALC " : "BAJ ") + (partial ? "PARCIAL" : "INTACTO")
+        if na(b)
+            b := box.new(left=bornAt,top=zoneTop,right=endAt,bottom=zoneBottom,xloc=xloc.bar_time,border_color=color.new(ink,35),bgcolor=fillInk)
+        if na(l)
+            l := label.new(endAt,zoneTop,titleText,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(ink,100),size=size.tiny)
+        box.set_lefttop(b,bornAt,zoneTop)
+        box.set_rightbottom(b,endAt,zoneBottom)
+        box.set_bgcolor(b,fillInk)
+        box.set_border_color(b,color.new(ink,35))
+        label.set_xy(l,endAt,zoneTop)
+        label.set_text(l,titleText)
+        label.set_textcolor(l,ink)
+    else
+        if not na(b)
+            box.delete(b)
+            b := na
+        if not na(l)
+            label.delete(l)
+            l := na
+    [b,l]
+
 // V34.12K: Chart B VISUAL SOLO del feed ya solicitado por Radar A.
 // No solicitar un feed #35; la misma UDT y el mismo f_engine() se reutilizan.
 // Los niveles de un broker diferente nunca se dibujan contra este grafico.
@@ -3170,8 +3302,22 @@ var line pdhChartLine = na
 var line pdlChartLine = na
 var label pdhChartLabel = na
 var label pdlChartLabel = na
-// FVG graphics are independent of the PDH/PDL line drawings.
+var box fvgH4ChartBox1 = na
+var label fvgH4ChartLabel1 = na
+var box fvgH4ChartBox2 = na
+var label fvgH4ChartLabel2 = na
+var box fvgH4ChartBox3 = na
+var label fvgH4ChartLabel3 = na
 if barstate.islast
+    [newBox1,newLabel1] = f_drawChartFvg(fvgH4ChartBox1,fvgH4ChartLabel1,drawFvg1,fvg1Top,fvg1Bottom,fvg1At,fvg1Dir,fvg1PartialNow,time_close)
+    fvgH4ChartBox1 := newBox1
+    fvgH4ChartLabel1 := newLabel1
+    [newBox2,newLabel2] = f_drawChartFvg(fvgH4ChartBox2,fvgH4ChartLabel2,drawFvg2,fvg2Top,fvg2Bottom,fvg2At,fvg2Dir,fvg2PartialNow,time_close)
+    fvgH4ChartBox2 := newBox2
+    fvgH4ChartLabel2 := newLabel2
+    [newBox3,newLabel3] = f_drawChartFvg(fvgH4ChartBox3,fvgH4ChartLabel3,drawFvg3,fvg3Top,fvg3Bottom,fvg3At,fvg3Dir,fvg3PartialNow,time_close)
+    fvgH4ChartBox3 := newBox3
+    fvgH4ChartLabel3 := newLabel3
     if showPDLevels
         int pdStart = dailyNowOpen
         int pdEnd = time_close
