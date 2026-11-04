@@ -9,7 +9,9 @@ internal object QaCrtStatusContract {
         val eventId: String? = null, val instrument: String? = null,
         val direction: String? = null, val family: String? = null,
         val eventType: String? = null, val mssM5: String? = null,
-        val mssM15: String? = null
+        val mssM15: String? = null, val tvSymbol: String? = null,
+        val mssM5AtMs: Long? = null, val mssM5Price: String? = null,
+        val mssM15AtMs: Long? = null, val mssM15Price: String? = null
     )
     private fun fail(reason: String) = Result(false, reason)
     private val marketSources = listOf(
@@ -59,11 +61,30 @@ internal object QaCrtStatusContract {
         val phase=c1%300_000L
         val step=if(event=="MSS_M15_OBSERVED")900_000L else 300_000L
         if(at%step!=phase) return fail("NATIVE_PHASE_MISMATCH")
+        // Each confirmed MSS must carry its OWN exact closed-bar time and
+        // positive close price. No pending stage may borrow future proof.
+        val pricePattern=Regex("^[0-9]{1,9}(?:\\.[0-9]{1,10})?$")
+        fun hasValidProof(state:String,tf:String):Boolean {
+            val timeText=d["mss${tf}AtMs"]
+            val priceText=d["mss${tf}Price"]
+            if(state!="CONFIRMED") return timeText==null && priceText==null
+            val confirmedAt=timeText?.toLongOrNull()?:return false
+            val close=priceText?.takeIf { pricePattern.matches(it) }
+                ?.toBigDecimalOrNull()?:return false
+            val unit=if(tf=="M15")900_000L else 300_000L
+            return close.signum()>0 && confirmedAt>c1 &&
+                confirmedAt<=at && confirmedAt%unit==phase &&
+                (event!="MSS_${tf}_OBSERVED" || confirmedAt==at)
+        }
+        if (!hasValidProof(m5,"M5")) return fail("INVALID_MSS5_PROOF")
+        if (!hasValidProof(m15,"M15")) return fail("INVALID_MSS15_PROOF")
         val eventId=d["eventId"]?:return fail("NO_EVENT_ID")
         val expected=listOf(tv.substringBefore(':'),id,c1,
             if(dir=="BULLISH")1 else -1,event,at).joinToString("|")
         if (eventId!=expected || eventId.length>256)
             return fail("EVENT_ID_MISMATCH")
-        return Result(true,"STAGING_CONTRACT_PASS",eventId,id,dir,fam,event,m5,m15)
+        return Result(true,"STAGING_CONTRACT_PASS",eventId,id,dir,fam,event,m5,m15,
+            tv,d["mssM5AtMs"]?.toLongOrNull(),d["mssM5Price"],
+            d["mssM15AtMs"]?.toLongOrNull(),d["mssM15Price"])
     }
 }
