@@ -3,6 +3,7 @@
 // Only secrets from server environment. No logging tokens or OAuth payloads.
 import {CtraderDemoViewSessionQa,CTRADER_DEMO_JSON_URL,VIEW_ONLY_TYPES}
  from "./ctrader-demo-view-session-qa.mjs";
+import {auditUnapprovedIc34Candidates} from "./ctrader-ic34-candidate-audit-qa.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
 const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
@@ -88,13 +89,23 @@ export function runAuthorizedDemoWssProbe({
       return finish(fail("CTRADER_QA_MESSAGE_INVALID"));
      const next=session.accept(event.data);
      if(next.state==="HELD")return finish(fail(next.reason));
-     if(next.state==="INVENTORY_QA_ONLY")
+     if(next.state==="INVENTORY_QA_ONLY"){
+      // Only after DEMO+SCOPE_VIEW+expected broker is proven.
+      // Exact native spelling produces OWNER-REVIEW candidates, never
+      // approved mappings or certified TradingView source equivalence.
+      let candidateAudit=null;
+      try{candidateAudit=auditUnapprovedIc34Candidates({
+       inventory:next.symbols,viewAccountProven:true
+      });}catch{}
       return finish(Object.freeze({state:next.state,
        count:next.count,enabled:next.symbols.filter(x=>x.enabled).length,
-       // Sanitized symbol names/ids are market metadata, NOT mappings.
-       symbolNames:Object.freeze(next.symbols.filter(x=>x.enabled)
-         .map(x=>x.symbolName).slice(0,1000)),
+       exactNameCandidates:candidateAudit?.exactNameCandidates??null,
+       ambiguousNameCandidates:candidateAudit?.ambiguous??null,
+       pendingOwnerApproval:34,
+       // Sanitized native names and IDs are not secrets; no OAuth data.
+       symbols:Object.freeze(next.symbols.filter(x=>x.enabled).slice(0,1000)),
        sendPush:false,canTrade:false,sourceParityCertified:false}));
+     }
      if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED")
       return finish(Object.freeze({state:next.state,
        symbolName:next.symbolName,barCount:next.total,
