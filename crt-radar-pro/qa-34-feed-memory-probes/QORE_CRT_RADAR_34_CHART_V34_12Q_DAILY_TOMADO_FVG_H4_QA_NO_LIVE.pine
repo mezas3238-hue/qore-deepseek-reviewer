@@ -3087,22 +3087,6 @@ if not na(openNativeH4)
         currentH4HighSeen := math.max(currentH4HighSeen, high)
         currentH4LowSeen := math.min(currentH4LowSeen, low)
 
-bool fvgChartOK = chartAvailable and showIntegratedChart and showChartH4Fvg and timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= H4MS / 1000 and not na(openNativeH4)
-bool fvg1OK = fvgChartOK and chartFvgMaxZones >= 1 and not na(fvg1At) and fvg1Top > fvg1Bottom and fvg1Dir != 0 and fvg1At < time_close
-bool fvg2OK = fvgChartOK and chartFvgMaxZones >= 2 and not na(fvg2At) and fvg2Top > fvg2Bottom and fvg2Dir != 0 and fvg2At < time_close
-bool fvg3OK = fvgChartOK and chartFvgMaxZones >= 3 and not na(fvg3At) and fvg3Top > fvg3Bottom and fvg3Dir != 0 and fvg3At < time_close
-bool fvg1FilledNow = fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Bottom : currentH4HighSeen >= fvg1Top)
-bool fvg2FilledNow = fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Bottom : currentH4HighSeen >= fvg2Top)
-bool fvg3FilledNow = fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Bottom : currentH4HighSeen >= fvg3Top)
-bool fvg1PartialNow = fvg1PartialHist or (fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Top : currentH4HighSeen >= fvg1Bottom))
-bool fvg2PartialNow = fvg2PartialHist or (fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Top : currentH4HighSeen >= fvg2Bottom))
-bool fvg3PartialNow = fvg3PartialHist or (fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Top : currentH4HighSeen >= fvg3Bottom))
-bool drawFvg1 = fvg1OK and not fvg1FilledNow
-bool drawFvg2 = fvg2OK and not fvg2FilledNow
-bool drawFvg3 = fvg3OK and not fvg3FilledNow
-plot(fvgChartOK ? (drawFvg1 ? 1 : 0) + (drawFvg2 ? 1 : 0) + (drawFvg3 ? 1 : 0) : na, title="QA FVG H4 zonas sin rellenar (0-3)", display=display.data_window)
-plot(drawFvg1 ? fvg1Top : na, title="QA FVG H4 ultimo zona 1 techo", display=display.data_window)
-plot(drawFvg1 ? fvg1Bottom : na, title="QA FVG H4 ultimo zona 1 suelo", display=display.data_window)
 
 // La funcion gestiona SOLO objetos visuales del grafico; NO actualiza
 // el detector CRT ni los calculos MSS, ni crea alertas.
@@ -3153,6 +3137,26 @@ float displayCRL = chartCoreC1 ? own.crl : chartExtraC1 ? own.familyVisual.c1Low
 string displayFamily = chartCoreC1 ? ((not qaPhase1NonBtc or chartBtcSymbol) ? "2C RAT" : "2C QA") : chartExtraC1 ? own.familyVisual.kind : "NONE"
 int displayEnd = chartCoreC1 ? own.c1Start + 3 * H4MS : chartExtraC1 ? own.familyVisual.eventClosedAt + H4MS : na
 bool visible = visualChartAligned and (chartCoreC1 or chartExtraC1) and not na(displayC1) and not na(displayCRH) and not na(displayCRL) and not na(displayEnd) and displayCRH > displayCRL and displayEnd > displayC1 and time_close >= displayC1
+
+// Variables chartAvailable y visible estan declaradas ANTES de los
+// estados FVG: Pine no admite referencias hacia una declaracion posterior.
+bool fvgChartOK = chartAvailable and showIntegratedChart and showChartH4Fvg and timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= H4MS / 1000 and not na(openNativeH4)
+bool fvg1OK = fvgChartOK and chartFvgMaxZones >= 1 and not na(fvg1At) and fvg1Top > fvg1Bottom and fvg1Dir != 0 and fvg1At < time_close
+bool fvg2OK = fvgChartOK and chartFvgMaxZones >= 2 and not na(fvg2At) and fvg2Top > fvg2Bottom and fvg2Dir != 0 and fvg2At < time_close
+bool fvg3OK = fvgChartOK and chartFvgMaxZones >= 3 and not na(fvg3At) and fvg3Top > fvg3Bottom and fvg3Dir != 0 and fvg3At < time_close
+bool fvg1FilledNow = fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Bottom : currentH4HighSeen >= fvg1Top)
+bool fvg2FilledNow = fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Bottom : currentH4HighSeen >= fvg2Top)
+bool fvg3FilledNow = fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Bottom : currentH4HighSeen >= fvg3Top)
+bool fvg1PartialNow = fvg1PartialHist or (fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Top : currentH4HighSeen >= fvg1Bottom))
+bool fvg2PartialNow = fvg2PartialHist or (fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Top : currentH4HighSeen >= fvg2Bottom))
+bool fvg3PartialNow = fvg3PartialHist or (fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Top : currentH4HighSeen >= fvg3Bottom))
+bool drawFvg1 = fvg1OK and not fvg1FilledNow
+bool drawFvg2 = fvg2OK and not fvg2FilledNow
+bool drawFvg3 = fvg3OK and not fvg3FilledNow
+plot(fvgChartOK ? (drawFvg1 ? 1 : 0) + (drawFvg2 ? 1 : 0) + (drawFvg3 ? 1 : 0) : na, title="QA FVG H4 zonas sin rellenar (0-3)", display=display.data_window)
+plot(drawFvg1 ? fvg1Top : na, title="QA FVG H4 ultimo zona 1 techo", display=display.data_window)
+plot(drawFvg1 ? fvg1Bottom : na, title="QA FVG H4 ultimo zona 1 suelo", display=display.data_window)
+
 
 // Ventana de datos: por que no hay lineas (mismatch broker, sin C1 o TF no admitido).
 plot(integratedSlot >= 0 ? integratedSlot + 1 : na, title="QA Chart integrado slot 1-34", display=display.data_window)
