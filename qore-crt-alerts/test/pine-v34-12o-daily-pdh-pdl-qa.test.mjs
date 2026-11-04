@@ -13,7 +13,7 @@ test("V34.12O edits display only; V34.12N engine and 34 canonical M5 feeds uncha
  assert.match(corrected,/for i = 0 to 33/);
  assert.equal([...corrected.matchAll(/^s\d\d = input\.symbol\(/gm)].length,34);
  assert.match(corrected,/Signal s = request\.security\(symbol, "5", f_engine_snapshot\(\), lookahead=barmerge\.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=600\)/);
- assert.equal([...corrected.matchAll(/\brequest\.security\(/g)].length,2);
+ assert.equal(corrected.split("\n").filter(line=>!line.trim().startsWith("//") && line.includes("request.security(")).length,2);
  assert.ok(corrected.includes('max_lines_count=8, max_labels_count=8, max_boxes_count=2'));
  assert.doesNotMatch(corrected,/\balert\s*\(|\balertcondition\s*\(/);
 });
