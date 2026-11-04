@@ -17,6 +17,9 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.EditText
+import android.text.InputType
+import android.view.WindowManager
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
@@ -29,6 +32,8 @@ import android.widget.TextView
 class MainActivity : Activity() {
     private val DEMO_PERMISSION_REQUEST = 4801
     private var demoStatus: TextView? = null
+    // On-demand QA only; stop network when the Activity stops.
+    private var mobileProbe: CtraderMobileReadOnceQa? = null
     private val navy = Color.rgb(10, 21, 35)
     private val card = Color.rgb(21, 35, 54)
     private val muted = Color.rgb(154, 175, 194)
@@ -203,6 +208,112 @@ class MainActivity : Activity() {
             }
         })
 
+        root.addView(label("LECTURAS DESDE MI CELULAR · cTrader DEMO", 18f, cyan, true)
+            .apply { setPadding(0, 36, 0, 8) })
+        root.addView(label(
+            "Sin VPS. Prueba puntual con la app abierta, permiso accounts / SCOPE_VIEW. " +
+            "Consulta un symbolId real del broker, nunca activa órdenes ni alertas. " +
+            "Las credenciales se escriben solo en tu teléfono y no se guardan.",
+            13f, muted
+        ))
+        val phonePanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(8, 6, 8, 14)
+        }
+        fun phoneField(hintText: String, secret: Boolean = false,
+                       number: Boolean = false): EditText {
+            return EditText(this).apply {
+                hint = hintText
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                setHintTextColor(muted)
+                isSingleLine = true
+                inputType = if (number) InputType.TYPE_CLASS_NUMBER
+                    else if (secret) (InputType.TYPE_CLASS_TEXT or
+                        InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                    else InputType.TYPE_CLASS_TEXT
+            }
+        }
+        val clientIdField = phoneField("Client ID de cTrader Open API")
+        val clientSecretField = phoneField("Client Secret · solo en este teléfono", true)
+        val tokenField = phoneField("Token OAuth accounts · solo lectura", true)
+        val accountField = phoneField("ctidTraderAccountId DEMO", number = true)
+        val symbolField = phoneField("symbolId numérico de UN mercado", number = true)
+        phonePanel.addView(clientIdField)
+        phonePanel.addView(clientSecretField)
+        phonePanel.addView(tokenField)
+        phonePanel.addView(accountField)
+        phonePanel.addView(symbolField)
+        phonePanel.addView(label(
+            "QA personal: el Client Secret en una app instalada no ofrece " +
+            "la seguridad de un backend confidencial. No distribuir esta APK " +
+            "con credenciales. Cero datos almacenados.",
+            12f, amber
+        ))
+        val phoneStatus = label(
+            "Sin conexión. Necesitas tu aplicación Open API aprobada y un " +
+            "token accounts de una cuenta DEMO.", 13f, amber
+        )
+        phonePanel.addView(Button(this).apply {
+            text = "Consultar M5 desde este teléfono (solo lectura)"
+            isAllCaps = false
+            setOnClickListener {
+                val accountId = accountField.text.toString().toLongOrNull()
+                val symbolId = symbolField.text.toString().toLongOrNull()
+                if (accountId == null || symbolId == null ||
+                    accountId <= 0L || symbolId <= 0L) {
+                    phoneStatus.text = "Cuenta DEMO y symbolId deben ser números positivos."
+                } else {
+                    val credentials = CtraderMobileReadOnceQa.Input(
+                        clientIdField.text.toString().trim(),
+                        clientSecretField.text.toString(),
+                        tokenField.text.toString(),
+                        accountId, symbolId
+                    )
+                    // Clear the visible secret text immediately after user action.
+                    clientSecretField.text.clear()
+                    tokenField.text.clear()
+                    mobileProbe?.stop()
+                    mobileProbe = CtraderMobileReadOnceQa { message ->
+                        runOnUiThread { phoneStatus.text = message }
+                    }
+                    mobileProbe?.start(credentials)
+                }
+            }
+        })
+        phonePanel.addView(Button(this).apply {
+            text = "Detener lectura móvil"
+            isAllCaps = false
+            setOnClickListener {
+                mobileProbe?.stop()
+                mobileProbe = null
+                phoneStatus.text = "Lectura detenida. Sin monitoreo en segundo plano."
+            }
+        })
+        phonePanel.addView(phoneStatus)
+        val expandPhone = Button(this).apply {
+            text = "Configurar lectura desde mi celular"
+            isAllCaps = false
+            setOnClickListener {
+                val show = phonePanel.visibility != View.VISIBLE
+                phonePanel.visibility = if (show) View.VISIBLE else View.GONE
+                text = if (show) "Ocultar configuración móvil" else
+                    "Configurar lectura desde mi celular"
+                if (show) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    mobileProbe?.stop()
+                    mobileProbe = null
+                    clientSecretField.text.clear()
+                    tokenField.text.clear()
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
+        }
+        root.addView(expandPhone)
+        root.addView(phonePanel)
+
         root.addView(label("BTCUSD · primera prueba", 19f, Color.WHITE, true).apply {
             setPadding(0, 30, 0, 8)
         })
@@ -231,6 +342,14 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { isFillViewport = true }
         scroll.addView(root)
         setContentView(scroll)
+    }
+
+    override fun onStop() {
+        // Foreground-only experiment. A closed/background Activity MUST NOT
+        // claim to provide continuous 34-market monitoring.
+        mobileProbe?.stop()
+        mobileProbe = null
+        super.onStop()
     }
 
     private fun requestLocalDemoOnly() {
