@@ -35,6 +35,16 @@ test("visual chart symbol identity independent from live Signal UDT availability
  assert.ok(fixed.indexOf("bool sameDailySymbol =")>fixed.indexOf("for i = 0 to 33"));
 });
 
+test("last ratified CRT is shown as HISTORICO QA, never as current setup",()=>{
+ assert.ok(fixed.includes('keepLastCRT = input.bool(true'));
+ assert.ok(fixed.includes('bool chartCoreActive = chartAvailable and own.phase == 2'));
+ assert.ok(fixed.includes('bool chartCoreHistorical = chartAvailable and own.phase == 3'));
+ assert.ok(fixed.includes('bool chartCoreC1 = chartCoreActive or chartCoreHistorical'));
+ assert.ok(fixed.includes('string displayFamily = chartCoreHistorical ? "2C HIST QA"'));
+ assert.ok(fixed.includes('color ink = chartCoreHistorical ? color.gray'));
+ assert.ok(fixed.includes('keepHours = input.int(48'));
+});
+
 test("PDH/PDL exact prior Daily levels and independent latched first wick touch",()=>{
  assert.ok(fixed.includes('request.security(syminfo.tickerid, "D", [high[1], low[1], time[1], time_close[1]], lookahead=barmerge.lookahead_on'));
  for(const token of [
