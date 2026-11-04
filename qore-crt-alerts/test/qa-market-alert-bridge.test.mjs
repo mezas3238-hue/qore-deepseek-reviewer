@@ -57,8 +57,10 @@ test("QA inbox deduplicates retransmissions and quarantines contradictory events
  const a=buildBlockedCrtMssInboxEvents(good())[0];
  assert.equal(inbox.record(a).state,"QA_RECORDED_NO_DELIVERY");
  assert.equal(inbox.record(a).state,"DUPLICATE_HELD");
- assert.equal(inbox.record({...a,family:"MULTI4"}).state,"CONFLICT_HELD");
- assert.equal(inbox.count,1);
+ assert.equal(inbox.record({...a,family:"MULTI4"}).state,"QA_RECORDED_NO_DELIVERY");
+ assert.equal(inbox.record({...a,mssM5:"CONFIRMED"}).state,"CONFLICT_HELD");
+ assert.equal(inbox.count,2);
+ assert.deepEqual(inbox.list().map(x=>x.family).sort(),["CRT_2C_RETURN","MULTI4"]);
  assert.throws(()=>inbox.record({...a,sendPush:true}));
  assert.throws(()=>inbox.record({...a,certification:"STAGING_APPROVED"}));
 });
