@@ -3043,6 +3043,8 @@ f_chartH4Fvgs(int depth) =>
                             fullFill := true
                         else if high[j] >= bottom
                             partialFill := true
+            // Nacimiento visible = CIERRE de la 3a H4, no su apertura:
+            // evita dibujar el FVG antes de estar confirmado.
             // Tres zonas MAS RECIENTES que TODAVIA NO se rellenaron.
             if not fullFill and found < 3 and not na(top) and not na(bottom) and top > bottom
                 found += 1
@@ -3050,19 +3052,19 @@ f_chartH4Fvgs(int depth) =>
                     t1 := top
                     b1 := bottom
                     d1 := gapBull ? 1 : -1
-                    a1 := time[k]
+                    a1 := time_close[k]
                     p1 := partialFill
                 else if found == 2
                     t2 := top
                     b2 := bottom
                     d2 := gapBull ? 1 : -1
-                    a2 := time[k]
+                    a2 := time_close[k]
                     p2 := partialFill
                 else
                     t3 := top
                     b3 := bottom
                     d3 := gapBull ? 1 : -1
-                    a3 := time[k]
+                    a3 := time_close[k]
                     p3 := partialFill
     [t1,b1,d1,a1,p1,t2,b2,d2,a2,p2,t3,b3,d3,a3,p3]
 
