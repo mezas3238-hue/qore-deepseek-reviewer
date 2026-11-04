@@ -98,7 +98,7 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                             1 -> {
                                 if (kind != 2150) throw IllegalArgumentException("sequence")
                                 val scope = body.opt("permissionScope")
-                                if (scope != 0 && scope != "0" && scope != "SCOPE_VIEW")
+                                if (!CtraderPhoneM5Policy.isViewOnlyScope(scope))
                                     throw IllegalArgumentException("not view-only")
                                 val accounts = body.optJSONArray("ctidTraderAccount")
                                     ?: throw IllegalArgumentException("accounts")
@@ -107,7 +107,8 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                                     val item = accounts.optJSONObject(i) ?: continue
                                     if (readId(item, "ctidTraderAccountId") ==
                                         input.demoAccountId) {
-                                        if (!item.has("isLive") || item.opt("isLive") != false)
+                                        if (!CtraderPhoneM5Policy.isExplicitDemo(
+                                                item.has("isLive"), item.opt("isLive")))
                                             throw IllegalArgumentException("LIVE denied")
                                         found++
                                     }
@@ -176,8 +177,8 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                                         ?: throw IllegalArgumentException("bar")
                                     val minute = readId(row, "utcTimestampInMinutes")
                                     val opened = Math.multiplyExact(minute, 60000L)
-                                    if (Math.addExact(opened, 300000L) >
-                                        System.currentTimeMillis()) {
+                                    if (!CtraderPhoneM5Policy.validClosedMinute(
+                                            opened, System.currentTimeMillis())) {
                                         openCount++
                                         continue
                                     }
@@ -195,12 +196,7 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                                         throw IllegalArgumentException("phase changed")
                                     phase = p
                                 }
-                                var gaps = 0
-                                var prior: Long? = null
-                                for (opened in closed) {
-                                    if (prior != null && opened - prior != 300000L) gaps++
-                                    prior = opened
-                                }
+                                val gaps = CtraderPhoneM5Policy.countGaps(closed.toList())
                                 finish("Lectura móvil completada: " + closed.size +
                                     " velas M5 cerradas; " + gaps + " huecos; fase " +
                                     (phase?.div(60000L) ?: "-") + " min; " +
