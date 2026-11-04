@@ -95,7 +95,10 @@ test("subscription plan only includes spots then live M5; no network",()=>{
  const result=planM5Subscription(row,context());
  assert.deepEqual(result.requests.map(x=>x.type),[
   "ProtoOASubscribeSpotsReq","ProtoOASubscribeLiveTrendbarReq"]);
- assert.equal(result.requests[1].fields.period,"M5");
+ assert.deepEqual(result.requests[0].fields.symbolId,[37]);
+ assert.equal(result.requests[0].fields.subscribeToSpotTimestamp,true);
+ assert.equal(result.requests[1].fields.symbolId,37);
+ assert.equal(result.requests[1].fields.period,5);
  assert.equal(result.transport,"NOT_CONNECTED");
  assert.throws(()=>planM5Subscription(coverage().rows.find(x=>
   x.instrumentId==="EURCHF"),context()),/UNMAPPED/);
