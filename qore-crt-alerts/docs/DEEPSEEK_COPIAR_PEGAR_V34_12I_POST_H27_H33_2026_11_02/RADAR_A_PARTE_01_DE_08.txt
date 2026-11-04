@@ -1,0 +1,453 @@
+//@version=6
+indicator("QORE CRT RADAR | 34 mercados MSS5 EXTRA V34.12I QA", shorttitle="QORE CRT Radar 12I", overlay=true, max_lines_count=8, max_labels_count=8, dynamic_requests=true)
+
+// MODULO 5B CANDIDATO V34.10b NO INTEGRADO: manejo conservador de pausas de sesion. Requiere auditoria TradingView.
+// MODULO 5A INTEGRADO (AUTORIZADO): deteccion interna FVG H1/H4. Validacion TradingView pendiente.
+// MODULO 4B INTEGRADO (AUTORIZADO): estado PDH/PDL, primera barrida y dashboard 6 columnas.
+// MODULO 4A AUTORIZADO: PDH/PDL NY usando M5 cerradas; niveles internos, sin senales.
+// MODULO 3B.3B AUTORIZADO: expiracion y prioridad Inside Bar, sin cambiar MSS/dashboard.
+// MODULO 2B AUTORIZADO: CRT_2C_RETURN estructural y CRT_2C_EXPANSION solo diagnostico.
+// MODULO 1 APROBADO: CONTROL DE CONTINUIDAD DE VELAS M5 EN H4.
+// V34.1 AUDITORIA: correcciones de invalidacion C3 H4 y prioridad de candidatos.
+// PARCHE ESTATICO. Compilacion/ejecucion TradingView pendiente.
+// V34 - CAMBIO CRITICO: TODAS LAS H4 del ciclo NY se analizan como C1.
+// No se filtra por tres inicios predefinidos: FX 01/05/09/13/17/21,
+// indices 02/06/10/14/18/22. Sigue existiendo modo estricto opcional.
+// CRT provisional en C2, ratificado SOLO con cierre H4 de C2 dentro C1.
+// MSS M5 y M15 independientes y asociados a la barrida del mismo ciclo.
+// Analizar cada vela H4 no equivale a validar cualquier vela como CRT.
+// V34 no ha sido compilada dentro de Pine Editor: validacion real pendiente.
+// V32 30-OCT-2026: reparar visibilidad del activo abierto y CRT H4
+// Detectar durante C2, diferenciar provisional (*) de ratificado y
+// conservar el ultimo CRT confirmado por ventana parametrizable.
+// El grafico abierto va primero si el proveedor/ticker coincide exactamente con un feed.
+// IMPORTANTE: motor independiente. No copia el Pine cerrado de GoldForexDoc.
+// V31: SCAN de 34 simbolos configurables + grafico abierto independiente.
+// Todos usan el MISMO f_engine() y la MISMA fuente M5; sin exclusiones de pares.
+// Dashboard seleccionable: solo CRT o auditoria de todos los simbolos por pagina.
+// NO garantiza vigilar todo el universo TradingView: los limites de peticiones aplican.
+// V30: motor original implementado a partir de las REGLAS PUBLICADAS, NO es una copia
+// exacta de los codigos de GoldForexDoc ni swordNshield.
+// UN motor por simbolo en M5: agrega C1/C2/C3 H4 y MSS M15, preservando MSS M5.
+// V34: se observan TODAS las H4 del ciclo NY; 3 origenes es modo opcional.
+// C2 barre UN limite de C1; regresa a C1 y debe CERRAR dentro. C3 expande.
+// MSS = cierre que cruza swing confirmado ANTES de la barrida C2.
+// Las confirmaciones M5/M15 del mismo CRT y direccion quedan latched.
+// No usa barstate.isconfirmed dentro de request.security: analiza M5 [1] CERRADA.
+// RADAR A: monitor de 34 mercados; CHART B: dibujos CRH/CRL y MSS del grafico.
+// En M15 y H4, request.security(..., "5") entrega un ESTADO calculado en M5
+// pero el refresco/reconciliacion intrabar requiere comprobarlo en TradingView.
+
+
+// QA V34.12I / MEMORIA: RADAR consulta 34 feeds por defecto (experimental).
+// BTCUSD solo es modo manual de diagnostico; snapshot no certifica memoria
+// ni resuelve por si solo "Memory limits exceeded" en TradingView/Android.
+// Esta version NO autoriza enviar alertas a Android o trading live.
+// El candidato V34.10b oficial de comparacion permanece inalterado.
+
+string TZ = "America/New_York"
+int MIN5 = 300000
+int MIN15 = 900000
+int H4MS = 14400000
+
+string grp = "01 / Logica CRT"
+idxList = input.string("NAS100USD,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!", "Indices por ticker (CSV)", group=grp)
+scheduleMode = input.string("Solo C1 de tres horarios NY", "Escaneo C1", options=["Todas las H4 NY", "Solo C1 de tres horarios NY"], group=grp, tooltip="Por defecto SOLO tres C1: Forex 01/05/21 NY e indices 02/06/22 NY. Todas las H4 es diagnostico opcional; no usar como confirmacion oficial.")
+allowTouches = input.bool(true, "Considerar toque CRH/CRL como candidato", group=grp, tooltip="Los toques exactos se muestran PROVISIONALES; el cierre H4 de C2 dentro de C1 es obligatorio para ratificar. Desactivar para exigir barrida estricta.")
+// V34.11k: C1/C2/C3/Inside require a CLOSED 48-M5 contiguous H4.
+// No minimum-bar override: a partially observed four-hour candle
+// must NEVER enter the sovereign CRT or an Inside validation.
+showCandidate = input.bool(true, "Mostrar CRT C2 provisional (con *)", group=grp)
+showAtSweep = input.bool(true, "Mostrar barrida C2 antes del retorno (provisional *)", group=grp, tooltip="El toque del rango H4 no es confirmacion CRT; se identifica con * y no se le asignan MSS futuros. Debe retornar al rango para ratificarse.")
+keepLastCRT = input.bool(false, "Conservar ultimo CRT ratificado (solo historial)", group=grp)
+keepHours = input.int(48, "Memoria ultimo CRT (horas)", minval=4, maxval=120, group=grp)
+// M3B.3B: vigencia en H4 de negociacion cerradas y verificadas.
+maxH4Life = input.int(3, "Vida Inside Bar (H4 cerradas)", minval=1, maxval=10, group=grp)
+
+// QA: detectar varias familias de CRT NO autoriza entradas automaticamente.
+string grp2 = "02 / MSS M5 y M15"
+left5 = input.int(2, "M5 swing izquierdo", minval=1, maxval=7, group=grp2)
+right5 = input.int(2, "M5 swing derecho", minval=1, maxval=7, group=grp2)
+left15 = input.int(2, "M15 swing izquierdo", minval=1, maxval=7, group=grp2)
+right15 = input.int(2, "M15 swing derecho", minval=1, maxval=7, group=grp2)
+maxPivotAge = input.int(720, "Max edad del swing antes de barrida (min)", minval=15, maxval=1440, group=grp2)
+
+// V34.10t: los 34 simbolos se recorren por DEFECTO.
+// BTCUSD solo es un modo manual de emergencia para recursos limitados.
+// El modo 34 NO certifica que cada mercado produzca un CRT vigente.
+string grpMemory = "00 / Memoria (QA)"
+memoryScan = input.string("34 instrumentos (experimental)", "Alcance escaneo", options=["34 instrumentos (experimental)", "BTCUSD solo"], group=grpMemory, tooltip="Predeterminado: solicitar los 34 simbolos y ejecutar el mismo f_engine() en cada feed M5. BTCUSD solo es un modo manual de diagnostico y NO escanea los otros 33. 34 respuestas no equivalen a 34 modelos detectados ni validados.")
+bool scanAll = memoryScan == "34 instrumentos (experimental)"
+string grp3 = "03 / Dashboard y auditoria QA"
+showDashboard = input.bool(true, "Mostrar dashboard", group=grp3)
+expandFull34 = input.bool(false, "Ver los 34 instrumentos (expandir)", group=grp3, tooltip="En TradingView Pine las celdas no reciben toques. Abre Ajustes del indicador > 03 / Dashboard y activa esto. Vista compacta: solo CRT centrales ratificados, priorizando MSS M15; ampliada: los 34 feeds, con o sin señal, 4 por pagina.")
+compactPriorityRows = input.int(6, "Monitor CRT: filas prioritarias (2-6)", minval=2, maxval=6, group=grp3, tooltip="Solo para el monitor CRT + MSS compacto. Ordena primero los mercados con ambos MSS, despues M15, M5 y otros CRT. No altera los 34 feeds ni activa alertas.")
+showCatalog7 = input.bool(false, "Ampliado: inspeccionar 7 categorias CRT (QA)", group=grp3, tooltip="Solo tiene efecto en modo ampliado: 3C+MSS15, 2C candidata, expansion rechazada, Inside retorno, Inside continuacion no aprobada, Multi-Candle QA y retest M15 QA. No crea entradas ni alertas.")
+qaFamilyHistoryView = input.bool(false, "QA: historial 2C/3C/Inside/Multi por mercado", group=grp3, tooltip="Pantalla separada del monitor: 34 fuentes / 4 paginas con ultimo evento historico por familia en DD/MM UTC. Nunca presenta historico como CRT actual ni como MSS confirmado. Usa QA: numero de instrumento (1-34) para UTCmin exacto.")
+qaHistoryFollowChart = input.bool(true, "QA historial: seguir el simbolo del grafico (mismo broker)", group=grp3, tooltip="Para el detalle de UTCmin toma el simbolo exacto del grafico solo si ticker.standard coincide en proveedor y simbolo con uno de los 34 feeds. Si no coincide: SIN SLOT. Desactiva para elegir el numero de instrumento manualmente.")
+showNonBtcCohortQA = input.bool(false, "QA: auditar los 33 instrumentos sin BTC", group=grp3, tooltip="Muestra 33 feeds sin BTCUSD, por 4 por pagina: H4 evaluadas/incompletas, C1 validas y estados. BTC mantiene motor independiente y no participa en estadistica.")
+qa33RootView = input.bool(true, "QA 33: mostrar causas H4 (inicio/fin/conteo)", group=grp3, tooltip="En la auditoria 33 alterna al desglose POR instrumento: bloques con inicio de NY distinto, fin diferente y cantidad M5 distinta de 48. No modifica reglas CRT.")
+qaPhase1NonBtc = input.bool(false, "QA: fase M5 por feed 0..4m (SIN ALERTAS)", group=grp3, tooltip="Solo QA: utiliza la fase M5 cerrada 0,1,2,3,4 minutos del propio proveedor para reconstruir H4, H1 y M15 de cada feed NO BTC. Exige 48 M5 contiguas y pivote MSS15 propio. Nunca certifica H4 NY original, no muestra senales operativas ni permite alertas.")
+showSlotEventAudit = input.bool(false, "QA: ver tiempos CRT/MSS de 1 instrumento", group=grp3, tooltip="Esta vista desplaza temporalmente el catalogo 34: muestra solo el evento actual. Para el ultimo evento historico, activar la opcion inferior; no autoriza trading.")
+qaHistoricLast = input.bool(false, "QA: ver ultimo evento historico por categoria", group=grp3, tooltip="En la vista de tiempos, reemplaza los contadores inferiores por las marcas de tiempo mas recientes de 2C provisional, 2C ratificada, expansion rechazada, 3C, Inside retorno/continuacion, Multi4/Multi-N y retest M15. Nunca reconstruye ni inventa MSS15. No es certificado.")
+qaReadableUtc = input.bool(true, "QA: mostrar fechas UTC (DD/MM HH:mm)", group=grp3, tooltip="Solo cambia la presentacion: ON = fecha UTC legible para Android; OFF = minutos Unix UTC exactos de V34.11L para reconciliacion con Trader Lab. Sin cambios de motor, velas, MSS o alertas.")
+qaFollowChart = input.bool(true, "QA: seguir grafico solo si proveedor coincide", group=grp3, tooltip="Solo cambia el slot QA automaticamente si el ticker estandar con proveedor coincide exactamente con un feed del escaner. Nunca mezcla proveedores con el mismo nombre de mercado.")
+qaEventSlot = input.int(1, "QA: numero de instrumento (1-34)", minval=1, maxval=34, group=grp3)
+page = input.int(1, "Pagina si hay mas senales", minval=1, maxval=34, group=grp3)
+
+
+// M4A PDH/PDL, diagnostico interno. NO dibuja niveles ni cambia senales.
+string grpPdh = "05 / PDH y PDL"
+useExtIdx = input.bool(false, "Indices: 17:00-17:00 NY (alternativa a RTH)", group=grpPdh, tooltip="RTH predeterminado 09:30-16:00 NY. El horario extendido real puede diferir segun el indice/proveedor.")
+
+f_index() =>
+    string name = str.upper(syminfo.ticker)
+    string csv = "," + str.upper(str.replace_all(idxList, " ", "")) + ","
+    bool listed = str.contains(csv, "," + name + ",")
+    bool typical = str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50")
+    syminfo.type == "index" or listed or typical
+
+f_allowed(int hh, bool indexFamily) =>
+    // Cada H4 de la sesion NY es una posible C1, incluso cuando otra es C2/C3.
+    bool exact = indexFamily ? (hh == 2 or hh == 6 or hh == 22) : (hh == 1 or hh == 5 or hh == 21)
+    bool anyH4 = indexFamily ? (hh == 2 or hh == 6 or hh == 10 or hh == 14 or hh == 18 or hh == 22) : (hh == 1 or hh == 5 or hh == 9 or hh == 13 or hh == 17 or hh == 21)
+    scheduleMode == "Todas las H4 NY" ? anyH4 : exact
+
+// BTC: construir H4 desde la HORA LOCAL NY de CADA M5, nunca
+// desde time("240", "0100-0100...") que en la salida DST puede
+// anclar a 00/04/08 y saltarse C1 01/05/09. Anclas validas de
+// cualquier dia: 01/05/09/13/17/21. De 00:00 a 00:59 corresponde
+// al bloque 21:00 del DIA NY ANTERIOR.
+// En el retroceso DST, 01:00 ocurre dos veces; las M5 del bloque
+// excederan 48 y las puertas de C1/C2/C3 bloquearan el CRT.
+f_btc_crt_h4_ny(int t) =>
+    int hr = hour(t, TZ)
+    int bucketHr = hr >= 21 ? 21 : hr >= 17 ? 17 : hr >= 13 ? 13 : hr >= 9 ? 9 : hr >= 5 ? 5 : hr >= 1 ? 1 : 21
+    // Solo 00 NY pertenece al dia previo; -12 horas garantiza
+    // fecha NY anterior aun en transiciones DST.
+    int dateRef = hr == 0 ? t - 12 * 3600000 : t
+    timestamp(TZ, year(dateRef, TZ), month(dateRef, TZ), dayofmonth(dateRef, TZ), bucketHr, 0)
+
+// V34.11f: NON-BTC markets have a dedicated NY anchoring function.
+// Forex and metals are checked independently from BTCUSD; the latter
+// keeps its original clock and validation. Trading session coverage for
+// XAU/XAG is NOT assumed equivalent to liquid Forex.
+f_forex_metal_crt_h4_ny(int t) =>
+    int hr = hour(t, TZ)
+    int bucketHr = hr >= 21 ? 21 : hr >= 17 ? 17 : hr >= 13 ? 13 : hr >= 9 ? 9 : hr >= 5 ? 5 : hr >= 1 ? 1 : 21
+    int dateRef = hr == 0 ? t - 12 * 3600000 : t
+    timestamp(TZ, year(dateRef, TZ), month(dateRef, TZ), dayofmonth(dateRef, TZ), bucketHr, 0)
+
+// V34.11e: deterministic index H4 alignment on NY 02/06/10/14/18/22.
+// 00:00-01:59 NY belongs to yesterday's 22:00 H4.
+// A nonexistent NY 02:00 DST spring anchor cannot be made a valid C1
+// by relaxing the 48-M5-contiguous candle gate.
+f_index_crt_h4_ny(int t) =>
+    int hr = hour(t, TZ)
+    int bucketHr = hr >= 22 ? 22 : hr >= 18 ? 18 : hr >= 14 ? 14 : hr >= 10 ? 10 : hr >= 6 ? 6 : hr >= 2 ? 2 : 22
+    int dateRef = hr < 2 ? t - 12 * 3600000 : t
+    timestamp(TZ, year(dateRef, TZ), month(dateRef, TZ), dayofmonth(dateRef, TZ), bucketHr, 0)
+
+// Un campo = un estado de un solo CRT. Esta UDT elude el limite de 127
+// elementos que impediria empaquetar 34 tuplas grandes por separado.
+// One extra nested object in the security Signal. Its OHLC always
+// belongs to the selected family's own C1, never the unrelated 2C C1.
+type FamilyVisual
+    int c1Start
+    float c1High
+    float c1Low
+    int eventClosedAt
+    int direction
+    string kind
+    bool structuralQA
+
+type Signal
+    int phase        // 0 sin CRT, 1 C2 provisional, 2 C3 ratificado, 3 ultimo ratificado
+    int direction    // +1 bullish, -1 bearish
+    int c1Start
+    float crh
+    float crl
+    int sweepAt
+    int m5At
+    int m15At
+    float m5Level
+    float m15Level
+    int m5PivotAt
+    int m15PivotAt
+    string modelKind        // PENDING, CRT_2C_RETURN, CRT_2C_EXPANSION, NONE
+    bool isPatternValid    // Independiente de MSS M5/M15
+    // M4B: campos de liquidez calculados en el mismo feed M5.
+    string pdhStatus       // N/D / INTACTO / TAKEN
+    string pdlStatus
+    int pdhSweepAt        // Fin de la primera vela M5 que tomo la referencia
+    int pdlSweepAt
+    int pdhSweepStage     // 0=sin CRT asignable; 2=C2; 3=C3
+    int pdlSweepStage
+    int pdhSweepC1        // Identidad C1 congelada durante primera barrida
+    int pdlSweepC1
+    int crtC2Start        // Inicio real de C2 para distinguir PRE de C2
+    int crtRatifiedAt     // Inicio C3 cuando la C2 H4 fue ratificada; base temporal de alertas
+    int liquidityRefAt    // Timestamp de cierre de la sesion de referencia
+    bool pdhSweptDuringCRT
+    bool pdlSweptDuringCRT
+    // QA-only payload del ultimo FVG H1/H4.
+    int fvgH1Count
+    int fvgH1StateCode
+    float fvgH1Top
+    float fvgH1Bottom
+    float fvgH1Pen
+    int fvgH1FormAt
+    int fvgH1GapAt
+    int fvgH4Count
+    int fvgH4StateCode
+    float fvgH4Top
+    float fvgH4Bottom
+    float fvgH4Pen
+    int fvgH4FormAt
+    int fvgH4GapAt
+    // QA BTC: inicio UNIX del bloque NY y numero de M5 cerradas.
+    int nyH4Start
+    int nyH4M5Count
+    // Valores BTC NY de referencia, mismos M5 del proveedor.
+    float nyPDH
+    float nyPDL
+    int nyPDHReferenceAt
+    // Estado corriente del día del PROVEEDOR 1D a partir de M5 cerradas.
+    // Este es independiente de la sesión NY usada para CRT H4.
+    int chartDStart
+    float chartDayHighM5
+    float chartDayLowM5
+    bool chartDayContinuous
+    // Solo observabilidad BTC: no convierten una barrida en senal.
+    int qaC1Ready
+    int qaC2Ratified
+    string qaLastC2Gate
+    int qaCurrentH4Hour
+    // La ultima vela M15 COMPLETA y CERRADA, independiente del MSS M5.
+    int qaLastClosedM15At
+    // Modelo actual unicamente: diagnostico != entrada confirmada.
+    string entryFamily
+    string entryStage
+    int entryConfirmedAt
+    string insideFamilyDiag
+    string insideStageDiag
+    string multi4Kind
+    int multi4DetectedAt
+    string retest15State
+    int retest15At
+    float retest15High
+    float retest15Low
+    float retest15Close
+    float retest15Pivot
+    // QA: morfologias extra H4 cerradas; NO autoriza MSS ni alertas.
+    string extraFamilyKind
+    bool extraFamilyValid
+    int extraFamilyC1
+    int extraFamilyDirection
+    int extraFamilyRatifiedAt
+    string multiNKind
+    int multiNAt
+    // MSS15 propio de la familia seleccionada: no heredar 2C/3C.
+    int extraFamilySweepAt
+    float extraFamilyM15Pivot
+    int extraFamilyM15PivotAt
+    int extraFamilyM15At
+    int extraFamilyM15C1
+    // Conteos historicos por CONTEXTO del feed M5 realmente cargado,
+    // no 34 señales ni certificacion de todos los mercados.
+    int audit2C
+    int audit3C
+    int auditInside
+    int auditM4
+    int auditMN
+    int auditC2Data
+    int auditC2Double
+    int auditC2NoSweep
+    int auditC2Outside
+    int auditC2Hour
+    int auditC3Invalid
+    int auditInsideData
+    int auditInsideDouble
+    int auditInsideOther
+    int auditInsideExpire
+    int auditMNNoTerminal
+    int auditMNDouble
+    int auditMNOutside
+    int auditH4Incomplete
+    int auditH4DST
+    int auditH4Session
+    int auditH4Internal
+    // QA solo: un motivo excluyente por H4 que inicia a hora C1.
+    int auditC1H4Closed
+    int auditC1HourCandidates
+    int auditC1BadClock
+    int auditC1BadData
+    int auditC1BadRange
+    // V34.11Q: bit 1=TRUE 3C C3 sweep QA (not C2 sweep active C3); 2=2C provisional; 4=expansion rejected;
+    // 8=Inside Return QA; 16=Inside Continuation rejected; 32=Multi QA;
+    // 64=M15 Retest QA. Diagnostic only, not seven independently
+    // certified entry detectors; all use the SAME source M5 context.
+    int qaCatalogMask
+    // V34.11g additional evidence for the 33 non-BTC H4 blocks.
+    // Counts can overlap (one block may violate start and count), so
+    // these are NOT mutually exclusive and must not be summed as H4 BAD.
+    int qaH4BadStart
+    int qaH4BadEnd
+    int qaH4BadBars
+    int qaH4LastBars
+    int qaH4LastStartOffsetMin
+    int qaH4LastEndOffsetMin
+    int qaLastM5PhaseMin
+    int qaSourcePhaseMin
+    // V34.11L historical breadcrumbs from this SAME M5 source. These are
+    // last observed timestamps, not saved CRT/MSS event certificates.
+    int qaLastCandidate2CAt
+    int qaLastRatified2CAt
+    int qaLastRejectedExpansionAt
+    int qaLastConfirmed3CAt
+    int qaLastInsideReturnAt
+    int qaLastInsideContinuationAt
+    int qaLastMulti4At
+    int qaLastMultiNAt
+    int qaLastRetest15At
+    int qaLastCandidate2CCycle
+    // Signed last closed C3 H4: +eventAt bullish, -eventAt bearish.
+    // Last observed ONLY; not an MSS event or independently certified CRT.
+    int qaTrue3CSignedAt
+    FamilyVisual familyVisual
+    // Independent QA M5 proof of selected Inside/Multi-N ONLY.
+    // Multi4 / true3C remain N/V pending own swing evidence.
+    float extraFamilyM5Pivot
+    int extraFamilyM5PivotAt
+    int extraFamilyM5At
+    int extraFamilyM5C1
+
+// M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
+// M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
+type InsideCandidate
+    string id
+    int c1Start
+    float c1High
+    float c1Low
+    float c2High
+    float c2Low
+    int c2End
+    int sweepAt          // Cierre de la primera M5 que observo la barrida
+    int sweepH4Start     // H4 que contiene la primera barrida observada
+    int sweepDir         // +1: minimo C2, -1: maximo C2; 0: doble
+    bool sweptLow        // Conserva barridas ocurridas en distintas M5 de la misma H4
+    bool sweptHigh
+    string state        // SEEKING/SWEPT/AMBIGUOUS/RATIFIED/CONTINUATION/UNRESOLVED/DATA_GAP
+    string modelKind    // Modelo diagnostico: Inside Return/Continuation
+    bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+    int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+    // Congelacion causal en la PRIMERA M5 de barrida propia.
+    float pivot15
+    int pivot15At
+    int mss15At
+    float pivot5
+    int pivot5At
+    int mss5At
+
+// Candidato Multi-N por C1/H4 terminal. Maximo 4 (N=2..5).
+type MultiNMssCandidate
+    int c1Start
+    int terminalH4Start
+    int direction
+    int sweepAt
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+    float pivot5
+    int pivot5At
+    int mss5At
+
+// 3C TRUE QA: solo esta C1 y esta C3 son dueñas de sus pivotes.
+// La observacion solo se publicara si C3 completa ratifica su geometria.
+type True3CMssCandidate
+    int c1Start
+    int c3Start
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+
+// MULTI4 QA M5: C1 y C2a propios, vigencia solo hasta C3 (cuarta H4).
+type Multi4MssCandidate
+    int c1Start
+    int c2aStart
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    bool doubleSweep
+
+// M5A INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
+// Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
+// QA multi-candle: solo OHLC de 4 velas H4 CERRADAS.
+// No altera la validacion obligatoria del CRT principal de 3 velas.
+type MultiH4
+    int startAt
+    int endAt
+    float hi
+    float lo
+    float cl
+    bool valid
+
+type FvgBar
+    int startAt
+    int endAt
+    float hi
+    float lo
+    bool valid
+
+type FvgContext
+    string id
+    string tf
+    int dir
+    float top
+    float bottom
+    int formedAt
+    string state
+    int linkedCrt
+    // M5B candidato: seguimiento solo sobre M5 cerradas posteriores a formedAt.
+    int firstTouchAt
+    float maxPenetration  // Proporcion [0.0, 1.0], no porcentaje sin convertir.
+    bool dataGap         // Se interrumpio continuidad observada; estado conservador.
+    int lastEvaluatedEnd // Cierre de la ultima M5 procesada; evita duplicados.
+    int gapObservedAt    // Primera M5 de discontinuidad no explicada.
+    bool lastSessionBar // El cierre ultimo M5 evaluado fue fin de sesion segun proveedor.
+
+// Funciones Pine deben definirse en el ambito global.
+f_add_context_fvg(array<FvgContext> store, string tf, int dir, float top, float bottom, int formedAt, bool endSessionOnFormation) =>
+    string k = syminfo.tickerid + "|" + tf + "|" + str.tostring(formedAt) + "|" + str.tostring(dir)
+    bool exists = false
+    if array.size(store) > 0
+        for z = 0 to array.size(store) - 1
+            if array.get(store, z).id == k
+                exists := true
+                break
+    if not exists
+        array.push(store, FvgContext.new(k, tf, dir, top, bottom, formedAt, "INTACTO", na, na, 0.0, false, formedAt, na, endSessionOnFormation))
+        if array.size(store) > 10
+            array.shift(store)
+    not exists
+
+// M5B CANDIDATO NO INTEGRADO: actualizar un FVG con la M5 cerrada.
+// Un corte de observabilidad (incluidos cierres de mercado no clasificados)
+// congela el estado, NO inventa mitigacion en barras que faltan.
+f_update_context_fvg(FvgContext f, int start5, int end5, float lo5, float hi5, float close5, bool firstSession5, bool lastSession5) =>
+    bool eligible = not na(start5) and not na(end5) and start5 >= f.formedAt and not na(f.lastEvaluatedEnd) and end5 > f.lastEvaluatedEnd
+    if eligible and f.state != "INVALIDADO" and f.state != "DATOS_INCOMPLETOS"
+        // Solo el par ultimo-barra-sesion / primer-barra-sesion justifica

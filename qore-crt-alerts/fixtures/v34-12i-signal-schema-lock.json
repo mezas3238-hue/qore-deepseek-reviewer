@@ -1,0 +1,670 @@
+{
+  "description": "Approved frozen Signal UDT field order and Signal.new constructor expressions for QORE V34.12I. Intentional changes require explicit reviewed update; static QA only.",
+  "source_commit": "edc29374f1bb3a65f065afd6b2b9c8fb8af492fa",
+  "radar_blob_sha": "c37841f9ea422208e64c02a572b7a8d76d1db2a0",
+  "chart_blob_sha": "7a2297ab0d1cc30c8354a7623b25c5786b6c8023",
+  "fields": [
+    {
+      "type": "int",
+      "name": "phase"
+    },
+    {
+      "type": "int",
+      "name": "direction"
+    },
+    {
+      "type": "int",
+      "name": "c1Start"
+    },
+    {
+      "type": "float",
+      "name": "crh"
+    },
+    {
+      "type": "float",
+      "name": "crl"
+    },
+    {
+      "type": "int",
+      "name": "sweepAt"
+    },
+    {
+      "type": "int",
+      "name": "m5At"
+    },
+    {
+      "type": "int",
+      "name": "m15At"
+    },
+    {
+      "type": "float",
+      "name": "m5Level"
+    },
+    {
+      "type": "float",
+      "name": "m15Level"
+    },
+    {
+      "type": "int",
+      "name": "m5PivotAt"
+    },
+    {
+      "type": "int",
+      "name": "m15PivotAt"
+    },
+    {
+      "type": "string",
+      "name": "modelKind"
+    },
+    {
+      "type": "bool",
+      "name": "isPatternValid"
+    },
+    {
+      "type": "string",
+      "name": "pdhStatus"
+    },
+    {
+      "type": "string",
+      "name": "pdlStatus"
+    },
+    {
+      "type": "int",
+      "name": "pdhSweepAt"
+    },
+    {
+      "type": "int",
+      "name": "pdlSweepAt"
+    },
+    {
+      "type": "int",
+      "name": "pdhSweepStage"
+    },
+    {
+      "type": "int",
+      "name": "pdlSweepStage"
+    },
+    {
+      "type": "int",
+      "name": "pdhSweepC1"
+    },
+    {
+      "type": "int",
+      "name": "pdlSweepC1"
+    },
+    {
+      "type": "int",
+      "name": "crtC2Start"
+    },
+    {
+      "type": "int",
+      "name": "crtRatifiedAt"
+    },
+    {
+      "type": "int",
+      "name": "liquidityRefAt"
+    },
+    {
+      "type": "bool",
+      "name": "pdhSweptDuringCRT"
+    },
+    {
+      "type": "bool",
+      "name": "pdlSweptDuringCRT"
+    },
+    {
+      "type": "int",
+      "name": "fvgH1Count"
+    },
+    {
+      "type": "int",
+      "name": "fvgH1StateCode"
+    },
+    {
+      "type": "float",
+      "name": "fvgH1Top"
+    },
+    {
+      "type": "float",
+      "name": "fvgH1Bottom"
+    },
+    {
+      "type": "float",
+      "name": "fvgH1Pen"
+    },
+    {
+      "type": "int",
+      "name": "fvgH1FormAt"
+    },
+    {
+      "type": "int",
+      "name": "fvgH1GapAt"
+    },
+    {
+      "type": "int",
+      "name": "fvgH4Count"
+    },
+    {
+      "type": "int",
+      "name": "fvgH4StateCode"
+    },
+    {
+      "type": "float",
+      "name": "fvgH4Top"
+    },
+    {
+      "type": "float",
+      "name": "fvgH4Bottom"
+    },
+    {
+      "type": "float",
+      "name": "fvgH4Pen"
+    },
+    {
+      "type": "int",
+      "name": "fvgH4FormAt"
+    },
+    {
+      "type": "int",
+      "name": "fvgH4GapAt"
+    },
+    {
+      "type": "int",
+      "name": "nyH4Start"
+    },
+    {
+      "type": "int",
+      "name": "nyH4M5Count"
+    },
+    {
+      "type": "float",
+      "name": "nyPDH"
+    },
+    {
+      "type": "float",
+      "name": "nyPDL"
+    },
+    {
+      "type": "int",
+      "name": "nyPDHReferenceAt"
+    },
+    {
+      "type": "int",
+      "name": "chartDStart"
+    },
+    {
+      "type": "float",
+      "name": "chartDayHighM5"
+    },
+    {
+      "type": "float",
+      "name": "chartDayLowM5"
+    },
+    {
+      "type": "bool",
+      "name": "chartDayContinuous"
+    },
+    {
+      "type": "int",
+      "name": "qaC1Ready"
+    },
+    {
+      "type": "int",
+      "name": "qaC2Ratified"
+    },
+    {
+      "type": "string",
+      "name": "qaLastC2Gate"
+    },
+    {
+      "type": "int",
+      "name": "qaCurrentH4Hour"
+    },
+    {
+      "type": "int",
+      "name": "qaLastClosedM15At"
+    },
+    {
+      "type": "string",
+      "name": "entryFamily"
+    },
+    {
+      "type": "string",
+      "name": "entryStage"
+    },
+    {
+      "type": "int",
+      "name": "entryConfirmedAt"
+    },
+    {
+      "type": "string",
+      "name": "insideFamilyDiag"
+    },
+    {
+      "type": "string",
+      "name": "insideStageDiag"
+    },
+    {
+      "type": "string",
+      "name": "multi4Kind"
+    },
+    {
+      "type": "int",
+      "name": "multi4DetectedAt"
+    },
+    {
+      "type": "string",
+      "name": "retest15State"
+    },
+    {
+      "type": "int",
+      "name": "retest15At"
+    },
+    {
+      "type": "float",
+      "name": "retest15High"
+    },
+    {
+      "type": "float",
+      "name": "retest15Low"
+    },
+    {
+      "type": "float",
+      "name": "retest15Close"
+    },
+    {
+      "type": "float",
+      "name": "retest15Pivot"
+    },
+    {
+      "type": "string",
+      "name": "extraFamilyKind"
+    },
+    {
+      "type": "bool",
+      "name": "extraFamilyValid"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyC1"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyDirection"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyRatifiedAt"
+    },
+    {
+      "type": "string",
+      "name": "multiNKind"
+    },
+    {
+      "type": "int",
+      "name": "multiNAt"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilySweepAt"
+    },
+    {
+      "type": "float",
+      "name": "extraFamilyM15Pivot"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM15PivotAt"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM15At"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM15C1"
+    },
+    {
+      "type": "int",
+      "name": "audit2C"
+    },
+    {
+      "type": "int",
+      "name": "audit3C"
+    },
+    {
+      "type": "int",
+      "name": "auditInside"
+    },
+    {
+      "type": "int",
+      "name": "auditM4"
+    },
+    {
+      "type": "int",
+      "name": "auditMN"
+    },
+    {
+      "type": "int",
+      "name": "auditC2Data"
+    },
+    {
+      "type": "int",
+      "name": "auditC2Double"
+    },
+    {
+      "type": "int",
+      "name": "auditC2NoSweep"
+    },
+    {
+      "type": "int",
+      "name": "auditC2Outside"
+    },
+    {
+      "type": "int",
+      "name": "auditC2Hour"
+    },
+    {
+      "type": "int",
+      "name": "auditC3Invalid"
+    },
+    {
+      "type": "int",
+      "name": "auditInsideData"
+    },
+    {
+      "type": "int",
+      "name": "auditInsideDouble"
+    },
+    {
+      "type": "int",
+      "name": "auditInsideOther"
+    },
+    {
+      "type": "int",
+      "name": "auditInsideExpire"
+    },
+    {
+      "type": "int",
+      "name": "auditMNNoTerminal"
+    },
+    {
+      "type": "int",
+      "name": "auditMNDouble"
+    },
+    {
+      "type": "int",
+      "name": "auditMNOutside"
+    },
+    {
+      "type": "int",
+      "name": "auditH4Incomplete"
+    },
+    {
+      "type": "int",
+      "name": "auditH4DST"
+    },
+    {
+      "type": "int",
+      "name": "auditH4Session"
+    },
+    {
+      "type": "int",
+      "name": "auditH4Internal"
+    },
+    {
+      "type": "int",
+      "name": "auditC1H4Closed"
+    },
+    {
+      "type": "int",
+      "name": "auditC1HourCandidates"
+    },
+    {
+      "type": "int",
+      "name": "auditC1BadClock"
+    },
+    {
+      "type": "int",
+      "name": "auditC1BadData"
+    },
+    {
+      "type": "int",
+      "name": "auditC1BadRange"
+    },
+    {
+      "type": "int",
+      "name": "qaCatalogMask"
+    },
+    {
+      "type": "int",
+      "name": "qaH4BadStart"
+    },
+    {
+      "type": "int",
+      "name": "qaH4BadEnd"
+    },
+    {
+      "type": "int",
+      "name": "qaH4BadBars"
+    },
+    {
+      "type": "int",
+      "name": "qaH4LastBars"
+    },
+    {
+      "type": "int",
+      "name": "qaH4LastStartOffsetMin"
+    },
+    {
+      "type": "int",
+      "name": "qaH4LastEndOffsetMin"
+    },
+    {
+      "type": "int",
+      "name": "qaLastM5PhaseMin"
+    },
+    {
+      "type": "int",
+      "name": "qaSourcePhaseMin"
+    },
+    {
+      "type": "int",
+      "name": "qaLastCandidate2CAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastRatified2CAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastRejectedExpansionAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastConfirmed3CAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastInsideReturnAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastInsideContinuationAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastMulti4At"
+    },
+    {
+      "type": "int",
+      "name": "qaLastMultiNAt"
+    },
+    {
+      "type": "int",
+      "name": "qaLastRetest15At"
+    },
+    {
+      "type": "int",
+      "name": "qaLastCandidate2CCycle"
+    },
+    {
+      "type": "int",
+      "name": "qaTrue3CSignedAt"
+    },
+    {
+      "type": "FamilyVisual",
+      "name": "familyVisual"
+    },
+    {
+      "type": "float",
+      "name": "extraFamilyM5Pivot"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM5PivotAt"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM5At"
+    },
+    {
+      "type": "int",
+      "name": "extraFamilyM5C1"
+    }
+  ],
+  "arguments": [
+    "outPhase",
+    "outDir",
+    "outC1",
+    "outHi",
+    "outLo",
+    "outSweep",
+    "outM5At",
+    "verifiedM15At",
+    "outM5Level",
+    "outM15Level",
+    "outM5PivotAt",
+    "outM15PivotAt",
+    "outModel",
+    "outValid",
+    "outPdhStatus",
+    "outPdlStatus",
+    "pdhSweepAt",
+    "pdlSweepAt",
+    "pdhSweepStage",
+    "pdlSweepStage",
+    "pdhSweepC1",
+    "pdlSweepC1",
+    "outC2Start",
+    "outPhase == 2 ? c3Start : na",
+    "liquidityRefAt",
+    "pdhInDisplayedCRT",
+    "pdlInDisplayedCRT",
+    "qaCountH1",
+    "qaCodeH1",
+    "qaTopH1",
+    "qaBottomH1",
+    "qaPenH1",
+    "qaFormH1",
+    "qaGapH1",
+    "qaCountH4",
+    "qaCodeH4",
+    "qaTopH4",
+    "qaBottomH4",
+    "qaPenH4",
+    "qaFormH4",
+    "qaGapH4",
+    "bucketH4",
+    "h4Count",
+    "hasLiquidityRef ? prev_PDH : na",
+    "hasLiquidityRef ? prev_PDL : na",
+    "hasLiquidityRef ? prev_timestamp : na",
+    "currentChartDay",
+    "currentChartHigh",
+    "currentChartLow",
+    "currentChartContinuous",
+    "qaC1Ready",
+    "qaC2Ratified",
+    "qaLastC2Gate",
+    "not na(bucketH4) ? hour(bucketH4, TZ) : na",
+    "lastCompleteM15CloseAt",
+    "entryFamily",
+    "entryStage",
+    "entryConfirmedAt",
+    "insideFamilyDiag",
+    "insideStageDiag",
+    "outMulti4Kind",
+    "multiVisible ? qaMulti4At : na",
+    "outRetest15State",
+    "outRetest15At",
+    "retestVisible ? qaRetest15High : na",
+    "retestVisible ? qaRetest15Low : na",
+    "retestVisible ? qaRetest15Close : na",
+    "retestVisible ? qaRetest15Pivot : na",
+    "extraKind",
+    "extraFamily",
+    "extraC1",
+    "extraDirection",
+    "extraAt",
+    "extraMultiN ? qaMultiNKind : \"MULTI-N ESP\"",
+    "extraMultiN ? qaMultiNAt : na",
+    "extraSweepAt",
+    "extraPivot15",
+    "extraPivotAt",
+    "extraMssCausal ? extraMssAt : na",
+    "extraC1",
+    "qaAudit2C",
+    "qaAudit3C",
+    "qaAuditInside",
+    "qaAuditM4",
+    "qaAuditMN",
+    "qaAuditC2Data",
+    "qaAuditC2Double",
+    "qaAuditC2NoSweep",
+    "qaAuditC2Outside",
+    "qaAuditC2Hour",
+    "qaAuditC3Invalid",
+    "qaAuditInsideData",
+    "qaAuditInsideDouble",
+    "qaAuditInsideOther",
+    "qaAuditInsideExpire",
+    "qaAuditMNNoTerminal",
+    "qaAuditMNDouble",
+    "qaAuditMNOutside",
+    "qaAuditH4Incomplete",
+    "qaAuditH4DST",
+    "qaAuditH4Session",
+    "qaAuditH4Internal",
+    "qaAuditC1H4Closed",
+    "qaAuditC1HourCandidates",
+    "qaAuditC1BadClock",
+    "qaAuditC1BadData",
+    "qaAuditC1BadRange",
+    "qaCatalogMask",
+    "qaH4BadStart",
+    "qaH4BadEnd",
+    "qaH4BadBars",
+    "qaH4LastBars",
+    "qaH4LastStartOffsetMin",
+    "qaH4LastEndOffsetMin",
+    "qaLastM5PhaseMin",
+    "qaNativeSourcePhaseMin",
+    "qaLastCandidate2CAt",
+    "qaLastRatified2CAt",
+    "qaLastRejectedExpansionAt",
+    "qaLastConfirmed3CAt",
+    "qaLastInsideReturnAt",
+    "qaLastInsideContinuationAt",
+    "qaLastMulti4At",
+    "qaLastMultiNAt",
+    "qaLastRetest15At",
+    "qaLastCandidate2CCycle",
+    "qaTrue3CSignedAt",
+    "outFamilyVisual",
+    "extraMss5Causal ? extraPivot5 : na",
+    "extraMss5Causal ? extraPivot5At : na",
+    "extraMss5Causal ? extraMss5At : na",
+    "extraMss5Causal ? extraC1 : na"
+  ]
+}

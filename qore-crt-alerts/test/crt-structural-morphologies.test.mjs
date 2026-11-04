@@ -158,3 +158,37 @@ test("no emitted family event can trigger a real trade or push",()=>{
   assert.equal(new Set(r.signals.map(x=>x.id)).size,r.signals.length);
  }
 });
+
+test("independent M15 follows native M5 close phase 0..4; off-phase evidence fails closed",()=>{
+ for(const nativePhaseMin of [0,1,2,3,4]){
+  const shift=nativePhaseMin*60_000;
+  const source={provider:nativePhaseMin?"IC_QA":"COINBASE_QA",
+    instrumentId:nativePhaseMin?"NZDCAD":"BTCUSD"};
+  const shifted1={...c1,...source,openedAt:c1.openedAt+shift,
+    closedAt:c1.closedAt+shift};
+  const shifted2={...bullC2,...source,openedAt:bullC2.openedAt+shift,
+    closedAt:bullC2.closedAt+shift};
+  const entry=inspectCrtMorphologies({family:"forex",
+    closedH4:[shifted1,shifted2]}).signals
+    .find(x=>x.model==="CRT_2C_RETURN");
+  assert.ok(entry,"phase "+nativePhaseMin+" must be a valid QA H4 structure");
+  const sweepAt=shifted2.openedAt+M15;
+  const mssAt=shifted2.closedAt;
+  const proof={...source,c1Start:shifted1.openedAt,direction:1,
+    timeframe:"M15",state:"MSS_CONFIRMED_C2",
+    cycleId:[source.provider,source.instrumentId,shifted1.openedAt,1].join("|"),
+    pivotAt:sweepAt-M15,sweepAt,mssAt,observedUntil:mssAt};
+  const accepted=verifyMssM15ForFamily(entry,proof);
+  assert.equal(accepted.state,"MSS_M15_CLOSED_MATCH_QA","phase "+nativePhaseMin);
+  assert.equal(accepted.actionable,false);
+  assert.equal(accepted.sendPush,false);
+  for(const outOfPhase of [
+    {...proof,mssAt:mssAt+60_000,observedUntil:mssAt+60_000},
+    {...proof,sweepAt:sweepAt+60_000},
+    {...proof,pivotAt:proof.pivotAt+60_000}
+  ]){
+    assert.equal(verifyMssM15ForFamily(entry,outOfPhase).state,
+      "AWAITING_OR_REJECTED_MSS_M15","wrong M15/M5 phase "+nativePhaseMin);
+  }
+ }
+});

@@ -18,6 +18,12 @@ class QoreMessagingService : FirebaseMessagingService() {
     }
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        // Hard block in QA, even for forged "certified" payloads.
+        if (!BuildConfig.STAGING_NOTIFICATIONS_ENABLED) return
+        // A future permitted data-only FCM message MUST carry the original
+        // closed-bar confirmation and exact 4-hour expiry. No stale pushes.
+        val expiry = QaFourHourAlertPolicy.check(message.data, System.currentTimeMillis())
+        if (!expiry.accepted) return
         val result = NotificationPolicy.evaluate(
             message.data, BuildConfig.STAGING_NOTIFICATIONS_ENABLED
         )
@@ -39,9 +45,20 @@ class QoreMessagingService : FirebaseMessagingService() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) return
         val eventId = result.eventId ?: return
+        // The eventId V2 wire format lacks family. Never suppress one CRT
+        // family because a different family has the same timestamp.
+        val scopedEventId = eventId + "|" + (result.family ?: "")
         val memory = getSharedPreferences("crt_staging_seen", MODE_PRIVATE)
-        if (memory.getBoolean(eventId, false)) return
-        if (!memory.edit().putBoolean(eventId, true).commit()) return
+        val nowMs = System.currentTimeMillis()
+        val previouslySeenUntil = memory.all[scopedEventId] as? Long ?: 0L
+        if (previouslySeenUntil > nowMs) return
+        // Do not retain historical event identifiers for 7/30 days or
+        // indefinitely. At each new alert, remove expired dedup entries.
+        val cleanup = memory.edit()
+        for ((key, value) in memory.all) {
+            if ((value is Long && value <= nowMs) || value is Boolean) cleanup.remove(key)
+        }
+        if (!cleanup.putLong(scopedEventId, expiry.expiresAtMs!!).commit()) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "qore_crt_staging"
         if (Build.VERSION.SDK_INT >= 26) {
@@ -52,10 +69,21 @@ class QoreMessagingService : FirebaseMessagingService() {
         val notification = if (Build.VERSION.SDK_INT >= 26)
             Notification.Builder(this, channelId)
         else Notification.Builder(this)
-        manager.notify(eventId.hashCode(),
+        val preview = QaCrtNotificationText.render(result)
+        manager.notify(scopedEventId.hashCode(),
             notification.setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("QORE CRT • " + result.instrument)
-                .setContentText("MSS M15 " + result.direction + " • STAGING")
-                .setAutoCancel(true).build())
+                .setContentTitle(if (result.eventType != null)
+                    preview.title else "QORE CRT • " + result.instrument)
+                .setContentText(if (result.eventType != null)
+                    preview.collapsed else "MSS M15 • STAGING")
+                .setStyle(Notification.BigTextStyle().bigText(
+                    if (result.eventType != null) preview.expanded
+                    else "MSS M15 • STAGING"))
+                .setAutoCancel(true)
+                .apply {
+                    if (Build.VERSION.SDK_INT >= 26)
+                        setTimeoutAfter(expiry.remainingMs)
+                }
+                .build())
     }
 }

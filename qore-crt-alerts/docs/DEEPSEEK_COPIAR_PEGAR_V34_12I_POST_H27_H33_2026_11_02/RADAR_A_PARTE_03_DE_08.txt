@@ -1,0 +1,360 @@
+                // Comprobar rompimientos M15 correspondientes al MISMO CRT.
+                // Se ejecuta ANTES del cierre H4: incluye el ultimo M15 de C2.
+                int closed15At = m15LastEnd
+                if c2Active and c2Dir != 0 and c2StrictSweep and not c2Double and not na(c2SweepEnd) and closed15At > c2SweepEnd
+                    // El pivote debe ser M15 confirmado y ANTERIOR
+                    // a la barrida C2; ruptura por CIERRE de M15, no M5.
+                    bool frozenPivot15 = not na(c2Pivot15) and not na(c2Pivot15At) and c2Pivot15At < c2SweepEnd
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c2Dir == 1 ? (m15Close > c2Pivot15 and prev15Close <= c2Pivot15) : (m15Close < c2Pivot15 and prev15Close >= c2Pivot15))
+                    if eligible15 and na(c2M15At)
+                        c2M15At := closed15At
+                if c3Active and not na(c3SweepEnd) and closed15At > c3Start and closed15At > c3SweepEnd
+                    bool frozenPivot15 = not na(c3Pivot15) and not na(c3Pivot15At) and c3Pivot15At < c3SweepEnd
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c3Dir == 1 ? (m15Close > c3Pivot15 and prev15Close <= c3Pivot15) : (m15Close < c3Pivot15 and prev15Close >= c3Pivot15))
+                    if eligible15 and na(c3M15At)
+                        c3M15At := closed15At
+                        if lastC1 == c1Start3
+                            lastM15 := closed15At
+                // MSS M15 independientes: solo CIERRE real de 3 M5 del mismo feed.
+                // Al ratificar H4 podremos publicar la prueba propia, no antes.
+                if array.size(insideCandidates) > 0
+                    for ix = 0 to array.size(insideCandidates) - 1
+                        InsideCandidate q = array.get(insideCandidates, ix)
+                        bool eligibleInsideM15 = (q.state == "SWEPT" or q.state == "RATIFIED") and q.sweepDir != 0 and q.sweptLow != q.sweptHigh and not na(q.sweepAt) and not na(q.pivot15) and not na(q.pivot15At) and q.pivot15At < q.sweepAt and closed15At > q.sweepAt and closed15At <= q.sweepH4Start + 2 * H4MS and na(q.mss15At) and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                        bool crossedInside = q.sweepDir == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
+                        if eligibleInsideM15 and crossedInside
+                            q.mss15At := closed15At
+                if array.size(qaMultiNMssCandidates) > 0
+                    for mi = 0 to array.size(qaMultiNMssCandidates) - 1
+                        MultiNMssCandidate q = array.get(qaMultiNMssCandidates, mi)
+                        bool eligibleMultiM15 = not q.doubleSweep and q.direction != 0 and not na(q.pivot15) and not na(q.pivot15At) and not na(q.sweepAt) and q.pivot15At < q.sweepAt and na(q.mss15At) and closed15At > q.sweepAt and closed15At <= q.terminalH4Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                        bool crossedMulti = q.direction == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
+                        if eligibleMultiM15 and crossedMulti
+                            q.mss15At := closed15At
+                // Extender Multi-N ya ratificado hasta max. una H4 adicional.
+                bool eligibleRatifiedMulti = not na(qaMultiNAt) and not na(qaMultiNSweepAt) and not na(qaMultiNPivot15At) and not na(qaMultiNPivot15) and qaMultiNPivot15At < qaMultiNSweepAt and na(qaMultiNMss15At) and closed15At > qaMultiNSweepAt and closed15At <= qaMultiNAt + H4MS and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin) and prev15Continuous
+                bool crossedRatifiedMulti = qaMultiNDir == 1 ? m15Close > qaMultiNPivot15 and prev15Close <= qaMultiNPivot15 : qaMultiNDir == -1 ? m15Close < qaMultiNPivot15 and prev15Close >= qaMultiNPivot15 : false
+                if eligibleRatifiedMulti and crossedRatifiedMulti
+                    qaMultiNMss15At := closed15At
+                // 3C TRUE: pivote M15 PRE-barrida propio, cierre de TRES
+                // M5 del proveedor, nunca una confirmacion prestada del 2C.
+                if not na(qaTrue3CPending)
+                    True3CMssCandidate q3 = qaTrue3CPending
+                    bool eligible3M15 = q3.direction != 0 and not q3.doubleSweep and not na(q3.sweepAt) and not na(q3.pivot15) and not na(q3.pivot15At) and q3.pivot15At < q3.sweepAt and na(q3.mss15At) and closed15At > q3.sweepAt and closed15At <= q3.c3Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool crossed3M15 = q3.direction == 1 ? m15Close > q3.pivot15 and prev15Close <= q3.pivot15 : q3.direction == -1 ? m15Close < q3.pivot15 and prev15Close >= q3.pivot15 : false
+                    if eligible3M15 and crossed3M15
+                        q3.mss15At := closed15At
+                // QA RETEST M15: nunca disparar en la misma barra MSS,
+                // ni por una M5, ni reusar el pivote de un CRT distinto.
+                int qaCycle = c3Active ? c1Start3 : c2Active ? c1Start2 : na
+                int qaMssAt = c3Active ? c3M15At : c2Active ? c2M15At : na
+                int qaDir = c3Active ? c3Dir : c2Active ? c2Dir : 0
+                float qaLevel = c3Active ? c3Pivot15 : c2Active ? c2Pivot15 : na
+                if na(qaCycle) or na(qaMssAt) or na(qaLevel)
+                    qaRetest15State := "SIN MSS15"
+                    qaRetest15At := na
+                    qaRetest15High := na
+                    qaRetest15Low := na
+                    qaRetest15Close := na
+                    qaRetest15Pivot := na
+                    qaRetestCycleC1 := na
+                    qaRetestSourceMssAt := na
+                else
+                    bool freshQaRetest = na(qaRetestCycleC1) or qaRetestCycleC1 != qaCycle or na(qaRetestSourceMssAt) or qaRetestSourceMssAt != qaMssAt
+                    if freshQaRetest
+                        qaRetestCycleC1 := qaCycle
+                        qaRetestSourceMssAt := qaMssAt
+                        qaRetest15At := na
+                        qaRetest15High := na
+                        qaRetest15Low := na
+                        qaRetest15Close := na
+                        qaRetest15Pivot := na
+                        qaRetest15State := "ESPERA RETEST"
+                    bool postMss15 = closed15At > qaMssAt and closed15At <= qaMssAt + 4 * 3600000 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool touchedRetest = qaDir == 1 ? m15Low <= qaLevel and m15Close > qaLevel : qaDir == -1 ? m15High >= qaLevel and m15Close < qaLevel : false
+                    if na(qaRetest15At) and postMss15 and prev15Continuous and touchedRetest
+                        qaRetest15At := closed15At
+                        qaRetest15High := m15High
+                        qaRetest15Low := m15Low
+                        qaRetest15Close := m15Close
+                        qaRetest15Pivot := qaLevel
+                        qaRetest15State := "RETEST M15 QA"
+                prev15Close := m15Close
+                prev15End := m15LastEnd
+            else
+                lastCompleteM15CloseAt := na
+                // Una M15 omitida o incompleta invalida pivotes construidos
+                // con muestras discontinuas, y el cierre previo del MSS.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
+
+            m15Bucket := bucket15
+            m15High := bH
+            m15Low := bL
+            m15Close := bC
+            m15Count := 1
+            m15LastEnd := barEnd
+            m15Start := bucket15
+        else if na(m15Bucket)
+            m15Bucket := bucket15
+            m15High := bH
+            m15Low := bL
+            m15Close := bC
+            m15Count := 1
+            m15LastEnd := barEnd
+            m15Start := bucket15
+        else
+            if barT != m15LastEnd
+                m15Count := -100 // M15 incompleta: no publicar MSS.
+                // No conservar swings ni el cierre de un M15 sin continuidad.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
+            else if m15Count >= 0
+                m15Count += 1
+            m15High := math.max(m15High, bH)
+            m15Low := math.min(m15Low, bL)
+            m15Close := bC
+            m15LastEnd := barEnd
+
+    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----
+    if not na(barT) and not na(bucketH1)
+        bool nextH1 = not na(h1Bucket) and bucketH1 != h1Bucket
+        if nextH1
+            bool fullH1 = h1Continuous and h1Count == 12 and h1FirstT == h1Bucket and h1LastEnd == h1Bucket + 3600000
+            if fullH1 and not na(h1Prev) and not na(h1Prev2)
+                bool chainH1 = h1Prev.valid and h1Prev2.valid and h1Prev2.endAt == h1Prev.startAt and h1Prev.endAt == h1Bucket
+                if chainH1
+                    if h1Low > h1Prev2.hi
+                        f_add_context_fvg(fvgsH1, "H1", 1, h1Low, h1Prev2.hi, h1LastEnd, previousBarEnd == h1LastEnd and previousSessionLast5)
+                    else if h1High < h1Prev2.lo
+                        f_add_context_fvg(fvgsH1, "H1", -1, h1Prev2.lo, h1High, h1LastEnd, previousBarEnd == h1LastEnd and previousSessionLast5)
+            h1Prev2 := h1Prev
+            h1Prev := FvgBar.new(h1Bucket, h1LastEnd, h1High, h1Low, fullH1)
+            h1Bucket := bucketH1
+            h1FirstT := barT
+            h1LastEnd := barEnd
+            h1High := bH
+            h1Low := bL
+            h1Count := 1
+            h1Continuous := true
+        else if na(h1Bucket)
+            h1Bucket := bucketH1
+            h1FirstT := barT
+            h1LastEnd := barEnd
+            h1High := bH
+            h1Low := bL
+            h1Count := 1
+            h1Continuous := true
+        else
+            h1Continuous := h1Continuous and barT == h1LastEnd
+            h1High := math.max(h1High, bH)
+            h1Low := math.min(h1Low, bL)
+            h1Count += 1
+            h1LastEnd := barEnd
+
+    // ---- CERRAR H4 ANTERIOR Y ABRIR NUEVA ----
+    if not na(barT) and not na(bucketH4)
+        bool nextH4 = not na(h4Bucket) and bucketH4 != h4Bucket
+        if nextH4
+            // QA: registrar cuántos bloques H4 del mismo feed se han
+            // observado; no confundir respuesta de request.security con
+            // presencia de C1 válida ni inventar formaciones CRT.
+            qaAuditC1H4Closed += 1
+            // Last H4 timestamp/candle evidence before opening the next.
+            // Time deltas are based on the same M5 feed, not chart M15/H4.
+            qaH4LastBars := h4Count
+            qaH4LastStartOffsetMin := na(h4FirstT) ? na : int((h4FirstT - h4Bucket) / 60000)
+            qaH4LastEndOffsetMin := na(h4LastEnd) ? na : int((h4LastEnd - (h4Bucket + H4MS)) / 60000)
+            if h4FirstT != h4Bucket
+                qaH4BadStart += 1
+            if h4LastEnd != h4Bucket + H4MS
+                qaH4BadEnd += 1
+            if h4Count != 48
+                qaH4BadBars += 1
+            // M5A: Tres H4 completas consecutivas, sin conectar gaps de mercado.
+            bool fullH4 = h4Continuous and h4Count == 48 and h4FirstT == h4Bucket and h4LastEnd == h4Bucket + H4MS
+            if not fullH4
+                qaAuditH4Incomplete += 1
+                int spanH4Ms = bucketH4 - h4Bucket
+                bool exactDSTBlock = (spanH4Ms == H4MS + 3600000 or spanH4Ms == H4MS - 3600000) and h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count * 300000 == spanH4Ms
+                if exactDSTBlock
+                    // Completa en horario local NY, duración real 3/5h.
+                    qaAuditH4DST += 1
+                else if not h4Continuous
+                    // Hueco dentro de un bloque que sí tenía M5.
+                    qaAuditH4Internal += 1
+                else
+                    // Inicio/fin incompleto (historial o horario de
+                    // mercado); no atribuir a pérdida del proveedor.
+                    qaAuditH4Session += 1
+            if fullH4 and not na(h4Prev) and not na(h4Prev2)
+                bool chainH4 = h4Prev.valid and h4Prev2.valid and h4Prev2.endAt == h4Prev.startAt and h4Prev.endAt == h4Bucket
+                if chainH4
+                    if h4Low > h4Prev2.hi
+                        f_add_context_fvg(fvgsH4, "H4", 1, h4Low, h4Prev2.hi, h4LastEnd, previousBarEnd == h4LastEnd and previousSessionLast5)
+                    else if h4High < h4Prev2.lo
+                        f_add_context_fvg(fvgsH4, "H4", -1, h4Prev2.lo, h4High, h4LastEnd, previousBarEnd == h4LastEnd and previousSessionLast5)
+            h4Prev2 := h4Prev
+            h4Prev := FvgBar.new(h4Bucket, h4LastEnd, h4High, h4Low, fullH4)
+            // QA MULTI4: barrida y retorno se distribuyen en DOS H4
+            // consecutivas, luego una tercera H4 de distribucion.
+            // Es una familia experimental, NO sustituye la C2 unica del
+            // modelo soberano C1/C2/C3 y NUNCA produce un MSS confirmado.
+            if not fullH4
+                array.clear(qaFourH4)
+                qaMulti4Kind := "H4 INCOMPLETA"
+                qaMulti4At := na
+                qaMulti4C1 := na
+                qaMulti4SweepAt := na
+                qaMulti4Pivot5 := na
+                qaMulti4Pivot5At := na
+                qaMulti4Mss5At := na
+                array.clear(qaMulti4MssCandidates)
+            else
+                array.push(qaFourH4, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
+                if array.size(qaFourH4) > 4
+                    array.shift(qaFourH4)
+                if array.size(qaFourH4) == 4
+                    MultiH4 m1 = array.get(qaFourH4, 0)
+                    MultiH4 m2 = array.get(qaFourH4, 1)
+                    MultiH4 m3 = array.get(qaFourH4, 2)
+                    MultiH4 m4 = array.get(qaFourH4, 3)
+                    bool fourConsecutive = m1.endAt == m2.startAt and m2.endAt == m3.startAt and m3.endAt == m4.startAt
+                    bool allowedC1 = f_allowed(hour(m1.startAt, TZ), isIndex)
+                    bool sweptLow4 = m2.lo < m1.lo and m2.hi <= m1.hi and m3.hi <= m1.hi
+                    bool sweptHigh4 = m2.hi > m1.hi and m2.lo >= m1.lo and m3.lo >= m1.lo
+                    bool c2aReturn = m2.cl >= m1.lo and m2.cl <= m1.hi
+                    bool c2bReturn = m3.cl >= m1.lo and m3.cl <= m1.hi
+                    bool multiBull = sweptLow4 and c2aReturn and c2bReturn and m3.lo <= m1.lo and m4.cl > m3.cl and m4.cl >= m1.lo
+                    bool multiBear = sweptHigh4 and c2aReturn and c2bReturn and m3.hi >= m1.hi and m4.cl < m3.cl and m4.cl <= m1.hi
+                    if fourConsecutive and allowedC1 and (multiBull != multiBear)
+                        qaAuditM4 += 1
+                        qaLastMulti4At := m4.endAt
+                        qaMulti4Kind := multiBull ? "MULTI4 BULL QA" : "MULTI4 BEAR QA"
+                        qaMulti4At := m4.endAt
+                        qaMulti4C1 := m1.startAt
+                        qaMulti4SweepAt := na
+                        qaMulti4Pivot5 := na
+                        qaMulti4Pivot5At := na
+                        qaMulti4Mss5At := na
+                        // Solo el candidato de la misma C1 y C2a
+                        // posee la barrida M5. Aun no hay MSS15 Multi4.
+                        if array.size(qaMulti4MssCandidates) > 0
+                            for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+                                Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+                                int dir4 = multiBull ? 1 : -1
+                                if q4.c1Start == m1.startAt and q4.c2aStart == m2.startAt and q4.direction == dir4 and not q4.doubleSweep and not na(q4.sweepAt) and q4.sweepAt <= m2.endAt
+                                    qaMulti4SweepAt := q4.sweepAt
+                                    qaMulti4Pivot5 := q4.pivot5
+                                    qaMulti4Pivot5At := q4.pivot5At
+                                    qaMulti4Mss5At := q4.mss5At
+                                    break
+                // Cada H4 completa elegible puede ser una C1 de futuro
+                // MULTI4; se mantienen hasta 4 candidatos por feed.
+                if f_allowed(hour(h4Bucket, TZ), isIndex)
+                    array.push(qaMulti4MssCandidates, Multi4MssCandidate.new(h4Bucket, bucketH4, h4High, h4Low, 0, na, na, na, na, false))
+                    if array.size(qaMulti4MssCandidates) > 4
+                        array.shift(qaMulti4MssCandidates)
+            // QA MULTI-N: no imponer el MULTI4 distribuido a modelos
+            // C1 + N interiores + barrida terminal. Conserva los dos
+            // detectores por separado; nunca crea MSS o alertas.
+            if not fullH4
+                array.clear(qaMultiNHistory)
+                qaMultiNKind := "H4 INCOMPLETA"
+                qaMultiNAt := na
+                qaMultiNC1 := na
+                qaMultiNDir := 0
+                qaTrue3CPending := na
+            else
+                array.push(qaMultiNHistory, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
+                if array.size(qaMultiNHistory) > 7
+                    array.shift(qaMultiNHistory)
+                int nHistory = array.size(qaMultiNHistory)
+                // TRUE 3-CANDLE STRUCTURE (Rowdy slide 8/20):
+                // C1 range; CLOSED C2 setup with NO C1 sweep;
+                // CLOSED C3 sweeps ONE C1 boundary and returns strictly inside.
+                // This is not the legacy 2C whose C3 simply distributes.
+                // Source is this symbol's 48-M5/closed-H4 bounded history.
+                // An Inside that only sweeps C2 is NOT a true C3 C1 sweep.
+                if nHistory >= 3
+                    MultiH4 trueC1 = array.get(qaMultiNHistory, nHistory - 3)
+                    MultiH4 trueC2 = array.get(qaMultiNHistory, nHistory - 2)
+                    MultiH4 trueC3 = array.get(qaMultiNHistory, nHistory - 1)
+                    bool threeClosed = trueC1.valid and trueC2.valid and trueC3.valid and trueC1.endAt == trueC2.startAt and trueC2.endAt == trueC3.startAt
+                    bool setupNoSweep = trueC2.hi <= trueC1.hi and trueC2.lo >= trueC1.lo and trueC2.cl > trueC1.lo and trueC2.cl < trueC1.hi
+                    bool c3LowRaid = trueC3.lo < trueC1.lo and trueC3.hi <= trueC1.hi
+                    bool c3HighRaid = trueC3.hi > trueC1.hi and trueC3.lo >= trueC1.lo
+                    bool c3ClosesBack = trueC3.cl > trueC1.lo and trueC3.cl < trueC1.hi
+                    bool allowedTrue3C = f_allowed(hour(trueC1.startAt, TZ), isIndex)
+                    if threeClosed and allowedTrue3C and setupNoSweep and (c3LowRaid != c3HighRaid) and c3ClosesBack
+                        // Signed timestamp conserves direction without adding
+                        // another field to the near-128-field Signal UDT.
+                        // Structural evidence only: MSS5/15 remain UNVERIFIED
+                        // until first sweep and pivots are recorded separately.
+                        qaTrue3CSignedAt := (c3LowRaid ? 1 : -1) * trueC3.endAt
+                        // Aceptar solo el mismo C1 y C3, tras evidencia M5
+                        // cerrada y sin barrida contraria; si falta, queda N/V.
+                        if not na(qaTrue3CPending)
+                            True3CMssCandidate owned3 = qaTrue3CPending
+                            int expectedDir3 = c3LowRaid ? 1 : -1
+                            if owned3.c1Start == trueC1.startAt and owned3.c3Start == trueC3.startAt and owned3.direction == expectedDir3 and not owned3.doubleSweep and not na(owned3.sweepAt)
+                                qaTrue3CConfirmed := owned3
+                // Preparar EL PROXIMO C3, solo con C1 y C2 completas,
+                // contiguas y sin barrida C1. No usar el MSS de Inside.
+                qaTrue3CPending := na
+                if nHistory >= 2
+                    MultiH4 preC1 = array.get(qaMultiNHistory, nHistory - 2)
+                    MultiH4 preC2 = array.get(qaMultiNHistory, nHistory - 1)
+                    bool preReady3 = preC1.valid and preC2.valid and preC1.endAt == preC2.startAt and preC2.endAt == bucketH4 and f_allowed(hour(preC1.startAt, TZ), isIndex) and preC2.hi <= preC1.hi and preC2.lo >= preC1.lo and preC2.cl > preC1.lo and preC2.cl < preC1.hi
+                    if preReady3
+                        qaTrue3CPending := True3CMssCandidate.new(preC1.startAt, bucketH4, preC1.hi, preC1.lo, 0, na, na, na, na, na, na, na, false)
+                if nHistory >= 4
+                    bool multiNAuditable = false
+                    bool multiNMatched = false
+                    bool multiNSawDouble = false
+                    bool multiNSawOutside = false
+                    bool multiNSawNoTerminal = false
+                    // Un mismo C1 puede producir varias interpretaciones.
+                    // Preferir la C1 mas reciente (N menor) y registrar
+                    // solo una observacion QA por vela terminal.
+                    for consolidationCount = 2 to 5
+                        int needed = consolidationCount + 2
+                        if needed <= nHistory
+                            int c1Idx = nHistory - needed
+                            MultiH4 beginH4 = array.get(qaMultiNHistory, c1Idx)
+                            MultiH4 endH4 = array.get(qaMultiNHistory, nHistory - 1)
+                            bool consecutive = true
+                            bool internalBars = true
+                            MultiH4 priorH4 = beginH4
+                            for j = c1Idx + 1 to nHistory - 1
+                                MultiH4 nextBar = array.get(qaMultiNHistory, j)
+                                consecutive := consecutive and priorH4.endAt == nextBar.startAt
+                                priorH4 := nextBar
+                            for j = c1Idx + 1 to nHistory - 2
+                                MultiH4 consolidate = array.get(qaMultiNHistory, j)
+                                internalBars := internalBars and consolidate.hi < beginH4.hi and consolidate.lo > beginH4.lo
+                            bool validTimeC1 = f_allowed(hour(beginH4.startAt, TZ), isIndex)
+                            bool sweepLowN = endH4.lo < beginH4.lo and endH4.hi <= beginH4.hi
+                            bool sweepHighN = endH4.hi > beginH4.hi and endH4.lo >= beginH4.lo
+                            bool returnN = endH4.cl >= beginH4.lo and endH4.cl <= beginH4.hi
+                            if consecutive and internalBars and validTimeC1
+                                multiNAuditable := true
+                                bool sweptBoth = endH4.lo < beginH4.lo and endH4.hi > beginH4.hi
+                                multiNSawDouble := multiNSawDouble or sweptBoth
+                                multiNSawOutside := multiNSawOutside or (sweepLowN != sweepHighN) and not returnN

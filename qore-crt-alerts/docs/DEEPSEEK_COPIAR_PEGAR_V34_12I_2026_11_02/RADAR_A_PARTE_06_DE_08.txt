@@ -1,0 +1,322 @@
+    bool retestVisible = outPhase == 2 and not na(qaRetestCycleC1) and qaRetestCycleC1 == outC1 and not na(verifiedM15At) and qaRetestSourceMssAt == verifiedM15At and not na(outM15Level) and qaRetest15Pivot == outM15Level and retestOHLCValid
+    string outRetest15State = retestVisible ? "RETEST M15 QA" : outPhase == 2 and not na(verifiedM15At) ? "RETEST ESP" : "SIN MSS15"
+    int outRetest15At = retestVisible ? qaRetest15At : na
+    if retestVisible
+        qaLastRetest15At := outRetest15At
+    // Dentro de este modulo el Inside Bar H4 y su continuacion
+    // permanecen experimentales, sin adjudicar un MSS de otro ciclo.
+    string insideFamilyDiag = "NINGUNO"
+    string insideStageDiag = "SIN INSIDE"
+    int insideNum = array.size(insideCandidates)
+    if insideNum > 0
+        InsideCandidate insideLast = array.get(insideCandidates, insideNum - 1)
+        insideFamilyDiag := insideLast.modelKind == "INSIDE_RETURN_BULL" or insideLast.modelKind == "INSIDE_RETURN_BEAR" ? "INSIDE RETURN" : insideLast.state == "CONTINUATION" ? "INSIDE CONTINUATION" : insideLast.state == "SEEKING" or insideLast.state == "SWEPT" ? "INSIDE PENDIENTE" : "INSIDE DESCARTADO"
+        insideStageDiag := insideLast.state == "RATIFIED" ? "SOLO DIAGNOSTICO" : insideLast.state
+    // QA: encontrar un Inside RATIFIED aun cuando un candidato SEEKING
+    // posterior sea el ultimo del array. Expirar tras UNA H4.
+    bool extraInside = false
+    int extraInsideAt = na
+    int extraInsideC1 = na
+    int extraInsideDir = 0
+    int extraInsideSweep = na
+    float extraInsidePivot = na
+    int extraInsidePivotAt = na
+    int extraInsideMssAt = na
+    float extraInsidePivot5 = na
+    int extraInsidePivot5At = na
+    int extraInsideMss5At = na
+    if array.size(insideCandidates) > 0 and not na(barEnd)
+        for ii = 0 to array.size(insideCandidates) - 1
+            InsideCandidate q = array.get(insideCandidates, ii)
+            int closedAt = na(q.sweepH4Start) ? na : q.sweepH4Start + H4MS
+            bool ratifiedNow = q.state == "RATIFIED" and q.isPatternValid and (q.sweepDir == 1 or q.sweepDir == -1) and not na(q.c1Start) and not na(q.sweepAt) and not na(closedAt) and barEnd >= closedAt and barEnd < closedAt + H4MS
+            if ratifiedNow and (na(extraInsideAt) or closedAt >= extraInsideAt)
+                extraInside := true
+                extraInsideAt := closedAt
+                extraInsideC1 := q.c1Start
+                extraInsideDir := q.sweepDir
+                extraInsideSweep := q.sweepAt
+                extraInsidePivot := q.pivot15
+                extraInsidePivotAt := q.pivot15At
+                extraInsideMssAt := q.mss15At
+                extraInsidePivot5 := q.pivot5
+                extraInsidePivot5At := q.pivot5At
+                extraInsideMss5At := q.mss5At
+    // H4 auxiliares son mutuamente auditables, pero la UDT mantiene
+    // SOLO el evento QA mas reciente: nunca atribuir MSS del CRT base.
+    bool extraMulti = multiVisible and not na(qaMulti4C1) and (qaMulti4Kind == "MULTI4 BULL QA" or qaMulti4Kind == "MULTI4 BEAR QA")
+    bool extraMultiN = not na(qaMultiNAt) and barEnd >= qaMultiNAt and barEnd - qaMultiNAt < H4MS and not na(qaMultiNC1) and (qaMultiNDir == 1 or qaMultiNDir == -1)
+    // Solo un 3C TRUE con evidencia pre-sweep y C1/H4 propios puede
+    // ocupar los campos QA de confirmacion; de otro modo permanece N/V.
+    bool extraTrue3C = false
+    if not na(qaTrue3CConfirmed) and not na(qaTrue3CSignedAt) and not na(barEnd)
+        True3CMssCandidate q3 = qaTrue3CConfirmed
+        extraTrue3C := q3.c3Start + H4MS == math.abs(qaTrue3CSignedAt) and q3.direction == (qaTrue3CSignedAt > 0 ? 1 : -1) and not q3.doubleSweep and not na(q3.sweepAt) and barEnd >= q3.c3Start + H4MS and barEnd < q3.c3Start + 2 * H4MS
+    bool extraFamily = extraTrue3C or extraInside or extraMulti or extraMultiN
+    bool extraSelectInside = not extraTrue3C and extraInside and (not extraMulti or extraInsideAt >= qaMulti4At) and (not extraMultiN or extraInsideAt >= qaMultiNAt)
+    bool extraSelectMultiN = not extraTrue3C and not extraSelectInside and extraMultiN and (not extraMulti or qaMultiNAt >= qaMulti4At)
+    string extraKind = not extraFamily ? "NONE" : extraTrue3C ? "3C TRUE QA" : extraSelectInside ? "INSIDE QA" : extraSelectMultiN ? "MULTI-N QA" : "MULTI4 QA"
+    int extraC1 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c1Start : extraSelectInside ? extraInsideC1 : extraSelectMultiN ? qaMultiNC1 : qaMulti4C1
+    int extraDirection = not extraFamily ? 0 : extraTrue3C ? qaTrue3CConfirmed.direction : extraSelectInside ? extraInsideDir : extraSelectMultiN ? qaMultiNDir : qaMulti4Kind == "MULTI4 BULL QA" ? 1 : -1
+    int extraAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.c3Start + H4MS : extraSelectInside ? extraInsideAt : extraSelectMultiN ? qaMultiNAt : qaMulti4At
+    int extraSweepAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.sweepAt : extraSelectInside ? extraInsideSweep : extraSelectMultiN ? qaMultiNSweepAt : qaMulti4SweepAt
+    float extraPivot15 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15 : extraSelectInside ? extraInsidePivot : extraSelectMultiN ? qaMultiNPivot15 : na
+    int extraPivotAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot15At : extraSelectInside ? extraInsidePivotAt : extraSelectMultiN ? qaMultiNPivot15At : na
+    int extraMssAt = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss15At : extraSelectInside ? extraInsideMssAt : extraSelectMultiN ? qaMultiNMss15At : na
+    float extraPivot5 = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5 : extraSelectInside ? extraInsidePivot5 : extraSelectMultiN ? qaMultiNPivot5 : qaMulti4Pivot5
+    int extraPivot5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.pivot5At : extraSelectInside ? extraInsidePivot5At : extraSelectMultiN ? qaMultiNPivot5At : qaMulti4Pivot5At
+    int extraMss5At = not extraFamily ? na : extraTrue3C ? qaTrue3CConfirmed.mss5At : extraSelectInside ? extraInsideMss5At : extraSelectMultiN ? qaMultiNMss5At : qaMulti4Mss5At
+    bool extraMss5Causal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot5) and not na(extraPivot5At) and not na(extraMss5At) and extraPivot5At < extraSweepAt and extraMss5At > extraSweepAt and extraMss5At <= extraAt + H4MS and extraMss5At % MIN5 == qaNativeSourcePhaseMin * 60000
+    // Distinta C1 y M15; no se hereda el pivote del CRT principal.
+    bool extraMssCausal = extraFamily and not na(extraC1) and not na(extraSweepAt) and not na(extraPivot15) and not na(extraPivotAt) and not na(extraMssAt) and extraPivotAt < extraSweepAt and extraMssAt > extraSweepAt and extraMssAt <= lastCompleteM15CloseAt and f_m15_phase_ok(extraMssAt, qaNativeSourcePhaseMin) and extraMssAt <= extraAt + H4MS
+    // Chart-level C1 evidence comes from the SAME f_engine M5 source.
+    // Exactly one family can own these two prices. Priority will match the
+    // owner monitor: current 2C > independent true3C > Inside/Multi QA.
+    int familyC1At = na
+    float familyC1Hi = na
+    float familyC1Lo = na
+    int familyEventAt = na
+    int familyDir = 0
+    string familyVisualKind = "NONE"
+    bool ownTrue3CClosed = not na(qaTrue3CSignedAt) and not na(barEnd) and barEnd >= math.abs(qaTrue3CSignedAt) and barEnd < math.abs(qaTrue3CSignedAt) + H4MS
+    if ownTrue3CClosed and array.size(qaMultiNHistory) >= 3
+        for visI = 2 to array.size(qaMultiNHistory) - 1
+            MultiH4 visC3 = array.get(qaMultiNHistory, visI)
+            if visC3.endAt == math.abs(qaTrue3CSignedAt)
+                MultiH4 visC1 = array.get(qaMultiNHistory, visI - 2)
+                familyC1At := visC1.startAt
+                familyC1Hi := visC1.hi
+                familyC1Lo := visC1.lo
+                familyEventAt := visC3.endAt
+                familyDir := qaTrue3CSignedAt > 0 ? 1 : -1
+                familyVisualKind := "3C TRUE QA"
+                break
+    // If no true3C won, look up the exact C1 of the selected Extra
+    // family. Different families cannot borrow the base 2C's CRH/CRL.
+    if familyVisualKind == "NONE" and extraFamily and not na(extraC1)
+        if extraSelectInside and array.size(insideCandidates) > 0
+            for visI = 0 to array.size(insideCandidates) - 1
+                InsideCandidate visInside = array.get(insideCandidates, visI)
+                if visInside.c1Start == extraC1 and visInside.state == "RATIFIED" and visInside.isPatternValid
+                    familyC1At := visInside.c1Start
+                    familyC1Hi := visInside.c1High
+                    familyC1Lo := visInside.c1Low
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "INSIDE QA"
+                    break
+        else if extraSelectMultiN and array.size(qaMultiNHistory) > 0
+            for visI = 0 to array.size(qaMultiNHistory) - 1
+                MultiH4 visMultiN = array.get(qaMultiNHistory, visI)
+                if visMultiN.startAt == extraC1 and visMultiN.valid
+                    familyC1At := visMultiN.startAt
+                    familyC1Hi := visMultiN.hi
+                    familyC1Lo := visMultiN.lo
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "MULTI-N QA"
+                    break
+        else if array.size(qaFourH4) > 0
+            for visI = 0 to array.size(qaFourH4) - 1
+                MultiH4 visMulti4 = array.get(qaFourH4, visI)
+                if visMulti4.startAt == extraC1 and visMulti4.valid
+                    familyC1At := visMulti4.startAt
+                    familyC1Hi := visMulti4.hi
+                    familyC1Lo := visMulti4.lo
+                    familyEventAt := extraAt
+                    familyDir := extraDirection
+                    familyVisualKind := "MULTI4 QA"
+                    break
+    bool familyHasOwnC1 = familyVisualKind != "NONE" and not na(familyC1At) and not na(familyC1Hi) and not na(familyC1Lo) and familyC1Hi > familyC1Lo and familyDir != 0 and not na(familyEventAt)
+    FamilyVisual outFamilyVisual = FamilyVisual.new(familyC1At, familyC1Hi, familyC1Lo, familyEventAt, familyDir, familyVisualKind, familyHasOwnC1)
+    // V34.11a: dedicated QA evidence for all SEVEN legacy category roles.
+    // Inside CONTINUATION is an observed rejection, never a live CRT.
+    bool insideContinuationNow = false
+    if array.size(insideCandidates) > 0 and not na(barEnd)
+        for catI = 0 to array.size(insideCandidates) - 1
+            InsideCandidate q = array.get(insideCandidates, catI)
+            int endOfInsideH4 = na(q.sweepH4Start) ? na : q.sweepH4Start + H4MS
+            if q.state == "CONTINUATION" and not na(endOfInsideH4) and barEnd >= endOfInsideH4 and barEnd < endOfInsideH4 + H4MS
+                insideContinuationNow := true
+    // Bit 1 is the TRUE independent 3C: C2 setup, C3 sweep of C1.
+    // Old category3C=outPhase==2 was merely the 2C pattern during C3.
+    bool category2CActiveC3 = outPhase == 2 and outValid and outModel == "CRT_2C_RETURN"
+    bool categoryTrue3C = not na(qaTrue3CSignedAt) and not na(barEnd) and barEnd >= math.abs(qaTrue3CSignedAt) and barEnd < math.abs(qaTrue3CSignedAt) + H4MS
+    bool category2CPending = outPhase == 1 and not na(outC1)
+    bool category2CExpansion = rejectedRecent
+    bool categoryInsideReturn = extraInside
+    bool categoryInsideContinuation = insideContinuationNow
+    bool categoryMultiCandle = extraMulti or extraMultiN
+    bool categoryM15Retest = retestVisible
+    int qaCatalogMask = (categoryTrue3C ? 1 : 0) + (category2CPending ? 2 : 0) + (category2CExpansion ? 4 : 0) + (categoryInsideReturn ? 8 : 0) + (categoryInsideContinuation ? 16 : 0) + (categoryMultiCandle ? 32 : 0) + (categoryM15Retest ? 64 : 0)
+    Signal.new(outPhase, outDir, outC1, outHi, outLo, outSweep, outM5At, verifiedM15At, outM5Level, outM15Level, outM5PivotAt, outM15PivotAt, outModel, outValid, outPdhStatus, outPdlStatus, pdhSweepAt, pdlSweepAt, pdhSweepStage, pdlSweepStage, pdhSweepC1, pdlSweepC1, outC2Start, outPhase == 2 ? c3Start : na, liquidityRefAt, pdhInDisplayedCRT, pdlInDisplayedCRT, qaCountH1, qaCodeH1, qaTopH1, qaBottomH1, qaPenH1, qaFormH1, qaGapH1, qaCountH4, qaCodeH4, qaTopH4, qaBottomH4, qaPenH4, qaFormH4, qaGapH4, bucketH4, h4Count, hasLiquidityRef ? prev_PDH : na, hasLiquidityRef ? prev_PDL : na, hasLiquidityRef ? prev_timestamp : na, currentChartDay, currentChartHigh, currentChartLow, currentChartContinuous, qaC1Ready, qaC2Ratified, qaLastC2Gate, not na(bucketH4) ? hour(bucketH4, TZ) : na, lastCompleteM15CloseAt, entryFamily, entryStage, entryConfirmedAt, insideFamilyDiag, insideStageDiag, outMulti4Kind, multiVisible ? qaMulti4At : na, outRetest15State, outRetest15At, retestVisible ? qaRetest15High : na, retestVisible ? qaRetest15Low : na, retestVisible ? qaRetest15Close : na, retestVisible ? qaRetest15Pivot : na, extraKind, extraFamily, extraC1, extraDirection, extraAt, extraMultiN ? qaMultiNKind : "MULTI-N ESP", extraMultiN ? qaMultiNAt : na, extraSweepAt, extraPivot15, extraPivotAt, extraMssCausal ? extraMssAt : na, extraC1, qaAudit2C, qaAudit3C, qaAuditInside, qaAuditM4, qaAuditMN, qaAuditC2Data, qaAuditC2Double, qaAuditC2NoSweep, qaAuditC2Outside, qaAuditC2Hour, qaAuditC3Invalid, qaAuditInsideData, qaAuditInsideDouble, qaAuditInsideOther, qaAuditInsideExpire, qaAuditMNNoTerminal, qaAuditMNDouble, qaAuditMNOutside, qaAuditH4Incomplete, qaAuditH4DST, qaAuditH4Session, qaAuditH4Internal, qaAuditC1H4Closed, qaAuditC1HourCandidates, qaAuditC1BadClock, qaAuditC1BadData, qaAuditC1BadRange, qaCatalogMask, qaH4BadStart, qaH4BadEnd, qaH4BadBars, qaH4LastBars, qaH4LastStartOffsetMin, qaH4LastEndOffsetMin, qaLastM5PhaseMin, qaNativeSourcePhaseMin, qaLastCandidate2CAt, qaLastRatified2CAt, qaLastRejectedExpansionAt, qaLastConfirmed3CAt, qaLastInsideReturnAt, qaLastInsideContinuationAt, qaLastMulti4At, qaLastMultiNAt, qaLastRetest15At, qaLastCandidate2CCycle, qaTrue3CSignedAt, outFamilyVisual, extraMss5Causal ? extraPivot5 : na, extraMss5Causal ? extraPivot5At : na, extraMss5Causal ? extraMss5At : na, extraMss5Causal ? extraC1 : na)
+
+// V34.10c QA: f_engine se ejecuta EN TODAS las M5 para preservar
+// acumuladores, pivotes, C1/C2/C3 y MSS. Solo se entrega la UDT
+// del ultimo estado de la serie solicitada. No copia 42 campos de
+// cada una de las 2500 velas a cada contexto del grafico.
+f_engine_snapshot() =>
+    Signal state = f_engine()
+    barstate.islast ? state : na
+
+// M4B: texto compacto y explicitamente vinculado al CRT MOSTRADO.
+// PRE = primera barrida previa al comienzo de C2; OTR = fuera del
+// ciclo C2/C3 mostrado. Evita atribuir al CRT una barrida ajena.
+f_liqText(string status, int sweepAt, int stage, int sweepC1, int shownC1, int shownC2) =>
+    string result = status == "N/D" ? "N/D" : status == "INTACTO" ? "INT" : "T OTR"
+    if status == "TAKEN"
+        if not na(shownC1) and sweepC1 == shownC1 and stage == 2
+            result := "T C2"
+        else if not na(shownC1) and sweepC1 == shownC1 and stage == 3
+            result := "T C3"
+        else if not na(shownC2) and not na(sweepAt) and sweepAt <= shownC2
+            result := "T PRE"
+    result
+
+f_liqColor(string status) =>
+    status == "TAKEN" ? color.rgb(237, 164, 83) : status == "INTACTO" ? color.rgb(97, 192, 152) : color.gray
+
+// ---- 34 activos: una sola peticion 5m por activo ----
+s01 = input.symbol("IC:AUDJPY", "AUDJPY", group="Activos 1")
+s02 = input.symbol("IC:GBPUSD", "GBPUSD", group="Activos 1")
+s03 = input.symbol("IC:GBPJPY", "GBPJPY", group="Activos 1")
+s04 = input.symbol("IC:XAUUSD", "XAUUSD", group="Activos 1")
+s05 = input.symbol("OANDA:NAS100USD", "NDX100", group="Activos 1")
+s06 = input.symbol("IC:US500", "SPX500", group="Activos 1")
+s07 = input.symbol("IC:US30", "US30", group="Activos 1")
+s08 = input.symbol("IC:BTCUSD", "BTCUSD", group="Activos 1")
+s09 = input.symbol("IC:AUDUSD", "AUDUSD", group="Activos 1")
+s10 = input.symbol("IC:USDCAD", "USDCAD", group="Activos 1")
+s11 = input.symbol("IC:USDJPY", "USDJPY", group="Activos 1")
+s12 = input.symbol("IC:EURUSD", "EURUSD", group="Activos 1")
+s13 = input.symbol("IC:USDCHF", "USDCHF", group="Activos 2")
+s14 = input.symbol("IC:NZDUSD", "NZDUSD", group="Activos 2")
+s15 = input.symbol("IC:NZDJPY", "NZDJPY", group="Activos 2")
+s16 = input.symbol("IC:NZDCHF", "NZDCHF", group="Activos 2")
+s17 = input.symbol("IC:XAGUSD", "XAGUSD", group="Activos 2")
+s18 = input.symbol("IC:AUDCAD", "AUDCAD", group="Activos 2")
+s19 = input.symbol("IC:AUDCHF", "AUDCHF", group="Activos 2")
+s20 = input.symbol("IC:AUDNZD", "AUDNZD", group="Activos 2")
+s21 = input.symbol("IC:CADCHF", "CADCHF", group="Activos 2")
+s22 = input.symbol("IC:CADJPY", "CADJPY", group="Activos 2")
+s23 = input.symbol("IC:CHFJPY", "CHFJPY", group="Activos 2")
+s24 = input.symbol("IC:EURAUD", "EURAUD", group="Activos 2")
+s25 = input.symbol("IC:EURCAD", "EURCAD", group="Activos 3")
+s26 = input.symbol("OANDA:EURCHF", "EURCHF", group="Activos 3")
+s27 = input.symbol("OANDA:EURGBP", "EURGBP", group="Activos 3")
+s28 = input.symbol("IC:EURJPY", "EURJPY", group="Activos 3")
+s29 = input.symbol("OANDA:EURNZD", "EURNZD", group="Activos 3")
+s30 = input.symbol("IC:GBPAUD", "GBPAUD", group="Activos 3")
+s31 = input.symbol("IC:GBPCAD", "GBPCAD", group="Activos 3")
+s32 = input.symbol("OANDA:GBPCHF", "GBPCHF", group="Activos 3")
+s33 = input.symbol("IC:GBPNZD", "GBPNZD", group="Activos 3")
+s34 = input.symbol("IC:NZDCAD", "NZDCAD", group="Activos 3")
+string[] scanSymbols = array.from(s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34)
+// Si el gráfico es BTCUSD, el slot BTC usa EXACTAMENTE el
+// proveedor del gráfico (p. ej. COINBASE:BTCUSD), también en modo 34.
+// Así se evitan dos versiones incompatibles de BTC y un MSS cruzado.
+bool btcSameChart = str.upper(syminfo.ticker) == "BTCUSD"
+if btcSameChart
+    array.set(scanSymbols, 7, syminfo.tickerid)
+// Nombres calculados del simbolo ELEGIDO en ajustes. Si se cambia el broker,
+// nunca dejamos en pantalla el viejo alias.
+f_name(string sym) =>
+    int pos = str.pos(sym, ":")
+    pos >= 0 ? str.substring(sym, pos + 1) : sym
+
+string[] scanNames = array.from(f_name(s01), f_name(s02), f_name(s03), f_name(s04), f_name(s05), f_name(s06), f_name(s07), f_name(s08), f_name(s09), f_name(s10), f_name(s11), f_name(s12), f_name(s13), f_name(s14), f_name(s15), f_name(s16), f_name(s17), f_name(s18), f_name(s19), f_name(s20), f_name(s21), f_name(s22), f_name(s23), f_name(s24), f_name(s25), f_name(s26), f_name(s27), f_name(s28), f_name(s29), f_name(s30), f_name(s31), f_name(s32), f_name(s33), f_name(s34))
+
+// One independent seven-category snapshot per provider/slot. Does NOT
+// merge sub-model identities or promote QA state to operational CRT.
+var array<int> qaCatalogPerFeed = array.new_int(34, 0)
+// V34.11b QA: same-source per-slot causal fields from the EXISTING
+// security() result. The last snapshot is not a historical event stream.
+var array<int> qaC1BySlot = array.new_int(34, na)
+var array<int> qaC2BySlot = array.new_int(34, na)
+var array<int> qaSweepBySlot = array.new_int(34, na)
+var array<int> qaRatBySlot = array.new_int(34, na)
+var array<int> qaPivot15AtBySlot = array.new_int(34, na)
+var array<float> qaPivot15PriceBySlot = array.new_float(34, na)
+var array<int> qaBreak15BySlot = array.new_int(34, na)
+var array<int> qaClosed15BySlot = array.new_int(34, na)
+var array<string> qaExtraKindBySlot = array.new_string(34, "NONE")
+var array<int> qaExtraC1BySlot = array.new_int(34, na)
+var array<int> qaExtraSweepBySlot = array.new_int(34, na)
+var array<int> qaExtraPivot15AtBySlot = array.new_int(34, na)
+var array<float> qaExtraPivot15PriceBySlot = array.new_float(34, na)
+var array<int> qaExtraBreak15BySlot = array.new_int(34, na)
+var array<int> qaExtraRatBySlot = array.new_int(34, na)
+var array<int> qaHistCandidate2CBySlot = array.new_int(34, na)
+var array<int> qaHistRatified2CBySlot = array.new_int(34, na)
+var array<int> qaHistRejectedExpansionBySlot = array.new_int(34, na)
+var array<int> qaHistConfirmed3CBySlot = array.new_int(34, na)
+var array<int> qaTrue3CSignedBySlot = array.new_int(34, na)
+// Graph-readiness audit from the SAME per-market Signal, never from mask>0.
+// A displayed QA role can be valid while its bounded C1 history is absent.
+var array<bool> qaCoreC1ReadyBySlot = array.new_bool(34, false)
+var array<bool> qaOtherC1ReadyBySlot = array.new_bool(34, false)
+var array<string> qaOtherC1KindBySlot = array.new_string(34, "NONE")
+var array<int> qaHistInsideReturnBySlot = array.new_int(34, na)
+var array<int> qaHistInsideContinuationBySlot = array.new_int(34, na)
+var array<int> qaHistMulti4BySlot = array.new_int(34, na)
+var array<int> qaHistMultiNBySlot = array.new_int(34, na)
+var array<int> qaHistRetest15BySlot = array.new_int(34, na)
+var array<int> statuses = array.new_int(34, -1)
+// Estado independiente: fase 2 confirmada + identidad y modelo estructural valido.
+// Las fases 1 (provisional) y 3 (historica) nunca entran en Solo CRT.
+var array<bool> validCrtFlags = array.new_bool(34, false)
+var array<bool> validCoreFlags = array.new_bool(34, false)
+// 33 non-BTC feed-phase candidates are observed separately; NOT certified.
+var array<bool> qaCoreObservedFlags = array.new_bool(34, false)
+var array<string> familyLabels = array.new_string(34, "NONE")
+var array<int> directions = array.new_int(34, 0)
+var array<int> m5Flags = array.new_int(34, 0)
+var array<int> m15Flags = array.new_int(34, 0)
+var array<int> extraM15Flags = array.new_int(34, 0)
+var array<int> extraM5Flags = array.new_int(34, 0)
+var array<int> c1IDs = array.new_int(34, 0)
+var array<int> m5Times = array.new_int(34, 0)
+var array<int> m5PivotTimes = array.new_int(34, na)
+var array<int> qaObservedDirectionBySlot = array.new_int(34, 0)
+var array<int> qaSourcePhaseBySlot = array.new_int(34, na)
+var array<int> m15Times = array.new_int(34, 0)
+// V34.10u — Telemetria por feed usando el MISMO Signal del
+// escaner. Solo se ve en la vista opt-in; no entra en alertas.
+var array<int> auditFeedAvailable = array.new_int(34, 0)
+var array<int> auditFeedC1 = array.new_int(34, 0)
+var array<int> auditFeedH4Closed = array.new_int(34, 0)
+var array<int> auditFeedC1Hours = array.new_int(34, 0)
+var array<int> auditFeedC1Clock = array.new_int(34, 0)
+var array<int> auditFeedC1Data = array.new_int(34, 0)
+var array<int> auditFeedC1Range = array.new_int(34, 0)
+var array<int> auditFeed2C = array.new_int(34, 0)
+var array<int> auditFeed3C = array.new_int(34, 0)
+var array<int> auditFeedInside = array.new_int(34, 0)
+var array<int> auditFeedM4 = array.new_int(34, 0)
+var array<int> auditFeedMN = array.new_int(34, 0)
+var array<int> auditFeedH4StartMis = array.new_int(34, 0)
+var array<int> auditFeedH4EndMis = array.new_int(34, 0)
+var array<int> auditFeedH4BarsMis = array.new_int(34, 0)
+var array<int> auditFeedPhaseMin = array.new_int(34, na)
+var array<int> auditFeedH4LastBars = array.new_int(34, na)
+var array<int> auditFeedH4StartShift = array.new_int(34, na)
+var array<int> auditFeedH4EndShift = array.new_int(34, na)
+var array<int> auditFeedH4Gap = array.new_int(34, 0)
+var array<int> auditFeedH4DST = array.new_int(34, 0)
+var array<int> auditFeedH4Session = array.new_int(34, 0)
+var array<int> auditFeedH4Internal = array.new_int(34, 0)
+var array<int> auditFeedC2Rejected = array.new_int(34, 0)
+var array<int> auditFeedM15QA = array.new_int(34, 0)
+var array<string> pdhTexts = array.new_string(34, "N/D")
+var array<string> pdlTexts = array.new_string(34, "N/D")
+var array<int> pdhFlags = array.new_int(34, -1)
+var array<int> pdlFlags = array.new_int(34, -1)
+varip array<int> alert5IDs = array.new_int(34, 0)
+varip array<int> alert15IDs = array.new_int(34, 0)
+int found = 0
+int foundQA = 0
+int with5 = 0
+int with15 = 0
+int missing = 0
+int checked = 0
+// Conteos historicos agregados de los feeds M5 realmente consultados.

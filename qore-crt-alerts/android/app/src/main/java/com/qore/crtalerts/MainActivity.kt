@@ -11,10 +11,15 @@ import android.os.Bundle
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.view.View
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.EditText
+import android.text.InputType
+import android.view.WindowManager
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
@@ -27,6 +32,8 @@ import android.widget.TextView
 class MainActivity : Activity() {
     private val DEMO_PERMISSION_REQUEST = 4801
     private var demoStatus: TextView? = null
+    // On-demand QA only; stop network when the Activity stops.
+    private var mobileProbe: CtraderMobileReadOnceQa? = null
     private val navy = Color.rgb(10, 21, 35)
     private val card = Color.rgb(21, 35, 54)
     private val muted = Color.rgb(154, 175, 194)
@@ -73,6 +80,12 @@ class MainActivity : Activity() {
                 "No existe conexión a precios reales ni Firebase STAGING aprobado.",
             15f, Color.WHITE
         ))
+        statusCard.addView(label(
+            "REGLA DE ALERTAS · máximo 4 horas desde cada confirmación. " +
+                "Si la estructura se invalida antes, el aviso deja de estar vigente. " +
+                "Notificaciones de mercado aún bloqueadas por QA.",
+            14f, cyan, true
+        ))
         root.addView(statusCard, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 22 })
@@ -116,7 +129,7 @@ class MainActivity : Activity() {
         refresh()
 
         val clear = Button(this).apply {
-            text = "Borrar mi preferencia local"
+            text = "Borrar interés local en alertas"
             isAllCaps = false
             setOnClickListener {
                 if (prefs.edit().remove(QaConsentGate.INTEREST_KEY).commit()) {
@@ -128,6 +141,197 @@ class MainActivity : Activity() {
         root.addView(clear, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = 20 })
+
+        root.addView(label("Mis 34 mercados · selección local", 19f, Color.WHITE, true).apply {
+            setPadding(0, 32, 0, 8)
+        })
+        root.addView(label(
+            "Seleccionar mercados guarda solo una preferencia en este teléfono. " +
+                "No crea suscripciones, no activa precios ni envía alertas.",
+            13f, muted
+        ))
+        val watchlistPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(8, 8, 8, 8)
+        }
+        var chosen = QaMarketWatchlist.normalized(
+            prefs.getStringSet(QaMarketWatchlist.SELECTED_SYMBOLS_KEY, emptySet())
+                ?.toSet() ?: emptySet()
+        )
+        val expandWatchlist = Button(this).apply { isAllCaps = false }
+        fun refreshWatchlistCount() {
+            val count = chosen.size
+            expandWatchlist.text = if (watchlistPanel.visibility == View.VISIBLE)
+                "Ocultar mercados ($count/34)" else "Elegir mercados ($count/34)"
+        }
+        var updatingChoices = false
+        val checkboxes = mutableListOf<CheckBox>()
+        for (instrument in QaMarketWatchlist.symbols) {
+            val box = CheckBox(this).apply {
+                text = instrument
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                isChecked = instrument in chosen
+            }
+            box.setOnCheckedChangeListener { _, enabled ->
+                if (!updatingChoices) {
+                    val next = QaMarketWatchlist.update(chosen, instrument, enabled)
+                    if (prefs.edit().putStringSet(
+                            QaMarketWatchlist.SELECTED_SYMBOLS_KEY, next.toSet()
+                        ).commit()) {
+                        chosen = next
+                    } else {
+                        updatingChoices = true
+                        box.isChecked = instrument in chosen
+                        updatingChoices = false
+                    }
+                    refreshWatchlistCount()
+                }
+            }
+            checkboxes.add(box)
+            watchlistPanel.addView(box)
+        }
+        expandWatchlist.setOnClickListener {
+            watchlistPanel.visibility =
+                if (watchlistPanel.visibility == View.GONE) View.VISIBLE else View.GONE
+            refreshWatchlistCount()
+        }
+        refreshWatchlistCount()
+        root.addView(expandWatchlist)
+        root.addView(watchlistPanel)
+        root.addView(Button(this).apply {
+            text = "Borrar selección de mercados"
+            isAllCaps = false
+            setOnClickListener {
+                if (prefs.edit().remove(QaMarketWatchlist.SELECTED_SYMBOLS_KEY).commit()) {
+                    chosen = emptySet()
+                    updatingChoices = true
+                    for (box in checkboxes) box.isChecked = false
+                    updatingChoices = false
+                    refreshWatchlistCount()
+                }
+            }
+        })
+
+        root.addView(label("LECTURAS DESDE MI CELULAR · cTrader DEMO", 18f, cyan, true)
+            .apply { setPadding(0, 36, 0, 8) })
+        root.addView(label(
+            "Sin VPS. Prueba puntual con la app abierta, permiso accounts / SCOPE_VIEW. " +
+            "Consulta un símbolo exacto del broker, nunca activa órdenes ni alertas. " +
+            "Las credenciales se escriben solo en tu teléfono y no se guardan.",
+            13f, muted
+        ))
+        val phonePanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setPadding(8, 6, 8, 14)
+        }
+        fun phoneField(hintText: String, secret: Boolean = false,
+                       number: Boolean = false): EditText {
+            return EditText(this).apply {
+                hint = hintText
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                setHintTextColor(muted)
+                isSingleLine = true
+                inputType = if (number) InputType.TYPE_CLASS_NUMBER
+                    else if (secret) (InputType.TYPE_CLASS_TEXT or
+                        InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                    else InputType.TYPE_CLASS_TEXT
+            }
+        }
+        val clientIdField = phoneField("Client ID de cTrader Open API")
+        val clientSecretField = phoneField("Client Secret · solo en este teléfono", true)
+        val tokenField = phoneField("Token OAuth accounts · solo lectura", true)
+        val accountField = phoneField("ctidTraderAccountId DEMO", number = true)
+        val symbolField = phoneField("Símbolo EXACTO cTrader (ej. BTCUSD)").apply {
+            setText("BTCUSD")
+        }
+        phonePanel.addView(clientIdField)
+        phonePanel.addView(clientSecretField)
+        phonePanel.addView(tokenField)
+        phonePanel.addView(accountField)
+        phonePanel.addView(symbolField)
+        phonePanel.addView(label(
+            "QA personal: el Client Secret en una app instalada no ofrece " +
+            "la seguridad de un backend confidencial. No distribuir esta APK " +
+            "con credenciales. Cero datos almacenados.",
+            12f, amber
+        ))
+        val phoneStatus = label(
+            "Sin conexión. Necesitas tu aplicación Open API aprobada y un " +
+            "token accounts de una cuenta DEMO.", 13f, amber
+        )
+        phonePanel.addView(Button(this).apply {
+            text = "Comprobar conexión a cTrader DEMO (sin credenciales)"
+            isAllCaps = false
+            setOnClickListener {
+                mobileProbe?.stop()
+                mobileProbe = CtraderMobileReadOnceQa { message ->
+                    runOnUiThread { phoneStatus.text = message }
+                }
+                mobileProbe?.testNetworkOnly()
+            }
+        })
+        phonePanel.addView(Button(this).apply {
+            text = "Consultar M5 desde este teléfono (solo lectura)"
+            isAllCaps = false
+            setOnClickListener {
+                val accountId = accountField.text.toString().toLongOrNull()
+                val symbolName = symbolField.text.toString().trim()
+                if (accountId == null || accountId <= 0L ||
+                    !Regex("^[A-Za-z0-9_.:-]{3,80}$").matches(symbolName)) {
+                    phoneStatus.text = "Cuenta DEMO numérica y símbolo válido del broker requeridos."
+                } else {
+                    val credentials = CtraderMobileReadOnceQa.Input(
+                        clientIdField.text.toString().trim(),
+                        clientSecretField.text.toString(),
+                        tokenField.text.toString(),
+                        accountId, symbolName
+                    )
+                    // Clear the visible secret text immediately after user action.
+                    clientSecretField.text.clear()
+                    tokenField.text.clear()
+                    mobileProbe?.stop()
+                    mobileProbe = CtraderMobileReadOnceQa { message ->
+                        runOnUiThread { phoneStatus.text = message }
+                    }
+                    mobileProbe?.start(credentials)
+                }
+            }
+        })
+        phonePanel.addView(Button(this).apply {
+            text = "Detener lectura móvil"
+            isAllCaps = false
+            setOnClickListener {
+                mobileProbe?.stop()
+                mobileProbe = null
+                phoneStatus.text = "Lectura detenida. Sin monitoreo en segundo plano."
+            }
+        })
+        phonePanel.addView(phoneStatus)
+        val expandPhone = Button(this).apply {
+            text = "Configurar lectura desde mi celular"
+            isAllCaps = false
+            setOnClickListener {
+                val show = phonePanel.visibility != View.VISIBLE
+                phonePanel.visibility = if (show) View.VISIBLE else View.GONE
+                text = if (show) "Ocultar configuración móvil" else
+                    "Configurar lectura desde mi celular"
+                if (show) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    mobileProbe?.stop()
+                    mobileProbe = null
+                    clientSecretField.text.clear()
+                    tokenField.text.clear()
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
+        }
+        root.addView(expandPhone)
+        root.addView(phonePanel)
 
         root.addView(label("BTCUSD · primera prueba", 19f, Color.WHITE, true).apply {
             setPadding(0, 30, 0, 8)
@@ -157,6 +361,14 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { isFillViewport = true }
         scroll.addView(root)
         setContentView(scroll)
+    }
+
+    override fun onStop() {
+        // Foreground-only experiment. A closed/background Activity MUST NOT
+        // claim to provide continuous 34-market monitoring.
+        mobileProbe?.stop()
+        mobileProbe = null
+        super.onStop()
     }
 
     private fun requestLocalDemoOnly() {

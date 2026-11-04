@@ -1,0 +1,7 @@
+SEGUNDA REVISIÓN DEEPSEEK — V34.12I POST H27–H33 (QA / NO LIVE).
+NO TIENES ACCESO A MI GITHUB. Copiaré y pegaré los 2 scripts completos corregidos: RADAR A en 8 partes (2.915 líneas) y CHART B en 7 partes (2.436 líneas).
+No analices hasta que recibas TODAS las 15 partes y te escriba "FIN DE CÓDIGOS. COMIENZA SEGUNDA AUDITORÍA". Mientras tanto responde solamente "RECIBIDA [PARTE]". Cada parte contiene código puro y consecutivo; no es un script compilable por sí sola.
+La versión anterior (2.834 líneas Radar A) ha quedado obsoleta. Audita SOLAMENTE esta nueva entrega; no mezcles las partes de ambos commits. La suma de las 8 partes A y 7 B es byte a byte idéntica al origen vigente.
+Revisa H27-H33: panel principal vs dibujos Chart B; vistas QA 33 / slot que dejaron de ser pantallas blancas; modo de fase por proveedor false por defecto; prioridad de gráfico con coincidencia exacta ticker/broker; no alertas LIVE; paridad A/B; 132 campos, MSS M5/M15 independientes, incluyendo deuda Multi4 MSS15. H20 (pivotes dentro del C1) sigue siendo HIPÓTESIS: demuestra antes si ese filtro corresponde a las cuatro familias CRT con ejemplos y pruebas.
+No afirmes compilación real ni backtest/FCM. Por cada bug confirmado: fragmento real, causa raíz, reproducción, fix mínimo, pruebas positiva/negativa. Distingue NO VERIFICABLE.
+NO MERGE / NO LIVE / NO PUSH.

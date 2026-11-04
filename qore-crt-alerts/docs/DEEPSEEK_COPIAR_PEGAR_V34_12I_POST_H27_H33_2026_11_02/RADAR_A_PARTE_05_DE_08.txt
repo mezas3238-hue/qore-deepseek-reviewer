@@ -1,0 +1,332 @@
+    // Hasta cerrar CUATRO H4 completas, esta evidencia es solo candidata.
+    if not na(barT) and array.size(qaMulti4MssCandidates) > 0
+        for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+            Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+            bool inMulti4Window = bucketH4 >= q4.c2aStart and bucketH4 < q4.c2aStart + 3 * H4MS
+            if inMulti4Window and not q4.doubleSweep
+                bool low4 = bL < q4.c1Low
+                bool high4 = bH > q4.c1High
+                if bucketH4 == q4.c2aStart and q4.direction == 0 and (low4 or high4)
+                    if low4 and high4
+                        q4.doubleSweep := true
+                    else
+                        q4.direction := low4 ? 1 : -1
+                        q4.sweepAt := barEnd
+                        bool fresh4M5 = q4.direction == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000
+                        q4.pivot5 := fresh4M5 ? (q4.direction == 1 ? lastHigh5 : lastLow5) : na
+                        q4.pivot5At := fresh4M5 ? (q4.direction == 1 ? lastHigh5At : lastLow5At) : na
+                else if q4.direction != 0 and (low4 and high4 or q4.direction == 1 and high4 or q4.direction == -1 and low4)
+                    // Cualquier segunda barrida del extremo contrario
+                    // en C2a/C2b/C3 invalida la atribucion MSS5.
+                    q4.doubleSweep := true
+                    q4.mss5At := na
+                    q4.pivot5 := na
+                    q4.pivot5At := na
+
+    // Multi-N propio: antes de cerrar H4 terminal, cada C1 viable
+    // tiene un candidato diferente (max. 4). No usar el MSS del CRT 3C.
+    // La validacion ESTRUCTURAL sigue ocurriendo al cierre H4.
+    if not na(barT) and not na(bucketH4) and array.size(qaMultiNHistory) >= 3
+        int nHistoryMss = array.size(qaMultiNHistory)
+        MultiH4 latestClosed = array.get(qaMultiNHistory, nHistoryMss - 1)
+        if latestClosed.endAt == bucketH4
+            for consolidationCount = 2 to 5
+                int needed = consolidationCount + 1
+                if needed <= nHistoryMss
+                    int beginIndex = nHistoryMss - needed
+                    MultiH4 firstClosed = array.get(qaMultiNHistory, beginIndex)
+                    MultiH4 priorClosed = firstClosed
+                    bool chainOk = true
+                    bool insideOk = true
+                    for j = beginIndex + 1 to nHistoryMss - 1
+                        MultiH4 currentClosed = array.get(qaMultiNHistory, j)
+                        chainOk := chainOk and currentClosed.startAt == priorClosed.endAt
+                        insideOk := insideOk and currentClosed.hi < firstClosed.hi and currentClosed.lo > firstClosed.lo
+                        priorClosed := currentClosed
+                    bool validMN = chainOk and insideOk and f_allowed(hour(firstClosed.startAt, TZ), isIndex)
+                    if validMN
+                        bool lowSweep = bL < firstClosed.lo
+                        bool highSweep = bH > firstClosed.hi
+                        if lowSweep or highSweep
+                            int candidateIndex = na
+                            if array.size(qaMultiNMssCandidates) > 0
+                                for k = 0 to array.size(qaMultiNMssCandidates) - 1
+                                    MultiNMssCandidate existing = array.get(qaMultiNMssCandidates, k)
+                                    if existing.c1Start == firstClosed.startAt and existing.terminalH4Start == bucketH4
+                                        candidateIndex := k
+                                        break
+                            if na(candidateIndex)
+                                int candidateDir = lowSweep and not highSweep ? 1 : highSweep and not lowSweep ? -1 : 0
+                                bool freshMN15 = candidateDir == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000 : false
+                                float frozenLevel = freshMN15 ? (candidateDir == 1 ? lastHigh15 : lastLow15) : na
+                                int frozenAt = freshMN15 ? (candidateDir == 1 ? lastHigh15At : lastLow15At) : na
+                                bool freshMN5 = candidateDir == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
+                                float frozenLevel5 = freshMN5 ? (candidateDir == 1 ? lastHigh5 : lastLow5) : na
+                                int frozenAt5 = freshMN5 ? (candidateDir == 1 ? lastHigh5At : lastLow5At) : na
+                                array.push(qaMultiNMssCandidates, MultiNMssCandidate.new(firstClosed.startAt, bucketH4, candidateDir, barEnd, frozenLevel, frozenAt, na, lowSweep and highSweep, frozenLevel5, frozenAt5, na))
+                            else
+                                MultiNMssCandidate existing = array.get(qaMultiNMssCandidates, candidateIndex)
+                                bool bothSides = lowSweep and highSweep or existing.direction == 1 and highSweep or existing.direction == -1 and lowSweep
+                                if bothSides
+                                    existing.doubleSweep := true
+                                    existing.mss15At := na
+                                    existing.pivot15 := na
+                                    existing.pivot15At := na
+                                    existing.mss5At := na
+                                    existing.pivot5 := na
+                                    existing.pivot5At := na
+    // ---- M5B CANDIDATO: SEGUIMIENTO FVG H1/H4 EN ESTA M5 CERRADA ----
+    // Va despues de crear FVG nuevos en el cambio de H1/H4: permite que
+    // la primera M5 de la siguiente ventana toque el FVG recien confirmado.
+    if not na(barT) and not na(barEnd)
+        if array.size(fvgsH1) > 0
+            for fi = 0 to array.size(fvgsH1) - 1
+                FvgContext zoneH1 = array.get(fvgsH1, fi)
+                f_update_context_fvg(zoneH1, barT, barEnd, bL, bH, bC, firstSession5, lastSession5)
+        if array.size(fvgsH4) > 0
+            for fi = 0 to array.size(fvgsH4) - 1
+                FvgContext zoneH4 = array.get(fvgsH4, fi)
+                f_update_context_fvg(zoneH4, barT, barEnd, bL, bH, bC, firstSession5, lastSession5)
+
+    // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----
+    // QA: tocar CRH/CRL (igualdad) solo puede crear un C2 PROVISIONAL.
+    // Direccion y c2Double definitivos dependen EXCLUSIVAMENTE de barridas estrictas.
+    if c2Active and not na(barT) and bucketH4 == c2Start
+        bool strictLow = bL < c1Low2
+        bool strictHigh = bH > c1High2
+        bool touchLow = bL <= c1Low2
+        bool touchHigh = bH >= c1High2
+        // Dos extremos estrictamente barridos, incluso en una unica M5.
+        if strictLow and strictHigh
+            c2Double := true
+        if c2Dir == 0 and not c2Double
+            if strictLow != strictHigh
+                c2Dir := strictLow ? 1 : -1
+            else if allowTouches and touchLow != touchHigh
+                // Toque exacto unilateral: provisional, sin MSS confirmado.
+                c2Dir := touchLow ? 1 : -1
+        if c2Dir != 0 and not c2Double
+            bool chosenStrict = c2Dir == 1 ? strictLow : strictHigh
+            bool oppositeStrict = c2Dir == 1 ? strictHigh : strictLow
+            // Si solo hubo toque preliminar, la PRIMERA barrida REAL elige
+            // la direccion, aun si ocurre en el lado opuesto al toque.
+            if not c2StrictSweep and oppositeStrict and not chosenStrict
+                c2Dir := -c2Dir
+                chosenStrict := true
+                oppositeStrict := false
+                c2Returned := false
+            // Descartar UNICAMENTE cuando se han barrido estrictamente
+            // ambos limites; un toque exacto del otro lado NO basta.
+            if c2StrictSweep and oppositeStrict
+                c2Double := true
+            if not c2Double
+                bool firstStrictSweep = not c2StrictSweep and chosenStrict
+                if firstStrictSweep
+                    c2StrictSweep := true
+                    c2SweepEnd := barEnd
+                    c2Returned := false
+                    bool lowSide = c2Dir == 1
+                    bool fresh5 = lowSide ? (not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000) : (not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000)
+                    bool fresh15 = lowSide ? (not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000) : (not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000)
+                    c2Pivot5 := fresh5 ? (lowSide ? lastHigh5 : lastLow5) : na
+                    c2Pivot15 := fresh15 ? (lowSide ? lastHigh15 : lastLow15) : na
+                    c2Pivot5At := fresh5 ? (lowSide ? lastHigh5At : lastLow5At) : na
+                    c2Pivot15At := fresh15 ? (lowSide ? lastHigh15At : lastLow15At) : na
+                c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
+                // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
+                bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
+                if c2StrictSweep and previousM5Continuous and barT >= c2SweepEnd and cross5 and na(c2M5At)
+                    c2M5At := barEnd
+
+    // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
+    if c3Active and not na(barT) and bucketH4 == c3Start
+        // No invalidar aqui por una vela M5. Solo el cierre H4 completo
+        // de C3 puede atravesar la mecha de C2 para invalidar el CRT.
+        bool cross5c3 = c3Dir == 1 ? (not na(c3Pivot5) and bC > c3Pivot5 and prevClose <= c3Pivot5) : (not na(c3Pivot5) and bC < c3Pivot5 and prevClose >= c3Pivot5)
+        if c3Active and previousM5Continuous and barEnd > c3Start and barEnd > c3SweepEnd and cross5c3 and na(c3M5At)
+            c3M5At := barEnd
+            if lastC1 == c1Start3
+                lastM5 := barEnd
+
+    // 3C TRUE M5 propio: cierre cruzado posterior al sweep de C3.
+    // No se acepta la vela de la barrida ni se copia MSS del 2C.
+    if previousM5Continuous and not na(qaTrue3CPending) and bucketH4 == qaTrue3CPending.c3Start
+        True3CMssCandidate q3 = qaTrue3CPending
+        bool eligible3M5 = q3.direction != 0 and not q3.doubleSweep and not na(q3.sweepAt) and not na(q3.pivot5) and not na(q3.pivot5At) and q3.pivot5At < q3.sweepAt and barT >= q3.sweepAt and barEnd <= q3.c3Start + H4MS and na(q3.mss5At)
+        bool crossed3M5 = q3.direction == 1 ? bC > q3.pivot5 and prevClose <= q3.pivot5 : q3.direction == -1 ? bC < q3.pivot5 and prevClose >= q3.pivot5 : false
+        if eligible3M5 and crossed3M5
+            q3.mss5At := barEnd
+
+    // MSS M5 Multi4: solo el pivote congelado en C2a, cierre posterior
+    // y continuo hasta C3 (cuarta H4), sin arrastre de Inside/Multi-N.
+    if previousM5Continuous and array.size(qaMulti4MssCandidates) > 0
+        for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+            Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+            bool eligible4M5 = q4.direction != 0 and not q4.doubleSweep and not na(q4.sweepAt) and not na(q4.pivot5) and not na(q4.pivot5At) and q4.pivot5At < q4.sweepAt and barT >= q4.sweepAt and barEnd <= q4.c2aStart + 3 * H4MS and bucketH4 >= q4.c2aStart and na(q4.mss5At)
+            bool cross4M5 = q4.direction == 1 ? bC > q4.pivot5 and prevClose <= q4.pivot5 : q4.direction == -1 ? bC < q4.pivot5 and prevClose >= q4.pivot5 : false
+            if eligible4M5 and cross4M5
+                q4.mss5At := barEnd
+
+    // QA M5 causal para Inside y Multi-N; no se hereda el MSS 2C.
+    // Solo M5 cerradas y CONTIGUAS, pivote congelado en primera barrida,
+    // posterior al sweep, dentro de su propia ventana de H4.
+    if previousM5Continuous and not na(barT) and not na(barEnd)
+        if array.size(insideCandidates) > 0
+            for k5 = 0 to array.size(insideCandidates) - 1
+                InsideCandidate own5 = array.get(insideCandidates, k5)
+                bool eligibleInside5 = (own5.state == "SWEPT" or own5.state == "RATIFIED") and own5.sweepDir != 0 and own5.sweptLow != own5.sweptHigh and not na(own5.sweepAt) and not na(own5.sweepH4Start) and not na(own5.pivot5) and not na(own5.pivot5At) and own5.pivot5At < own5.sweepAt and na(own5.mss5At) and barT >= own5.sweepAt and barEnd <= own5.sweepH4Start + 2 * H4MS
+                bool crossedInside5 = own5.sweepDir == 1 ? bC > own5.pivot5 and prevClose <= own5.pivot5 : own5.sweepDir == -1 ? bC < own5.pivot5 and prevClose >= own5.pivot5 : false
+                if eligibleInside5 and crossedInside5
+                    own5.mss5At := barEnd
+        if array.size(qaMultiNMssCandidates) > 0
+            for k5 = 0 to array.size(qaMultiNMssCandidates) - 1
+                MultiNMssCandidate ownN5 = array.get(qaMultiNMssCandidates, k5)
+                bool eligibleMultiN5 = not ownN5.doubleSweep and ownN5.direction != 0 and not na(ownN5.sweepAt) and not na(ownN5.pivot5) and not na(ownN5.pivot5At) and ownN5.pivot5At < ownN5.sweepAt and na(ownN5.mss5At) and barT >= ownN5.sweepAt and barEnd <= ownN5.terminalH4Start + H4MS and bucketH4 == ownN5.terminalH4Start
+                bool crossedMultiN5 = ownN5.direction == 1 ? bC > ownN5.pivot5 and prevClose <= ownN5.pivot5 : ownN5.direction == -1 ? bC < ownN5.pivot5 and prevClose >= ownN5.pivot5 : false
+                if eligibleMultiN5 and crossedMultiN5
+                    ownN5.mss5At := barEnd
+
+    // Actualizar swing M5 DESPUES de la barrida: no congelar un pivot que
+    // acababa de confirmarse simultaneamente con la vela de manipulacion.
+    if not na(pH5)
+        lastHigh5 := pH5
+        lastHigh5At := time[right5 + 1]
+    if not na(pL5)
+        lastLow5 := pL5
+        lastLow5At := time[right5 + 1]
+
+    // Priorizar el CRT ratificado en C3 sobre una NUEVA C2 provisional
+    // superpuesta. La nueva C2 permanece registrada internamente y se
+    // mostrara cuando termine la C3, si aun continua vigente.
+    bool partial = showCandidate and c2Active and c2Dir != 0 and not c2Double and (showAtSweep or c2Returned)
+    if partial and (na(qaLastCandidate2CCycle) or qaLastCandidate2CCycle != c2Start)
+        qaLastCandidate2CCycle := c2Start
+        qaLastCandidate2CAt := barEnd
+    bool recent = keepLastCRT and not na(lastConfirmedAt) and barEnd >= lastConfirmedAt and barEnd - lastConfirmedAt <= keepHours * 3600000
+    int outPhase = c3Active ? 2 : partial ? 1 : recent ? 3 : 0
+    int outDir = outPhase == 2 ? c3Dir : outPhase == 1 ? c2Dir : outPhase == 3 ? lastDir : 0
+    int outC1 = outPhase == 2 ? c1Start3 : outPhase == 1 ? c1Start2 : outPhase == 3 ? lastC1 : na
+    int outC2Start = outPhase == 2 ? c3C2Start : outPhase == 1 ? c2Start : outPhase == 3 ? lastC2Start : na
+    float outHi = outPhase == 2 ? c1High3 : outPhase == 1 ? c1High2 : outPhase == 3 ? lastHi : na
+    float outLo = outPhase == 2 ? c1Low3 : outPhase == 1 ? c1Low2 : outPhase == 3 ? lastLo : na
+    int outSweep = outPhase == 2 ? c3SweepEnd : outPhase == 1 ? c2SweepEnd : outPhase == 3 ? lastSweepAt : na
+    int outM5At = outPhase == 2 ? c3M5At : outPhase == 1 ? c2M5At : outPhase == 3 ? lastM5 : na
+    int outM15At = outPhase == 2 ? c3M15At : outPhase == 1 ? c2M15At : outPhase == 3 ? lastM15 : na
+    float outM5Level = outPhase == 2 ? c3Pivot5 : outPhase == 1 ? c2Pivot5 : outPhase == 3 ? lastM5Level : na
+    float outM15Level = outPhase == 2 ? c3Pivot15 : outPhase == 1 ? c2Pivot15 : outPhase == 3 ? lastM15Level : na
+    int outM5PivotAt = outPhase == 2 ? c3Pivot5At : outPhase == 1 ? c2Pivot5At : outPhase == 3 ? lastM5PivotAt : na
+    int outM15PivotAt = outPhase == 2 ? c3Pivot15At : outPhase == 1 ? c2Pivot15At : outPhase == 3 ? lastM15PivotAt : na
+    // El modelo es metadato independiente; phase y ticks MSS no cambian.
+    bool c3IdentityOK = outPhase == 2 and c3ModelC1 == outC1
+    bool lastIdentityOK = outPhase == 3 and lastModelC1 == outC1
+    bool rejectedRecent = outPhase == 0 and last2CClassification == "CRT_2C_EXPANSION" and not na(last2CClassificationAt) and barEnd >= last2CClassificationAt and barEnd - last2CClassificationAt < H4MS
+    string outModel = c3IdentityOK ? c3ModelKind : outPhase == 1 ? "PENDING" : lastIdentityOK ? lastModelKind : rejectedRecent ? "CRT_2C_EXPANSION" : "NONE"
+    bool outValid = c3IdentityOK ? c3PatternValid : lastIdentityOK ? lastPatternValid : false
+    string outPdhStatus = hasLiquidityRef ? (pdhTaken ? "TAKEN" : "INTACTO") : "N/D"
+    string outPdlStatus = hasLiquidityRef ? (pdlTaken ? "TAKEN" : "INTACTO") : "N/D"
+    bool pdhInDisplayedCRT = pdhTaken and outPhase > 0 and pdhSweepC1 == outC1 and (pdhSweepStage == 2 or pdhSweepStage == 3)
+    bool pdlInDisplayedCRT = pdlTaken and outPhase > 0 and pdlSweepC1 == outC1 and (pdlSweepStage == 2 or pdlSweepStage == 3)
+    // QA SOLO: FVG mas recientemente FORMADO en cada TF (no el ultimo vigente).
+    int qaCountH1 = array.size(fvgsH1)
+    int qaCodeH1 = -1
+    float qaTopH1 = na
+    float qaBottomH1 = na
+    float qaPenH1 = na
+    int qaFormH1 = na
+    int qaGapH1 = na
+    if qaCountH1 > 0
+        FvgContext qaH1 = array.get(fvgsH1, qaCountH1 - 1)
+        qaCodeH1 := f_fvg_code(qaH1.state)
+        qaTopH1 := qaH1.top
+        qaBottomH1 := qaH1.bottom
+        qaPenH1 := qaH1.maxPenetration * 100.0
+        qaFormH1 := qaH1.formedAt
+        qaGapH1 := qaH1.gapObservedAt
+    int qaCountH4 = array.size(fvgsH4)
+    int qaCodeH4 = -1
+    float qaTopH4 = na
+    float qaBottomH4 = na
+    float qaPenH4 = na
+    int qaFormH4 = na
+    int qaGapH4 = na
+    if qaCountH4 > 0
+        FvgContext qaH4 = array.get(fvgsH4, qaCountH4 - 1)
+        qaCodeH4 := f_fvg_code(qaH4.state)
+        qaTopH4 := qaH4.top
+        qaBottomH4 := qaH4.bottom
+        qaPenH4 := qaH4.maxPenetration * 100.0
+        qaFormH4 := qaH4.formedAt
+        qaGapH4 := qaH4.gapObservedAt
+    // No promover un MSS M5 a MSS M15 ni aceptar un cierre de 15m
+    // no visto por el agregador M15 del mismo proveedor.
+    bool validIndependent15 = not na(outM15At) and not na(outM15Level) and not na(outM15PivotAt) and not na(outSweep) and outM15PivotAt < outSweep and outM15At > outSweep and f_m15_phase_ok(outM15At, qaNativeSourcePhaseMin) and not na(lastCompleteM15CloseAt) and outM15At <= lastCompleteM15CloseAt
+    int verifiedM15At = validIndependent15 ? outM15At : na
+    // Clasificador QA de MODELOS, sin cambiar CRT ni eventos M5/M15.
+    // BTC+Forex mantienen C1, C2 y C3 H4 consecutivas obligatorias.
+    // Los modelos 2C, expansion e Inside NO se promueven a entradas
+    // por su etiqueta: esperan CRT 3C ratificado + MSS M15 cerrado.
+    string entryFamily = "NINGUNO"
+    string entryStage = "SIN CRT"
+    int entryConfirmedAt = na
+    if outPhase == 1
+        entryFamily := "CRT 2C CANDIDATO"
+        entryStage := "ESPERA CIERRE C2"
+    else if outPhase == 2 and outValid and outModel == "CRT_2C_RETURN"
+        bool confirmedM15 = not na(verifiedM15At) and not na(outM15PivotAt) and not na(outSweep) and outM15PivotAt < outSweep
+        if confirmedM15
+            // Confirmacion M15 en C2 se acepta SOLO tras ratificar C2.
+            bool m15WasC2 = not na(c3Start) and verifiedM15At <= c3Start
+            entryFamily := m15WasC2 ? "CRT 3C REV MSS C2" : "CRT 3C REV MSS C3"
+            entryStage := "M15 CONFIRMADO"
+            entryConfirmedAt := m15WasC2 ? c3Start : verifiedM15At
+        else
+            entryFamily := "CRT 3C REVERSAL"
+            entryStage := "ESPERA MSS M15"
+    else if rejectedRecent
+        entryFamily := "CRT EXPANSION"
+        entryStage := "DIAG NO ENTRADA"
+    else if outPhase == 3
+        entryFamily := "CRT 3C HISTORICO"
+        entryStage := "EXPIRADO"
+    // Familias extra: diagnostico de 4 H4 / retest M15 posterior.
+    // Ninguna crea confirmacion de entrada, y caducan con su contexto.
+    bool multiVisible = not na(qaMulti4At) and barEnd >= qaMulti4At and barEnd - qaMulti4At <= H4MS
+    string outMulti4Kind = multiVisible ? qaMulti4Kind : "MULTI4 ESP"
+    // Exigir evidencia coherente con el MSS M15 expuesto por este mismo CRT.
+    // Guarda contra un retest antiguo, un cambio de pivot o OHLC incongruente.
+    bool retestOHLCValid = not na(qaRetest15At) and not na(qaRetestSourceMssAt) and not na(qaRetest15Pivot) and not na(qaRetest15High) and not na(qaRetest15Low) and not na(qaRetest15Close) and qaRetest15High >= qaRetest15Low and qaRetest15Close <= qaRetest15High and qaRetest15Close >= qaRetest15Low and qaRetest15At > qaRetestSourceMssAt and qaRetest15At <= qaRetestSourceMssAt + 4 * 3600000 and (outDir == 1 ? qaRetest15Low <= qaRetest15Pivot and qaRetest15Close > qaRetest15Pivot : outDir == -1 ? qaRetest15High >= qaRetest15Pivot and qaRetest15Close < qaRetest15Pivot : false)
+    bool retestVisible = outPhase == 2 and not na(qaRetestCycleC1) and qaRetestCycleC1 == outC1 and not na(verifiedM15At) and qaRetestSourceMssAt == verifiedM15At and not na(outM15Level) and qaRetest15Pivot == outM15Level and retestOHLCValid
+    string outRetest15State = retestVisible ? "RETEST M15 QA" : outPhase == 2 and not na(verifiedM15At) ? "RETEST ESP" : "SIN MSS15"
+    int outRetest15At = retestVisible ? qaRetest15At : na
+    if retestVisible
+        qaLastRetest15At := outRetest15At
+    // Dentro de este modulo el Inside Bar H4 y su continuacion
+    // permanecen experimentales, sin adjudicar un MSS de otro ciclo.
+    string insideFamilyDiag = "NINGUNO"
+    string insideStageDiag = "SIN INSIDE"
+    int insideNum = array.size(insideCandidates)
+    if insideNum > 0
+        InsideCandidate insideLast = array.get(insideCandidates, insideNum - 1)
+        insideFamilyDiag := insideLast.modelKind == "INSIDE_RETURN_BULL" or insideLast.modelKind == "INSIDE_RETURN_BEAR" ? "INSIDE RETURN" : insideLast.state == "CONTINUATION" ? "INSIDE CONTINUATION" : insideLast.state == "SEEKING" or insideLast.state == "SWEPT" ? "INSIDE PENDIENTE" : "INSIDE DESCARTADO"
+        insideStageDiag := insideLast.state == "RATIFIED" ? "SOLO DIAGNOSTICO" : insideLast.state
+    // QA: encontrar un Inside RATIFIED aun cuando un candidato SEEKING
+    // posterior sea el ultimo del array. Expirar tras UNA H4.
+    bool extraInside = false
+    int extraInsideAt = na
+    int extraInsideC1 = na
+    int extraInsideDir = 0
+    int extraInsideSweep = na
+    float extraInsidePivot = na
+    int extraInsidePivotAt = na
+    int extraInsideMssAt = na
+    float extraInsidePivot5 = na
+    int extraInsidePivot5At = na
+    int extraInsideMss5At = na
+    if array.size(insideCandidates) > 0 and not na(barEnd)
+        for ii = 0 to array.size(insideCandidates) - 1
+            InsideCandidate q = array.get(insideCandidates, ii)
+            int closedAt = na(q.sweepH4Start) ? na : q.sweepH4Start + H4MS
+            bool ratifiedNow = q.state == "RATIFIED" and q.isPatternValid and (q.sweepDir == 1 or q.sweepDir == -1) and not na(q.c1Start) and not na(q.sweepAt) and not na(closedAt) and barEnd >= closedAt and barEnd < closedAt + H4MS
+            if ratifiedNow and (na(extraInsideAt) or closedAt >= extraInsideAt)
+                extraInside := true
+                extraInsideAt := closedAt

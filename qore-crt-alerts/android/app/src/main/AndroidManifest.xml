@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Explicit user-tapped DEMO M5 WebSocket QA, no background service. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application android:label="QORE CRT Alerts QA"
         android:allowBackup="false" android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">

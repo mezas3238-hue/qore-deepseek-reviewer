@@ -9,10 +9,21 @@ internal object NotificationPolicy {
 
     data class Decision(val accepted: Boolean, val reason: String,
                         val eventId: String? = null, val instrument: String? = null,
-                        val direction: String? = null)
+                        val direction: String? = null, val family: String? = null,
+                        val eventType: String? = null,
+                        val mssM5: String? = null, val mssM15: String? = null,
+                        val tvSymbol: String? = null,
+                        val mssM5AtMs: Long? = null, val mssM5Price: String? = null,
+                        val mssM15AtMs: Long? = null, val mssM15Price: String? = null)
 
     fun evaluate(data: Map<String, String>, buildEnabled: Boolean): Decision {
         if (!buildEnabled) return Decision(false, "BUILD_LOCKED")
+        if (data["schema"] == "QORE_CRT_STAGING_V2") {
+            val v=QaCrtStatusContract.check(data)
+            return Decision(v.ok,v.reason,v.eventId,v.instrument,v.direction,
+                v.family,v.eventType,v.mssM5,v.mssM15,v.tvSymbol,
+                v.mssM5AtMs,v.mssM5Price,v.mssM15AtMs,v.mssM15Price)
+        }
         if (data["schema"] != "QORE_CRT_STAGING_V1")
             return Decision(false, "UNKNOWN_SCHEMA")
         if (data["mode"] != "STAGING_APPROVED" || data["certified"] != "true")
@@ -30,12 +41,18 @@ internal object NotificationPolicy {
             return Decision(false, "MISSING_DATA_PROOF")
         val mssAt = data["mssAtMs"]?.toLongOrNull()
             ?: return Decision(false, "INVALID_TIME")
-        if (mssAt <= 0L || mssAt % 900_000L != 0L)
+        if (mssAt <= 0L || mssAt % 60_000L != 0L)
             return Decision(false, "INVALID_TIME")
         // This checks payload coherence only; untrusted FCM fields cannot
         // attest to genuine market data or replace authenticated enrollment.
+        // The native source phase must come from this *same event cycle*.
+        // Non-BTC feeds can close M15 at :01/:16, :02/:17 etc.
         val parts = eventId.split('|')
         val c1Start = parts.getOrNull(2)?.toLongOrNull()
+        val nativePhaseMs = c1Start?.takeIf { it > 0L && it % 60_000L == 0L }
+            ?.rem(300_000L)
+        if (nativePhaseMs == null || mssAt % 900_000L != nativePhaseMs)
+            return Decision(false, "INVALID_TIME")
         val cycleElapsed = if (c1Start != null && c1Start > 0L && c1Start < mssAt)
             mssAt - c1Start else -1L
         if (parts.size != 6 || parts[0].isBlank() ||
