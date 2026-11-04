@@ -3036,12 +3036,12 @@ f_chartH4Fvgs(int depth) =>
                     if gapBull
                         if low[j] <= bottom
                             fullFill := true
-                        else if low[j] < top
+                        else if low[j] <= top
                             partialFill := true
                     else
                         if high[j] >= top
                             fullFill := true
-                        else if high[j] > bottom
+                        else if high[j] >= bottom
                             partialFill := true
             // Tres zonas MAS RECIENTES que TODAVIA NO se rellenaron.
             if not fullFill and found < 3 and not na(top) and not na(bottom) and top > bottom
@@ -3092,9 +3092,9 @@ bool fvg3OK = fvgChartOK and chartFvgMaxZones >= 3 and not na(fvg3At) and fvg3To
 bool fvg1FilledNow = fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Bottom : currentH4HighSeen >= fvg1Top)
 bool fvg2FilledNow = fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Bottom : currentH4HighSeen >= fvg2Top)
 bool fvg3FilledNow = fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Bottom : currentH4HighSeen >= fvg3Top)
-bool fvg1PartialNow = fvg1PartialHist or (fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen < fvg1Top : currentH4HighSeen > fvg1Bottom))
-bool fvg2PartialNow = fvg2PartialHist or (fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen < fvg2Top : currentH4HighSeen > fvg2Bottom))
-bool fvg3PartialNow = fvg3PartialHist or (fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen < fvg3Top : currentH4HighSeen > fvg3Bottom))
+bool fvg1PartialNow = fvg1PartialHist or (fvg1OK and (fvg1Dir == 1 ? currentH4LowSeen <= fvg1Top : currentH4HighSeen >= fvg1Bottom))
+bool fvg2PartialNow = fvg2PartialHist or (fvg2OK and (fvg2Dir == 1 ? currentH4LowSeen <= fvg2Top : currentH4HighSeen >= fvg2Bottom))
+bool fvg3PartialNow = fvg3PartialHist or (fvg3OK and (fvg3Dir == 1 ? currentH4LowSeen <= fvg3Top : currentH4HighSeen >= fvg3Bottom))
 bool drawFvg1 = fvg1OK and not fvg1FilledNow
 bool drawFvg2 = fvg2OK and not fvg2FilledNow
 bool drawFvg3 = fvg3OK and not fvg3FilledNow
@@ -3201,7 +3201,7 @@ plot(showPDLevels and chartPdlTaken1D ? chartPdlFirstBarAt / 60000.0 : na, title
 
 // V34.12Q H4 FVG: zones reconstructed independently from the
 // chart broker native H4 (not from the CRT's M5/NY H4 context).
-// The new confirmed H4 source and up to 3 zone drawings are added below.
+// Las zonas se calculan arriba usando solo H4 cerradas del ticker.
 
 
 
