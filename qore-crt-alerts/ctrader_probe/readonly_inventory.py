@@ -18,6 +18,7 @@ import json
 import os
 import re
 import sys
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -30,6 +31,7 @@ ALLOWED_REQUESTS = frozenset({
     "ProtoOAGetAccountListByAccessTokenReq",
     "ProtoOAAccountAuthReq",
     "ProtoOASymbolsListReq",
+    "ProtoOAGetTrendbarsReq",
 })
 
 
@@ -131,6 +133,10 @@ def sanitized_report(*, rows: list[dict[str, Any]], broker_label: str) -> dict[s
 
 def run_probe(env: Mapping[str, str]) -> dict[str, Any]:
     client_id, client_secret, access_token, account_id, broker = require_env(env)
+    sample_raw = env.get("QORE_CT_SAMPLE_SYMBOL_ID", "")
+    if sample_raw and not re.fullmatch(r"[1-9][0-9]{0,17}", sample_raw):
+        raise FailClosed("INVALID_HISTORICAL_M5_SYMBOL_ID")
+    sample_id = int(sample_raw) if sample_raw else None
     try:
         from ctrader_open_api import Client, Protobuf, TcpProtocol
         from ctrader_open_api.messages.OpenApiMessages_pb2 import (
@@ -142,7 +148,10 @@ def run_probe(env: Mapping[str, str]) -> dict[str, Any]:
             ProtoOAAccountAuthRes,
             ProtoOASymbolsListReq,
             ProtoOASymbolsListRes,
+            ProtoOAGetTrendbarsReq,
+            ProtoOAGetTrendbarsRes,
         )
+        from ctrader_probe.closed_m5 import summarize_closed_m5, InvalidM5Evidence
         from twisted.internet import reactor
     except ImportError as exc:
         raise FailClosed("CTRADER_OFFICIAL_SDK_NOT_INSTALLED") from exc
@@ -198,7 +207,33 @@ def run_probe(env: Mapping[str, str]) -> dict[str, Any]:
 
     def on_symbols(res: Any) -> None:
         rows = inventory_from_response(res, account_id)
-        finish(data=sanitized_report(rows=rows, broker_label=broker))
+        report = sanitized_report(rows=rows, broker_label=broker)
+        if sample_id is None:
+            finish(data=report)
+            return
+        # Explicit test of ONE observed, enabled broker symbol.
+        # Never automatically infer IC/OANDA equivalence from the ticker.
+        if not any(row["symbolId"] == sample_id and row["enabled"] for row in rows):
+            raise FailClosed("M5_SAMPLE_NOT_ENABLED_IN_BROKER_ACCOUNT")
+        now_ms = int(time.time() * 1000)
+        request_msg = ProtoOAGetTrendbarsReq()
+        request_msg.ctidTraderAccountId = account_id
+        request_msg.symbolId = sample_id
+        request_msg.period = 5  # ProtoOATrendbarPeriod.M5
+        request_msg.fromTimestamp = now_ms - 72 * 3600 * 1000
+        request_msg.toTimestamp = now_ms
+        request_msg.count = 1000
+        def on_history(history: Any) -> None:
+            try:
+                summary = summarize_closed_m5(
+                    history, account_id=account_id, symbol_id=sample_id,
+                    observed_at_ms=int(time.time()*1000))
+            except InvalidM5Evidence:
+                raise FailClosed("M5_PROVIDER_EVIDENCE_INVALID")
+            report["historicalM5"] = summary
+            finish(data=report)
+        request("ProtoOAGetTrendbarsReq", request_msg,
+                ProtoOAGetTrendbarsRes, on_history)
 
     def on_account_auth(res: Any) -> None:
         if getattr(res, "ctidTraderAccountId", None) != account_id:
