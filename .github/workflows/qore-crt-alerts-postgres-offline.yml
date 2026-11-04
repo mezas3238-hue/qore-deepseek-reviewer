@@ -58,3 +58,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/005_qa_blocked_delivery_intents.sql
       - name: Verify event/device idempotency, revocation, expiry and RLS
         run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_blocked_delivery_intents.sql
+
+      - name: Provision private four-hour QA alert inbox in disposable PostgreSQL
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/006_qa_four_hour_alerts.sql
+      - name: Verify four-hour expiry, early invalidation, immutable dedup, purge and RLS
+        run: psql -v ON_ERROR_STOP=1 -f qore-crt-alerts/sql/test_qa_four_hour_alerts.sql
