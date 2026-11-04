@@ -51,3 +51,11 @@ El Owner ya resolvió por su cuenta el problema de horarios/sesiones. No volver 
 - Pruebas de repositorio Node son **QA estático**; todavía falta compilar y ejecutar este nuevo Pine en TradingView real y comparar las cotizaciones del mismo proveedor. No afirmar certificación sin esa prueba.
 
 Documentación oficial: https://www.tradingview.com/pine-script-docs/concepts/other-timeframes-and-data/ ; https://www.tradingview.com/pine-script-docs/writing/limitations/ .
+
+## Precisión del instante FVG y contacto exacto
+
+En el parche final la zona comienza visualmente en `time_close[k]` —el **cierre de la tercera H4** que demuestra el FVG— y no en el inicio de esa tercera vela, para evitar atribuir conocimiento anticipado. Si una mecha toca exactamente un borde de la zona se clasifica como **PARCIAL**; si alcanza o cruza el borde opuesto, queda **RELLENADA** y se oculta. La H4 abierta se evalúa exclusivamente con máximos/mínimos intrabar ya observados en el gráfico, sin adelantar el futuro.
+
+Para proteger la compilación Pine se situaron los predicados `fvgChartOK/drawFvg1..3` DESPUÉS de declarar `chartAvailable` y `visible`; Pine no permite referencias a variables declaradas más abajo. Esto está cubierto por un test específico de orden de declaración.
+
+**Estado CI confirmado:** QORE CRT ALERTS foundation offline tests, DeepSeek Harness audit-repair certification y CRT RADAR PRO V34.10b QA en verde en el commit `4cf2f96e` del PR #74. Esto **no equivale** a compilar el Pine v34.12Q en el Pine Editor de TradingView.
