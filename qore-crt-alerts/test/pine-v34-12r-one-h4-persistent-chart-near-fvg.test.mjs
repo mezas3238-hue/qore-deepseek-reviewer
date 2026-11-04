@@ -106,7 +106,7 @@ test("selection example: nearer FVG beats far zone regardless of age",()=>{
  const faraway={top:53100,bottom:52900,age:2};
  const ranked=[faraway,nearby].map(z=>({...z,distance:d(price,z.top,z.bottom)})).sort((a,b)=>a.distance-b.distance);
  assert.equal(ranked[0].age,10);
- assert.equal(ranked[0].distance,216.70);
+ assert.ok(Math.abs(ranked[0].distance-216.70)<1e-6);
  const h4Atr=500,maxDistance=1.5*h4Atr;
  assert.ok(ranked[0].distance<=maxDistance);
  assert.ok(ranked[1].distance<=maxDistance); // check chart relevance by configured ATR
