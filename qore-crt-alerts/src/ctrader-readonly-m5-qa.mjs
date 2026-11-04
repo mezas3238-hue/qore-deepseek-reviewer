@@ -67,7 +67,8 @@ export function evaluateCtrader34Coverage({
     const symbolName=symbol?.symbolName;
     if(!pos(symbolId)||!name(symbolName)||byId.has(symbolId))
       throw Error("CTRADER_SYMBOL_INVENTORY_INVALID_OR_DUPLICATE");
-    byId.set(symbolId,freeze({symbolId,symbolName,digits:symbol.digits}));
+    byId.set(symbolId,freeze({symbolId,symbolName,
+      enabled:symbol.enabled===true,digits:symbol.digits}));
   }
   const mappingByMarket=new Map(),mappingBySymbol=new Set();
   for(const m of approvedMappings){
@@ -82,9 +83,10 @@ export function evaluateCtrader34Coverage({
   }
   const rows=INSTRUMENTS.map(m=>{
     const binding=mappingByMarket.get(m.id),found=binding && byId.get(int(binding.symbolId));
-    const available=!!(found && found.symbolName===binding.brokerSymbolName);
-    const state=!binding?"UNMAPPED":!available?"BROKER_SYMBOL_UNAVAILABLE":
-      "DEMO_FEED_CANDIDATE_PARITY_UNVERIFIED";
+    const named=!!(found && found.symbolName===binding.brokerSymbolName);
+    const available=named && found.enabled===true;
+    const state=!binding?"UNMAPPED":!named?"BROKER_SYMBOL_UNAVAILABLE":
+      !available?"BROKER_SYMBOL_DISABLED":"DEMO_FEED_CANDIDATE_PARITY_UNVERIFIED";
     return freeze({slot:m.slot,instrumentId:m.id,tvSymbol:m.tvSymbol,
       ctraderSymbolId:available?found.symbolId:null,
       brokerSymbol:available?found.symbolName:null,
