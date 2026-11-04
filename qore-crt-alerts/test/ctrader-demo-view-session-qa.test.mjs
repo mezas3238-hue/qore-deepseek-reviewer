@@ -54,14 +54,14 @@ test("only WSS demo JSON endpoint and non-trading, owner-approved symbol request
  assert.equal(req.payload.count,300);
  assert.equal(req.payload.symbolId,77);
  assert.equal(req.payload.ctidTraderAccountId,ACCOUNT);
- assert.equal(req.payload.toTimestamp,now);
+ assert.equal(req.payload.toTimestamp,now-300000);
  assert.equal(req.payload.fromTimestamp,now-72*3600000);
  const bars=Array.from({length:3},(_,i)=>({
    utcTimestampInMinutes:(now-1_200_000+i*300000)/60000,
    low:100_000,deltaHigh:350,deltaOpen:200,deltaClose:290
  }));
  const data=s.accept(message(req,{
-   ctidTraderAccountId:String(ACCOUNT),symbolId:"77",trendbar:bars
+   ctidTraderAccountId:String(ACCOUNT),period:5,symbolId:"77",trendbar:bars
  }));
  assert.equal(data.state,"HISTORICAL_M5_QA_UNCERTIFIED");
  assert.equal(data.total,3);
@@ -124,7 +124,7 @@ test("malformed and future M5 or incorrect broker response cannot be certified",
  req=s.accept(message(req,{ctidTraderAccountId:ACCOUNT,
    symbol:[{symbolId:77,digits:5}]}));
  const bad=s.accept(message(req,{
-   ctidTraderAccountId:ACCOUNT,symbolId:77,
+   ctidTraderAccountId:ACCOUNT,period:5,symbolId:77,
    trendbar:[{utcTimestampInMinutes:(now/60000),low:100000,
     deltaHigh:400,deltaOpen:100,deltaClose:100}]
  }));
