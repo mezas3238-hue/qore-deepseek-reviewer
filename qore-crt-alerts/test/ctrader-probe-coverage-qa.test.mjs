@@ -86,3 +86,38 @@ test("mapping never silently turns another broker into same-provider parity",()=
    {...approvedMappings[0],tvSymbol:"OANDA:USDCAD"}]
  }),/CTRADER_OWNER_MAPPING_REQUIRED/);
 });
+
+test("historical cTrader one-symbol M5 proof is QA-only and preserves gaps",()=>{
+ const start=1793336400000;
+ const candle=(i)=>({openedAtMs:start+i*300000,closedAtMs:start+(i+1)*300000,
+  lowRelative:138000,deltaHigh:250,deltaOpen:130,deltaClose:215});
+ const h={
+  status:"HISTORICAL_CLOSED_M5_QA_NOT_CERTIFIED",
+  accountMatches:true,symbolId:101,observedAtMs:start+1500000,
+  nativePhaseMin:(start%300000)/60000,barCount:2,
+  sourceHasMore:true,
+  gaps:[{afterMs:start+300000,nextAtMs:start+900000}],
+  bars:[candle(0),candle(3)],
+  sourceParityCertified:false,sendPush:false,canTrade:false
+ };
+ const r=auditSanitizedCtraderProbe({snapshot:{...snapshot(),historicalM5:h},
+  account,approvedMappings});
+ assert.equal(r.sampleM5QA.barCount,2);
+ assert.equal(r.sampleM5QA.gapCount,1);
+ assert.equal(r.sampleM5QA.hasMore,true);
+ assert.equal(r.sampleM5QA.sendPush,false);
+ assert.equal(r.coverage.sourceParityCertified,0);
+ for(const bad of [
+  {...h,sendPush:true},
+  {...h,symbolId:999},
+  {...h,gaps:[]},
+  {...h,barCount:3},
+  {...h,bars:[candle(0),candle(1)]},
+  {...h,bars:[{...candle(0),apiKey:"private"},candle(3)]},
+  {...h,bars:[candle(0),{...candle(3),closedAtMs:start+3000000}]}
+ ]) {
+   assert.throws(()=>auditSanitizedCtraderProbe({
+    snapshot:{...snapshot(),historicalM5:bad},account,approvedMappings
+   }),/CTRADER_PROBE_/);
+ }
+});
