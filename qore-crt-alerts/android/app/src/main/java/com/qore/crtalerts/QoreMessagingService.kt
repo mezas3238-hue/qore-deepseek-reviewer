@@ -18,6 +18,12 @@ class QoreMessagingService : FirebaseMessagingService() {
     }
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        // Hard block in QA, even for forged "certified" payloads.
+        if (!BuildConfig.STAGING_NOTIFICATIONS_ENABLED) return
+        // A future permitted data-only FCM message MUST carry the original
+        // closed-bar confirmation and exact 4-hour expiry. No stale pushes.
+        val expiry = QaFourHourAlertPolicy.check(message.data, System.currentTimeMillis())
+        if (!expiry.accepted) return
         val result = NotificationPolicy.evaluate(
             message.data, BuildConfig.STAGING_NOTIFICATIONS_ENABLED
         )
@@ -43,8 +49,16 @@ class QoreMessagingService : FirebaseMessagingService() {
         // family because a different family has the same timestamp.
         val scopedEventId = eventId + "|" + (result.family ?: "")
         val memory = getSharedPreferences("crt_staging_seen", MODE_PRIVATE)
-        if (memory.getBoolean(scopedEventId, false)) return
-        if (!memory.edit().putBoolean(scopedEventId, true).commit()) return
+        val nowMs = System.currentTimeMillis()
+        val previouslySeenUntil = memory.all[scopedEventId] as? Long ?: 0L
+        if (previouslySeenUntil > nowMs) return
+        // Do not retain historical event identifiers for 7/30 days or
+        // indefinitely. At each new alert, remove expired dedup entries.
+        val cleanup = memory.edit()
+        for ((key, value) in memory.all) {
+            if ((value is Long && value <= nowMs) || value is Boolean) cleanup.remove(key)
+        }
+        if (!cleanup.putLong(scopedEventId, expiry.expiresAtMs!!).commit()) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "qore_crt_staging"
         if (Build.VERSION.SDK_INT >= 26) {
@@ -65,6 +79,11 @@ class QoreMessagingService : FirebaseMessagingService() {
                 .setStyle(Notification.BigTextStyle().bigText(
                     if (result.eventType != null) preview.expanded
                     else "MSS M15 • STAGING"))
-                .setAutoCancel(true).build())
+                .setAutoCancel(true)
+                .apply {
+                    if (Build.VERSION.SDK_INT >= 26)
+                        setTimeoutAfter(expiry.remainingMs)
+                }
+                .build())
     }
 }
