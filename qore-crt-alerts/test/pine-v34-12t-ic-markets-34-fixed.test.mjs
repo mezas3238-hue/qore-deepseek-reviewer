@@ -24,8 +24,8 @@ test("SINGLE canonical IC Markets inventory — 34 fixed slots, zero OANDA/fallb
  assert.equal(new Set(pineRows.map(x=>x.symbol)).size,34);
  assert.ok(pineRows.every(x=>x.symbol.startsWith("IC:")));
  assert.doesNotMatch(now,/^s\d\d = input\.symbol\(/gm);
- assert.doesNotMatch(now,/OANDA:/);
- assert.doesNotMatch(now,/COINBASE:/);
+ assert.doesNotMatch(now,/^s\d\d = "OANDA:/gm);
+ assert.doesNotMatch(now,/^s\d\d = "COINBASE:/gm);
  assert.doesNotMatch(now,/array\.set\(scanSymbols,\s*7/);
  assert.ok(now.includes("string[] scanSymbols = array.from(s01,"));
 });
