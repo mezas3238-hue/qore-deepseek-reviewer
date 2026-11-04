@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit
 internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
     data class Input(val clientId: String, val clientSecret: String,
                      val viewAccessToken: String, val demoAccountId: Long,
-                     val symbolId: Long)
+                     val brokerSymbolName: String)
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)
@@ -51,13 +51,15 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
         if (ended) return
         if (input.clientId.isBlank() || input.clientSecret.isBlank() ||
             input.viewAccessToken.isBlank() ||
-            input.demoAccountId <= 0L || input.symbolId <= 0L) {
+            input.demoAccountId <= 0L ||
+            !Regex("^[A-Za-z0-9_.:-]{3,80}$").matches(input.brokerSymbolName)) {
             finish("Faltan credenciales DEMO de solo lectura")
             return
         }
         status("Conectando a cTrader DEMO desde tu teléfono")
         var state = 0
         var sequence = 0
+        var selectedSymbolId: Long? = null
         fun send(ws: WebSocket, kind: Int, data: JSONObject) {
             if (kind !in types || ended) return
             sequence++
@@ -84,8 +86,9 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                             return
                         }
                         if (kind !in setOf(2101, 2150, 2103, 2115, 2138)) return
-                        val body = envelope.optJSONObject("payload")
-                            ?: throw IllegalArgumentException("payload")
+                        val body = envelope.optJSONObject("payload") ?:
+                            if (kind == 2101) JSONObject()
+                            else throw IllegalArgumentException("payload")
                         when (state) {
                             0 -> {
                                 if (kind != 2101) throw IllegalArgumentException("sequence")
@@ -134,16 +137,20 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                                 var found = 0
                                 for (i in 0 until symbols.length()) {
                                     val s = symbols.optJSONObject(i) ?: continue
-                                    if (readId(s, "symbolId") == input.symbolId &&
-                                        s.opt("enabled") == true) found++
+                                    if (s.optString("symbolName", "") == input.brokerSymbolName &&
+                                        s.opt("enabled") == true) {
+                                        selectedSymbolId = readId(s, "symbolId")
+                                        found++
+                                    }
                                 }
-                                if (found != 1) throw IllegalArgumentException("symbol unavailable")
+                                if (found != 1 || selectedSymbolId == null)
+                                    throw IllegalArgumentException("symbol unavailable")
                                 state = 4
                                 status("Símbolo activo. Solicitando 500 velas M5 históricas.")
                                 val now = System.currentTimeMillis()
                                 send(ws, 2137, JSONObject()
                                     .put("ctidTraderAccountId", input.demoAccountId.toString())
-                                    .put("symbolId", input.symbolId.toString())
+                                    .put("symbolId", selectedSymbolId.toString())
                                     .put("period", 5)
                                     .put("count", 500)
                                     .put("fromTimestamp", (now - 72L*3600000L).toString())
@@ -152,7 +159,7 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
                             4 -> {
                                 if (kind != 2138 ||
                                     readId(body, "ctidTraderAccountId") != input.demoAccountId ||
-                                    readId(body, "symbolId") != input.symbolId)
+                                    readId(body, "symbolId") != selectedSymbolId)
                                     throw IllegalArgumentException("trendbar identity")
                                 val period = body.opt("period")
                                 if (period != 5 && period != "5" && period != "M5")
