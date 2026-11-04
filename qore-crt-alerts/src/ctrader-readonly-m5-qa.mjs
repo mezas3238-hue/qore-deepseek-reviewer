@@ -14,7 +14,7 @@ const allowedRequests=Object.freeze(new Set([
 const freeze=x=>Object.freeze(x);
 const pos=x=>Number.isSafeInteger(x)&&x>0;
 const plain=x=>x && typeof x==="object" && !Array.isArray(x);
-const name=x=>typeof x==="string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(x);
+const name=x=>typeof x==="string" && /^[A-Za-z0-9_./:-]{1,80}$/.test(x);
 const int=x=>{
   if(typeof x==="number" && Number.isSafeInteger(x)) return x;
   if(typeof x==="string" && /^(0|[1-9][0-9]*)$/.test(x)) {
