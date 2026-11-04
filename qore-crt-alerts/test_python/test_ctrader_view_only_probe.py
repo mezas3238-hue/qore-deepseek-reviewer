@@ -65,7 +65,7 @@ class TestViewOnlyGate(unittest.TestCase):
     def test_no_trading_orders_or_live_host(self):
         self.assertEqual(DEMO_HOST, "demo.ctraderapi.com")
         self.assertEqual(PROTOBUF_TLS_PORT, 5035)
-        self.assertEqual(len(ALLOWED_REQUESTS), 4)
+        self.assertEqual(len(ALLOWED_REQUESTS), 5)
         self.assertFalse(any(
             text in request
             for request in ALLOWED_REQUESTS
