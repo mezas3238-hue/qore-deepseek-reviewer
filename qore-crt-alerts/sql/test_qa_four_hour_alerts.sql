@@ -4,21 +4,21 @@ BEGIN;
 DO $test$
 DECLARE
   event_time_ms BIGINT;
-  event_key TEXT;
+  test_key TEXT;
   p JSONB;
   r TEXT;
   count_rows INTEGER;
   expiry_seconds DOUBLE PRECISION;
 BEGIN
   event_time_ms:=floor(extract(epoch from transaction_timestamp())*1000)::BIGINT - 60000;
-  event_key:='IC|USDCAD|1793336400000|1|CRT_OBSERVED|'||event_time_ms;
+  test_key:='IC|USDCAD|1793336400000|1|CRT_OBSERVED|'||event_time_ms;
   p:=jsonb_build_object(
    'schema','QORE_CRT_MONITOR_QA_V2','mode','OFFLINE_REPLAY',
    'certification','NOT_VERIFIED','transport','DISABLED',
    'deliveryState','BLOCKED_NOT_CERTIFIED','sendPush',false,
    'actionable',false,'requiresRealFeedAndPineParity',true,
    'tvSymbol','IC:USDCAD','instrumentId','USDCAD',
-   'eventId',event_key,'family','CRT_2C_RETURN',
+   'eventId',test_key,'family','CRT_2C_RETURN',
    'eventType','CRT_OBSERVED','eventAtMs',event_time_ms
   );
   r:=qore_crt_alerts.qa_stage_4h_alert(p);
@@ -27,7 +27,7 @@ BEGIN
   END IF;
   SELECT extract(epoch FROM expires_at-confirmed_at)
     INTO expiry_seconds FROM qore_crt_alerts.qa_alerts_4h
-   WHERE event_key=event_key AND family='CRT_2C_RETURN';
+   WHERE event_key=test_key AND family='CRT_2C_RETURN';
   IF expiry_seconds<>14400 THEN
     RAISE EXCEPTION 'TTL must be exactly 14400 seconds, got %',expiry_seconds;
   END IF;
@@ -60,7 +60,7 @@ BEGIN
   END;
 
   r:=qore_crt_alerts.qa_invalidate_4h_alert(
-    event_key,'CRT_2C_RETURN','STRUCTURE_INVALIDATED');
+    test_key,'CRT_2C_RETURN','STRUCTURE_INVALIDATED');
   IF r<>'QA_INVALIDATED_EARLY' THEN
     RAISE EXCEPTION 'early invalidation must succeed: %',r;
   END IF;
@@ -68,7 +68,7 @@ BEGIN
    WHERE expires_at>transaction_timestamp() AND invalidated_at IS NULL;
   IF count_rows<>0 THEN RAISE EXCEPTION 'invalid event remained active'; END IF;
   r:=qore_crt_alerts.qa_invalidate_4h_alert(
-    event_key,'CRT_2C_RETURN','STRUCTURE_INVALIDATED');
+    test_key,'CRT_2C_RETURN','STRUCTURE_INVALIDATED');
   IF r<>'QA_ALREADY_INVALIDATED' THEN
     RAISE EXCEPTION 'must keep invalidated tombstone until expiry: %',r;
   END IF;
@@ -80,13 +80,13 @@ BEGIN
 
   -- Expired event is not inserted and cannot be queried as active.
   r:=qore_crt_alerts.qa_stage_4h_alert(
-    p || jsonb_build_object('eventId',event_key||'|OLD',
+    p || jsonb_build_object('eventId',test_key||'|OLD',
          'eventAtMs', event_time_ms-18000000));
   IF r<>'QA_EXPIRED_OR_FUTURE_NOT_RECORDED' THEN
     RAISE EXCEPTION 'past expiry must be rejected: %',r;
   END IF;
   r:=qore_crt_alerts.qa_stage_4h_alert(
-    p || jsonb_build_object('eventId',event_key||'|FUTURE',
+    p || jsonb_build_object('eventId',test_key||'|FUTURE',
          'eventAtMs', event_time_ms+7200000));
   IF r<>'QA_EXPIRED_OR_FUTURE_NOT_RECORDED' THEN
     RAISE EXCEPTION 'future close must be rejected: %',r;
@@ -96,15 +96,13 @@ BEGIN
   UPDATE qore_crt_alerts.qa_alerts_4h
      SET confirmed_at=transaction_timestamp()-INTERVAL '5 hours',
          expires_at=transaction_timestamp()-INTERVAL '1 hour'
-   WHERE event_key=event_key AND family='CRT_2C_RETURN';
+   WHERE event_key=test_key AND family='CRT_2C_RETURN';
   IF qore_crt_alerts.qa_purge_4h_alerts()<>1 THEN
     RAISE EXCEPTION 'expired event was not physically purged';
   END IF;
   SELECT count(*) INTO count_rows FROM qore_crt_alerts.qa_alerts_4h;
   IF count_rows<>0 THEN RAISE EXCEPTION 'expired event retained'; END IF;
 
-  IF (SELECT delivery_state FROM qore_crt_alerts.qa_alerts_4h LIMIT 1)
-     IS NOT NULL THEN NULL; END IF;
   RAISE NOTICE 'QA FOUR-HOUR TTL / invalidation / dedup / purging PASS';
 END;
 $test$;
