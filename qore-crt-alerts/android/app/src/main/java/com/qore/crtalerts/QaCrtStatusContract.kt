@@ -16,17 +16,18 @@ internal object QaCrtStatusContract {
     private fun fail(reason: String) = Result(false, reason)
     private val marketSources = listOf(
         "IC:AUDJPY","IC:GBPUSD","IC:GBPJPY","IC:XAUUSD",
-        "OANDA:NAS100USD","IC:US500","IC:US30","IC:BTCUSD",
+        "IC:USTEC","IC:US500","IC:US30","IC:BTCUSD",
         "IC:AUDUSD","IC:USDCAD","IC:USDJPY","IC:EURUSD",
         "IC:USDCHF","IC:NZDUSD","IC:NZDJPY","IC:NZDCHF",
         "IC:XAGUSD","IC:AUDCAD","IC:AUDCHF","IC:AUDNZD",
         "IC:CADCHF","IC:CADJPY","IC:CHFJPY","IC:EURAUD",
-        "IC:EURCAD","OANDA:EURCHF","OANDA:EURGBP","IC:EURJPY",
-        "OANDA:EURNZD","IC:GBPAUD","IC:GBPCAD","OANDA:GBPCHF",
+        "IC:EURCAD","IC:EURCHF","IC:EURGBP","IC:EURJPY",
+        "IC:EURNZD","IC:GBPAUD","IC:GBPCAD","IC:GBPCHF",
         "IC:GBPNZD","IC:NZDCAD"
     )
     private val families = setOf(
         "CRT_2C_RETURN","CRT_3C_TRUE","INSIDE_RETURN",
+        "INSIDE_CONTINUATION_REJECTED",
         "MULTI4","MULTI_N","M15_RETEST"
     )
     private val kinds = setOf("CRT_OBSERVED","MSS_M5_OBSERVED","MSS_M15_OBSERVED")
