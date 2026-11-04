@@ -28,8 +28,8 @@ IC Markets cTrader DEMO (Open API, credencial owner y alcance accounts/view-only
       ↓ velas M5/cotizaciones y timestamp de cierre, 34 símbolos reales mapeados
 Railway: worker persistente de datos + replay determinista C1/C2/C3 + MSS
       ↓ evento QA idempotente, evidencia OHLC, estado de certificación
-Supabase PostgreSQL (auditoría persistente, RLS, eventos, entregas)
-      ├─ Supabase Realtime → interfaz Android mientras está conectada
+Supabase PostgreSQL (alertas TEMPORALES con vigencia máxima de 4h, RLS y entrega)
+      ├─ Supabase Realtime → alertas vigentes en interfaz Android
       └─ outbox + emisor server-side FCM → notificación Android con app cerrada
 ```
 
@@ -40,15 +40,28 @@ Supabase PostgreSQL (auditoría persistente, RLS, eventos, entregas)
 - Para 34 fuentes, consolidar una conexión autorizada / suscripciones y reconexión con heartbeats y límites oficiales. En cTrader **solo DEMO, accounts scope, SCOPE_VIEW**; NO `SCOPE_TRADE`, no órdenes, no lotes ni acceso a LIVE.
 - Supabase Edge Functions sirven para tareas breves; no reemplazan cómodamente a un worker persistente de 24/7 con WebSocket por sus límites de ejecución.
 
+## Directiva Owner vigente: alertas de 4 horas (sustituye 24h, 7d, 30d e indefinido)
+
+**Regla obligatoria:** `expires_at = confirmed_at + interval '4 hours'`. El reloj empieza en la **confirmación causal del evento por cierre de vela**; no en la apertura del móvil ni en el momento de entrega. La vigencia efectiva termina en el primero de estos acontecimientos: vencimiento de 4h o invalidación de la estructura original.
+
+- Vigencia: evento **activo** solo mientras `now() < expires_at` y `invalidated_at IS NULL`, usando timestamps UTC. Si llega tarde al servidor y ya venció, se descarta, no se renueva.
+- **No equiparar cuatro horas con permiso para entrar:** cada modelo debe tener además un estado `actionable` causal y propio; ese estado puede pasar a falso mucho antes de las 4h por invalidación CRT/MSS, barrida contraria o condiciones ya no vigentes. La alerta es informativa/QA hasta certificación; no ejecuta órdenes.
+- Railway: validar vigencia e invalidación **antes de insertar en outbox y justo antes de cada envío FCM**. TTL FCM máximo `14400` segundos, ajustado al **tiempo restante** real hasta `expires_at`, nunca cuatro horas nuevas después de procesarla; no reenviar tras vencimiento. Un push ya visible en el sistema operativo puede persistir hasta que el usuario o Android lo retire; dentro de la app debe mostrarse como vencido/no accionable y dejar de aparecer entre las alertas activas.
+- Supabase: consultas/RLS y API solo entregan activas; trabajo periódico purga filas y outbox expirados. **La purga no es el mecanismo de expiración:** la condición `expires_at > now()` lo es, aun si la limpieza se retrasa.
+- Android: reconciliar fecha UTC de expiración recibida del servidor, descartar notificaciones caducadas al abrir/reconectar y no descargar eventos vencidos; evitar duplicados usando `event_key`. No conservar registros de alertas 7d/30d o indefinidamente.
+- Un evento diferente MSS M5 o M15 puede generar su **propia alerta**, con `confirmed_at` y plazo de 4h independientes, sin prorrogar artificialmente la alerta CRT anterior.
+
+**Estado:** directiva documentada en GitHub; NO se han desplegado aún backend Railway, tablas Supabase, FCM ni alertas LIVE.
+
 ## Modelo de eventos propuesto (NO desplegado)
 
 Tabla privada / RLS de solo lectura al usuario Owner `crt_event_ledger`:
 
-`id` (UUID), `event_key` (UNIQUE determinista), `feed='IC'`, `symbol`, `source_symbol_id`, `session_anchor`, `family`, `direction`, `event_type`, `c1_open_at`, `bar_closed_at`, `timeframe`, `sweep_price`, `crh`, `crl`, `mss_m5_at`, `mss_m15_at`, `pdh_price`, `pdl_price`, `pdh_taken`, `pdl_taken`, `fvg_top`, `fvg_bottom`, `fvg_status`, `source_quality`, `qa_status`, `replay_hash`, `created_at`.
+`id` (UUID), `event_key` (UNIQUE determinista), `feed='IC'`, `symbol`, `source_symbol_id`, `session_anchor`, `family`, `direction`, `event_type`, `c1_open_at`, `bar_closed_at`, `timeframe`, `sweep_price`, `crh`, `crl`, `mss_m5_at`, `mss_m15_at`, `pdh_price`, `pdl_price`, `pdh_taken`, `pdl_taken`, `fvg_top`, `fvg_bottom`, `fvg_status`, `source_quality`, `qa_status`, `replay_hash`, `confirmed_at`, `expires_at`, `invalidated_at`, `created_at`.
 
-Una fila por hecho confirmado y fuente; `event_key` combina broker, instrumento, familia, C1, timeframe, tipo de evento y cierre de vela, con unicidad transaccional para evitar duplicados al reconectar. No comparar IDs de tickers de brokers distintos. Tabla `notification_outbox` con `event_key`, `recipient_id`, `delivery_state`, `attempts`, `last_error`, `sent_at`. Tokens FCM almacenados de forma protegida y vinculados a usuario/dispositivo.
+Una fila por hecho confirmado y fuente; `event_key` combina broker, instrumento, familia, C1, timeframe, tipo de evento y cierre de vela, con unicidad transaccional para evitar duplicados al reconectar. No comparar IDs de tickers de brokers distintos. Tabla `notification_outbox` con `event_key`, `recipient_id`, `delivery_state`, `attempts`, `last_error`, `sent_at`, `expires_at`. El emisor verifica vigencia justo antes de enviar. Tokens FCM almacenados de forma protegida y vinculados a usuario/dispositivo.
 
-**Seguridad:** RLS en tablas expuestas; nadie en Android recibe la clave service-role/secret. Solo el backend puede insertar eventos; el usuario autenticado lee únicamente sus eventos. Realtime por canales privados con autorización. Historial permanente en Postgres (Realtime NO reemplaza persistencia); el móvil consulta pendientes en reconexión. Auditoría de identidad fuente, cierre M5 y certif. antes de cualquier notificación real.
+**Seguridad:** RLS en tablas expuestas; nadie en Android recibe la clave service-role/secret. Solo el backend puede insertar eventos; el usuario autenticado lee únicamente sus eventos. Realtime por canales privados con autorización. Registro temporal máximo de 4h en Postgres; el móvil consulta solo alertas vigentes en reconexión, filtrando expires_at > now(). La purga física periódica complementa el filtro inmediato de caducidad. Auditoría de identidad fuente, cierre M5 y certif. antes de cualquier notificación real.
 
 ## Secuencia de implementación (aún NO autorizada para desplegar)
 
@@ -58,9 +71,9 @@ G1 — Cliente IC cTrader Open API, lectura M5 de **un** símbolo demo, inventar
 
 G2 — Replay M5→H4 y MSS M5/M15 de todo el conjunto congelado; validar que Node/Railway y Pine coinciden evento por evento, con el mismo contrato por familia. Rechazar eventos sin evidencia, no “reparar” bajo cap mediante invención.
 
-G3 — Crear tablas/Postgres RLS y endpoint autenticado para eventos QA; upsert idempotente, reintentos y métricas, pruebas de fallo/reinicio/recovery.
+G3 — Crear tablas/Postgres RLS y endpoint autenticado para eventos QA vigentes 4h; upsert idempotente, vencimiento e invalidación anticipada, reintentos acotados al TTL, limpieza y pruebas de reconexión.
 
-G4 — Android: lista de eventos persistente, Supabase Realtime mientras conectada, FCM desde backend cuando cerrada. Activar notificaciones reales **solo tras** certificación de M5/H4, consentimiento Owner y evidencia de entrega.
+G4 — Android: lista de eventos vigentes hasta 4h; Supabase Realtime mientras conectada y FCM desde backend cuando cerrada, sin recuperación de eventos vencidos. Activar notificaciones reales **solo tras** certificación de M5/H4, consentimiento Owner y evidencia de entrega.
 
 G5 — Extender 1→34 instrumentos, siete familias, MSScausales, sin permitir un nuevo proveedor automático ni reemplazar slots radar.
 
