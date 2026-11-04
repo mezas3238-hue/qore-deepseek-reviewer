@@ -69,7 +69,10 @@ test("WSS inventory probe only sends auth and READ-ONLY symbols request",async()
  });
  assert.equal(result.state,"INVENTORY_QA_ONLY");
  assert.equal(result.count,1);
- assert.deepEqual(result.symbolNames,["EURUSD"]);
+ assert.deepEqual(result.symbols,[{symbolId:77,symbolName:"EURUSD",enabled:true}]);
+ assert.equal(result.exactNameCandidates,1);
+ assert.equal(result.ambiguousNameCandidates,0);
+ assert.equal(result.pendingOwnerApproval,34);
  assert.deepEqual(WssFake.sent,[2100,2149,2102,2114]);
  assert.ok(!JSON.stringify(result).includes("fake_view_token"));
  assert.ok(!JSON.stringify(result).includes("never_print_secret"));
