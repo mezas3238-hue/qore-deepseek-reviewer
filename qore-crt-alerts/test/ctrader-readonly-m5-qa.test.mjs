@@ -115,6 +115,9 @@ test("decode exact relative OHLC to M5, with explicit source close evidence",()=
  assert.throws(()=>candle(t,{trendbar:{...raw(t),period:"M1"}}),/UNAPPROVED_BINDING|NOT_PROVEN_CLOSED/);
  assert.throws(()=>candle(t,{binding:{...binding,ownerApproved:false}}),/UNAPPROVED/);
  assert.throws(()=>candle(t,{trendbar:{...raw(t),deltaHigh:100}}),/RELATIVE_OHLC/);
+ assert.throws(()=>candle(t,{trendbar:{...raw(t),low:0}}),/RELATIVE_OHLC/);
+ assert.throws(()=>candle(t,{trendbar:{...raw(t),
+  low:Number.MAX_SAFE_INTEGER}}),/RELATIVE_OHLC/);
  assert.throws(()=>candle(t,{trendbar:{...raw(t),utcTimestampInMinutes:"abc"}}),/RELATIVE_OHLC/);
 });
 test("native phases 0..4 are preserved, never coerced to zero",()=>{
