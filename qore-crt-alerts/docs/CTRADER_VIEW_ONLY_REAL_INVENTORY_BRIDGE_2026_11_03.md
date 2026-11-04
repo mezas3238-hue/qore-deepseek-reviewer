@@ -34,3 +34,13 @@ El segundo archivo debe ser una lista de mapeos `instrumentId`, `tvSymbol`, `sym
 - https://help.ctrader.com/open-api/account-authentication/
 - https://help.ctrader.com/open-api/symbol-data/
 - https://help.ctrader.com/open-api/python-SDK/python-sdk-index/
+
+## Extensión: una muestra histórica M5 del mismo broker (QA)
+
+Tras ejecutar una primera vez y ver los `symbolId` habilitados, se puede fijar localmente `QORE_CT_SAMPLE_SYMBOL_ID` a **uno de esos IDs**. El mismo proceso autorizara una consulta `ProtoOAGetTrendbarsReq`, periodo numérico 5, últimas 72 horas y máximo 1000 barras. No cambia el token OAuth ni accede al endpoint LIVE.
+
+- `ctrader_probe/closed_m5.py`: exige cuenta y símbolo coincidentes, periodo M5, timestamps UTC enteros, OHLC relativa consistente, fase nativa estable; **ignora la vela abierta** y registra cualquier salto M5 sin rellenar huecos.
+- `src/ctrader-probe-coverage-qa.mjs`: valida el reporte opcional `historicalM5` incluyendo cada cierre, fase y huecos, y solo publica un resumen `sampleM5QA` con `barCount`/`gapCount`. Siempre `certified:false`, `sendPush:false`.
+- `test_python/test_ctrader_closed_m5.py` y `test/ctrader-probe-coverage-qa.test.mjs`: pruebas sintéticas offline, no prueba de acceso a broker.
+
+El muestreo usa un solo símbolo expresamente seleccionado; no autoriza la suscripción de los 34 mercados ni la paridad con TradingView. La respuesta cTrader puede tener huecos si no hubo ticks; se reportan, no se ocultan. Los archivos de datos siguen siendo privados y no deben añadirse a GitHub.
