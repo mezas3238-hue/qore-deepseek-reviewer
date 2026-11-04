@@ -19,7 +19,7 @@ const isObject=v=>v!==null&&typeof v==="object"&&!Array.isArray(v);
 const safeInt=v=>typeof v==="number"&&Number.isSafeInteger(v)&&v>0
   ?v:typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v)&&
     Number.isSafeInteger(Number(v))?Number(v):null;
-const safeName=v=>typeof v==="string"&&/^[a-zA-Z0-9_ .:-]{1,80}$/.test(v);
+const safeName=v=>typeof v==="string"&&/^[a-zA-Z0-9_ ./:-]{1,80}$/.test(v);
 const secret=v=>typeof v==="string"&&v.length>=4&&v.length<=4096&&
   !/[\r\n]/.test(v);
 const held=(reason)=>Object.freeze({state:"HELD",reason,
