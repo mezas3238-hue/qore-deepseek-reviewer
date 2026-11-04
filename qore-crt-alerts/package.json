@@ -13,6 +13,7 @@
     "parity:events": "node scripts/compare-seven-events.mjs",
     "audit:33-h4": "node scripts/audit-33-h4.mjs",
     "certify:seven:qa": "node scripts/certify-seven-roles.mjs",
-    "audit:ctrader-demo": "node scripts/qa-ctrader-demo-inventory.mjs"
+    "audit:ctrader-demo": "node scripts/qa-ctrader-demo-inventory.mjs",
+    "audit:ctrader-viewonly-34": "node scripts/qa-ctrader-viewonly-34.mjs"
   }
 }
