@@ -11,14 +11,18 @@ internal object NotificationPolicy {
                         val eventId: String? = null, val instrument: String? = null,
                         val direction: String? = null, val family: String? = null,
                         val eventType: String? = null,
-                        val mssM5: String? = null, val mssM15: String? = null)
+                        val mssM5: String? = null, val mssM15: String? = null,
+                        val tvSymbol: String? = null,
+                        val mssM5AtMs: Long? = null, val mssM5Price: String? = null,
+                        val mssM15AtMs: Long? = null, val mssM15Price: String? = null)
 
     fun evaluate(data: Map<String, String>, buildEnabled: Boolean): Decision {
         if (!buildEnabled) return Decision(false, "BUILD_LOCKED")
         if (data["schema"] == "QORE_CRT_STAGING_V2") {
             val v=QaCrtStatusContract.check(data)
             return Decision(v.ok,v.reason,v.eventId,v.instrument,v.direction,
-                v.family,v.eventType,v.mssM5,v.mssM15)
+                v.family,v.eventType,v.mssM5,v.mssM15,v.tvSymbol,
+                v.mssM5AtMs,v.mssM5Price,v.mssM15AtMs,v.mssM15Price)
         }
         if (data["schema"] != "QORE_CRT_STAGING_V1")
             return Decision(false, "UNKNOWN_SCHEMA")
