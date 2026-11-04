@@ -15,7 +15,7 @@ test("U is complete standalone source; no truncation at UDT",()=>{
  assert.ok(u.includes("f_engine() =>"));
  assert.ok(u.includes("Signal.new("));
  assert.ok(u.includes("f_chartH4Fvgs(int depth) =>"));
- assert.ok(u.includes("f_renderDashboard"));
+ assert.ok(u.includes("table.cell(board"));
  assert.ok(u.includes("line.delete(pdlChartLine)"));
  assert.ok(u.endsWith("\n"));
  assert.ok(u.split("\n").length>3400);
