@@ -126,7 +126,8 @@ export function normalizeClosedCtraderTrendbar({
   const t=int(trendbar?.utcTimestampInMinutes), low=int(trendbar?.low);
   const dh=int(trendbar?.deltaHigh),do_=int(trendbar?.deltaOpen),
     dc=int(trendbar?.deltaClose);
-  if(!pos(t)||low===null||low<0||[dh,do_,dc].some(v=>v===null||v<0)||
+  if(!pos(t)||low===null||low<=0||[dh,do_,dc].some(v=>v===null||v<0)||
+      ![low+dh,low+do_,low+dc].every(Number.isSafeInteger)||
       dh<do_||dh<dc)
     throw Error("CTRADER_M5_INVALID_RELATIVE_OHLC");
   const openedAt=t*60_000,closedAt=openedAt+M5_MS;
