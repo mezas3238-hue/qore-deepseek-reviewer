@@ -39,9 +39,12 @@ class QoreMessagingService : FirebaseMessagingService() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) return
         val eventId = result.eventId ?: return
+        // The eventId V2 wire format lacks family. Never suppress one CRT
+        // family because a different family has the same timestamp.
+        val scopedEventId = eventId + "|" + (result.family ?: "")
         val memory = getSharedPreferences("crt_staging_seen", MODE_PRIVATE)
-        if (memory.getBoolean(eventId, false)) return
-        if (!memory.edit().putBoolean(eventId, true).commit()) return
+        if (memory.getBoolean(scopedEventId, false)) return
+        if (!memory.edit().putBoolean(scopedEventId, true).commit()) return
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         val channelId = "qore_crt_staging"
         if (Build.VERSION.SDK_INT >= 26) {
@@ -53,7 +56,7 @@ class QoreMessagingService : FirebaseMessagingService() {
             Notification.Builder(this, channelId)
         else Notification.Builder(this)
         val preview = QaCrtNotificationText.render(result)
-        manager.notify(eventId.hashCode(),
+        manager.notify(scopedEventId.hashCode(),
             notification.setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(if (result.eventType != null)
                     preview.title else "QORE CRT • " + result.instrument)
