@@ -212,7 +212,7 @@ class MainActivity : Activity() {
             .apply { setPadding(0, 36, 0, 8) })
         root.addView(label(
             "Sin VPS. Prueba puntual con la app abierta, permiso accounts / SCOPE_VIEW. " +
-            "Consulta un symbolId real del broker, nunca activa órdenes ni alertas. " +
+            "Consulta un símbolo exacto del broker, nunca activa órdenes ni alertas. " +
             "Las credenciales se escriben solo en tu teléfono y no se guardan.",
             13f, muted
         ))
@@ -239,7 +239,9 @@ class MainActivity : Activity() {
         val clientSecretField = phoneField("Client Secret · solo en este teléfono", true)
         val tokenField = phoneField("Token OAuth accounts · solo lectura", true)
         val accountField = phoneField("ctidTraderAccountId DEMO", number = true)
-        val symbolField = phoneField("symbolId numérico de UN mercado", number = true)
+        val symbolField = phoneField("Símbolo EXACTO cTrader (ej. BTCUSD)").apply {
+            setText("BTCUSD")
+        }
         phonePanel.addView(clientIdField)
         phonePanel.addView(clientSecretField)
         phonePanel.addView(tokenField)
@@ -260,16 +262,16 @@ class MainActivity : Activity() {
             isAllCaps = false
             setOnClickListener {
                 val accountId = accountField.text.toString().toLongOrNull()
-                val symbolId = symbolField.text.toString().toLongOrNull()
-                if (accountId == null || symbolId == null ||
-                    accountId <= 0L || symbolId <= 0L) {
-                    phoneStatus.text = "Cuenta DEMO y symbolId deben ser números positivos."
+                val symbolName = symbolField.text.toString().trim()
+                if (accountId == null || accountId <= 0L ||
+                    !Regex("^[A-Za-z0-9_.:-]{3,80}$").matches(symbolName)) {
+                    phoneStatus.text = "Cuenta DEMO numérica y símbolo válido del broker requeridos."
                 } else {
                     val credentials = CtraderMobileReadOnceQa.Input(
                         clientIdField.text.toString().trim(),
                         clientSecretField.text.toString(),
                         tokenField.text.toString(),
-                        accountId, symbolId
+                        accountId, symbolName
                     )
                     // Clear the visible secret text immediately after user action.
                     clientSecretField.text.clear()
