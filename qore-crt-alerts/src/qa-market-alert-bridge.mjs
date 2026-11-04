@@ -10,7 +10,7 @@ const families = new Set([
 ]);
 const positive = x => Number.isSafeInteger(x) && x > 0;
 const key = ({tvSymbol,instrumentId,c1StartMs,direction,kind,at}) =>
-  [tvSymbol,instrumentId,c1StartMs,direction,kind,at].join("|");
+  [tvSymbol.split(":")[0],instrumentId,c1StartMs,direction,kind,at].join("|");
 const freeze = x => Object.freeze(x);
 const make = (ctx,kind,at,m5,m15) => freeze({
   schema:"QORE_CRT_MONITOR_QA_V2",mode:"OFFLINE_REPLAY",

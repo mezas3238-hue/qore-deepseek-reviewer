@@ -59,3 +59,13 @@ test("QA inbox deduplicates retransmissions and quarantines contradictory events
  assert.throws(()=>inbox.record({...a,sendPush:true}));
  assert.throws(()=>inbox.record({...a,certification:"STAGING_APPROVED"}));
 });
+
+test("wire event identity is exactly backend broker prefix expected by Android V2",()=>{
+ const a=buildBlockedCrtMssInboxEvents(good());
+ assert.equal(a[0].eventId,
+  "IC|USDCAD|"+c1+"|1|CRT_OBSERVED|"+rat);
+ assert.equal(a[1].eventId,
+  "IC|USDCAD|"+c1+"|1|MSS_M5_OBSERVED|"+m5At);
+ assert.equal(a[2].eventId,
+  "IC|USDCAD|"+c1+"|1|MSS_M15_OBSERVED|"+m15At);
+});
