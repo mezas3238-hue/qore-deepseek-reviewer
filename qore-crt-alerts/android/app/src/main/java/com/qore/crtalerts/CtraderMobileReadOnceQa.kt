@@ -47,6 +47,31 @@ internal class CtraderMobileReadOnceQa(private val status: (String) -> Unit) {
         payload.opt(key)?.toString()?.toLongOrNull()?.takeIf { it >= 0L }
             ?: throw IllegalArgumentException("invalid OHLC")
 
+    /** Tests TLS/WebSocket reachability without requesting any account data. */
+    fun testNetworkOnly() {
+        if (ended) return
+        status("Comprobando canal WebSocket DEMO desde el teléfono (sin credenciales)")
+        try {
+            socket = client.newWebSocket(
+                Request.Builder().url("wss://demo.ctraderapi.com:5036").build(),
+                object : WebSocketListener() {
+                    override fun onOpen(ws: WebSocket, response: Response) {
+                        finish("Conexión TLS/WebSocket DEMO disponible. " +
+                            "Aún sin autorización ni lecturas M5")
+                    }
+                    override fun onFailure(ws: WebSocket, t: Throwable, response: Response?) {
+                        finish("El teléfono no pudo conectar al WebSocket DEMO")
+                    }
+                    override fun onClosed(ws: WebSocket, code: Int, reason: String) {
+                        if (!ended) finish("El servidor cerró la conexión antes de responder")
+                    }
+                }
+            )
+        } catch (_: Exception) {
+            finish("No se pudo iniciar la prueba de conectividad")
+        }
+    }
+
     fun start(input: Input) {
         if (ended) return
         if (input.clientId.isBlank() || input.clientSecret.isBlank() ||
