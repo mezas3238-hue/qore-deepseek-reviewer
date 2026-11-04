@@ -140,7 +140,8 @@ export class CtraderDemoViewSessionQa {
     return this.#hold("CTRADER_SYMBOL_DIGITS_INVALID");
    this.#symbol=Object.freeze({symbolId:c.sampleSymbolId,
      brokerSymbolName:c.sampleSymbolName,digits:detail.digits,
-     brokerName:c.expectedBrokerTitle,ownerApproved:true});
+     brokerName:"IC",brokerTitleShort:c.expectedBrokerTitle,
+     ownerApproved:true});
    const stamp=this.#now();
    if(!Number.isSafeInteger(stamp)||stamp<=0)
     return this.#hold("CTRADER_CLOCK_INVALID");
