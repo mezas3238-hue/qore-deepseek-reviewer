@@ -83,7 +83,8 @@ export class CtraderDemoViewSessionQa {
   if(this.#state==="ACCOUNTS_PENDING"){
    // SCOPE_VIEW=0; optional proto3 default omission is NOT evidence.
    // No claiming view-only unless the API explicitly returns the scope.
-   if(p.permissionScope!==0)return this.#hold("CTRADER_SCOPE_VIEW_NOT_PROVEN");
+   if(p.permissionScope!==0&&p.permissionScope!=="SCOPE_VIEW")
+    return this.#hold("CTRADER_SCOPE_VIEW_NOT_PROVEN");
    if(!Array.isArray(p.ctidTraderAccount))return this.#hold("CTRADER_NO_ACCOUNTS");
    const accounts=p.ctidTraderAccount.filter(a=>
     isObject(a)&&safeInt(a.ctidTraderAccountId)===c.demoAccountId);
@@ -148,10 +149,12 @@ export class CtraderDemoViewSessionQa {
    return this.#message(VIEW_ONLY_TYPES.HISTORY,
     {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
      period:5,count:this.#maxBars,fromTimestamp:stamp-72*3600000,
-     toTimestamp:stamp},"HISTORY_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+     // Avoid querying the currently open M5 at any native phase (0..4m).
+     toTimestamp:stamp-300000},"HISTORY_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
   }
   if(this.#state==="HISTORY_PENDING"){
    if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
+     (p.period!==5&&p.period!=="M5")||
      (p.symbolId!==undefined&&safeInt(p.symbolId)!==c.sampleSymbolId)||
      !Array.isArray(p.trendbar)||p.trendbar.length>this.#maxBars)
     return this.#hold("CTRADER_HISTORY_SOURCE_INVALID");
