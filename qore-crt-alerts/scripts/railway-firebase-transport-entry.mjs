@@ -6,11 +6,14 @@ import {qaFirebaseBridgeConfig,createQaFirebaseTransportServer}
   from "../src/qa-firebase-transport-bridge.mjs";
 
 export async function createFirebaseAdminAdapters(env=process.env){
-  if(typeof env.QORE_FIREBASE_SERVICE_ACCOUNT_B64!=="string"||
-     env.QORE_FIREBASE_SERVICE_ACCOUNT_B64.length<100)
-    throw Error("FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED");
-  const decoded=Buffer.from(env.QORE_FIREBASE_SERVICE_ACCOUNT_B64,"base64")
-    .toString("utf8");
+  const decoded=(typeof env.QORE_FIREBASE_SERVICE_ACCOUNT_JSON==="string"&&
+     env.QORE_FIREBASE_SERVICE_ACCOUNT_JSON.length>100)?
+      env.QORE_FIREBASE_SERVICE_ACCOUNT_JSON:
+      (typeof env.QORE_FIREBASE_SERVICE_ACCOUNT_B64==="string"&&
+       env.QORE_FIREBASE_SERVICE_ACCOUNT_B64.length>100)?
+        Buffer.from(env.QORE_FIREBASE_SERVICE_ACCOUNT_B64,"base64").toString("utf8"):
+        null;
+  if(!decoded)throw Error("FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED");
   let json;
   try{json=JSON.parse(decoded);}catch{throw Error("INVALID_SERVICE_ACCOUNT_JSON");}
   if(json?.type!=="service_account"||
