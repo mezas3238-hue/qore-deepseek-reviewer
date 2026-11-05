@@ -1,6 +1,9 @@
 package com.qore.crtalerts
 
 import android.app.Activity
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -36,6 +39,39 @@ class QoreDashboardActivity : Activity() {
     private val amber = Color.rgb(232, 181, 93)
     private val red = Color.rgb(239, 155, 155)
     private val prefs by lazy { getSharedPreferences(QaConsentGate.PREFS, MODE_PRIVATE) }
+
+    private val qaNotificationPermissionCode = 4862
+    private var qaStatus = "Sin vinculación de Firebase QA."
+    private var qaStatusView: TextView? = null
+    private fun reportQaStatus(message: String) {
+        qaStatus = message
+        qaStatusView?.text = message
+    }
+    private fun beginQaEnrollment() {
+        if (!BuildConfig.QA_TEST_TRANSPORT_ENABLED) {
+            reportQaStatus("Prueba FCM bloqueada: faltan proyecto Firebase y URL HTTPS.")
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                qaNotificationPermissionCode)
+            return
+        }
+        QaDeviceTransport.enroll(this) { reportQaStatus(it) }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != qaNotificationPermissionCode) return
+        if (grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED)
+            QaDeviceTransport.enroll(this) { reportQaStatus(it) }
+        else reportQaStatus("Permiso Android denegado: no se activaron pruebas.")
+    }
 
     private var tab = 0
     private var examplesOpen = false
@@ -405,6 +441,15 @@ class QoreDashboardActivity : Activity() {
             12f, muted
         ), 7)
         append(page, notice)
+        append(page, button("Actualizar bandeja QA desde Railway") {
+            QaDeviceTransport.fetchQaInbox(this,
+                { message -> importStatus = message },
+                { rows ->
+                    imported = rows
+                    importStatus = "Bandeja QA sincronizada: " + rows.size + " eventos."
+                    open(2)
+                })
+        }, 12)
         append(page, text("Importar pruebas locales", 18f, white, true), 21)
         append(page, text(
             "Pega el JSON de /qa/v1/alerts. Las alertas vencen " +
@@ -509,6 +554,29 @@ class QoreDashboardActivity : Activity() {
             startActivity(Intent(this, MainActivity::class.java))
         }, 12)
         append(page, connectivity, 14)
+
+        val test = card()
+        append(test, text("Recepción de pruebas FCM", 18f, white, true))
+        statusLine(test, "Estado", if (BuildConfig.QA_TEST_TRANSPORT_ENABLED)
+            "Configurado QA" else "Pendiente Firebase/HTTPS", amber)
+        append(test, text(
+            "La prueba es un aviso del sistema y no muestra señales CRT. " +
+            "Para asociar este teléfono se requiere Firebase Auth, App Check y " +
+            "la autorización del propietario en Railway.",
+            12f, muted
+        ), 8)
+        qaStatusView = text(qaStatus, 12f, aqua)
+        append(test, qaStatusView!!, 9)
+        append(test, button("Vincular mi Android para pruebas") {
+            beginQaEnrollment()
+        }, 12)
+        append(test, button("Enviar notificación de conexión (NO señal)") {
+            QaDeviceTransport.ping(this) { reportQaStatus(it) }
+        }, 9)
+        append(test, button("Desvincular mi teléfono") {
+            QaDeviceTransport.unregister(this) { reportQaStatus(it) }
+        }, 9)
+        append(page, test, 14)
 
         val safety = card()
         append(safety, text("Seguridad", 18f, white, true))
