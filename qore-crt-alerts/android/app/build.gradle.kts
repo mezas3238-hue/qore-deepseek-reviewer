@@ -44,7 +44,8 @@ android {
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 dependencies {
-    implementation(platform("com.google.firebase:firebase-bom:35.1.0"))
+    // BoM 35.1 brings Auth 25 (Kotlin metadata 2.4), incompatible with AGP 9.5 Kotlin 2.2.
+    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-appcheck")
