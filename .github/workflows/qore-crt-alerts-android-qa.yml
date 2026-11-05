@@ -30,15 +30,22 @@ jobs:
         with:
           gradle-version: "9.6.0"
       - name: Android QA unit tests and compilation
+        env:
+          QORE_FIREBASE_ANDROID_API_KEY: ${{ secrets.QORE_FIREBASE_ANDROID_API_KEY }}
+          QORE_FIREBASE_ANDROID_APP_ID: ${{ secrets.QORE_FIREBASE_ANDROID_APP_ID }}
+          QORE_FIREBASE_PROJECT_ID: ${{ secrets.QORE_FIREBASE_PROJECT_ID }}
+          QORE_FIREBASE_SENDER_ID: ${{ secrets.QORE_FIREBASE_SENDER_ID }}
+          QORE_QA_BRIDGE_URL: ${{ vars.QORE_QA_BRIDGE_URL }}
+          QORE_QA_TEST_TRANSPORT_BUILD: ${{ vars.QORE_QA_TEST_TRANSPORT_BUILD }}
         run: gradle -p qore-crt-alerts/android :app:testDebugUnitTest :app:assembleDebug --no-daemon --stacktrace
       - name: Verify production notification guard and no Firebase config
         run: |
           grep -F 'buildConfigField("boolean", "STAGING_NOTIFICATIONS_ENABLED", "false")' qore-crt-alerts/android/app/build.gradle.kts
           test ! -f qore-crt-alerts/android/app/google-services.json
-      - name: Archive Android LOCAL QA-only debug build (FCM disabled)
+      - name: Archive Android QA debug build (market push disabled)
         uses: actions/upload-artifact@v4
         with:
-          name: QORE-CRT-ANDROID-LOCAL-QA-NO-FCM-NO-SIGNALS
+          name: QORE-CRT-ANDROID-QA-MARKET-PUSH-OFF
           path: qore-crt-alerts/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
