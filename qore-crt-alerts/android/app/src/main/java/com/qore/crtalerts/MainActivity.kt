@@ -274,10 +274,10 @@ class MainActivity : Activity() {
                             replayResult.text = if (active.isEmpty()) {
                                 "0 eventos QA vigentes y válidos. Sin señales certificadas."
                             } else {
-                                active.take(25).joinToString("\\n\\n", prefix =
-                                    "${active.size} eventos QA vigentes (NO OPERAR):\\n\\n") { item ->
-                                    "${item.instrumentId} · ${item.family} · ${item.direction}\\n" +
-                                    "${item.eventType} · MSS M5: ${item.mssM5} · MSS M15: ${item.mssM15}\\n" +
+                                active.take(25).joinToString("\n\n", prefix =
+                                    "${active.size} eventos QA vigentes (NO OPERAR):\n\n") { item ->
+                                    "${item.instrumentId} · ${item.family} · ${item.direction}\n" +
+                                    "${item.eventType} · MSS M5: ${item.mssM5} · MSS M15: ${item.mssM15}\n" +
                                     "Hora: ${clock.format(java.util.Date(item.confirmedAtMs))} · " +
                                     "Vence: ${clock.format(java.util.Date(item.expiresAtMs))}"
                                 }
