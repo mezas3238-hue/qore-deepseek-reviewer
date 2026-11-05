@@ -9,11 +9,17 @@ Blob SHA `470214fea377b05e537a18c0ce8097986da86fac` (rama PR #74).
 ## Candidato aparte — PERF ONLY
 `crt-radar-pro/performance/QORE_CRT_RADAR_34_CHART_V34_12X_COLORES_PERF_ONLY_QA_NO_LIVE.pine`
 
-Dos cambios exactos y reversibles, únicamente:
-- `string[] scanSymbols = array.from(...)` → `var string[] scanSymbols = array.from(...)`.
-- `string[] scanNames = array.from(...)` → `var string[] scanNames = array.from(...)`.
+Seis cambios exactos y reversibles: únicamente se agrega el calificador `var` a las siguientes variables, sin modificar su expresión ni su valor:
+- `scanSymbols`: lista fija de los 34 instrumentos.
+- `scanNames`: etiquetas fijas de los 34 instrumentos.
+- `isIndex`: resultado de `f_index()` en el contexto del instrumento M5.
+- `isBTC`: identidad BTCUSD del instrumento M5.
+- `pdhRth`: modalidad de sesión derivada de `isIndex` y de la preferencia `useExtIdx`.
+- `pdhSession`: texto de sesión derivado de las variables anteriores.
 
-Son los 34 símbolos IC Markets fijados en el código y sus nombres, por lo que este cálculo se realiza una vez por instancia Pine en lugar de reconstruirse en cada barra. TradingView recalcula/reinicializa el script al cambiar de símbolo o configuración. **No** se cambia `request.security`, sus profundidades (600 M5 por feed, H4 y daily), ni los bucles del detector.
+**Causa atacada:** `f_index()` realiza conversiones y múltiples búsquedas de texto (CSV + índices). En V34.12X se invocaba en cada vela dentro de `f_engine()`, que se evalúa en 34 contextos M5; ahora se invoca una vez al iniciar cada instancia/contexto de ejecución. Los inputs y el ticker son estables durante esa ejecución, y TradingView reinicia al cambiar símbolo o configurar el indicador. También se evita recrear nombres y cadenas de sesión en cada barra.
+
+**No** se cambia `request.security`, sus profundidades (600 M5 por feed, H4 y daily), ni los bucles del detector. El cambio no reduce cobertura ni elimina el recálculo inevitable cuando se cambia de gráfico.
 
 ## Contrato INNEGOCIABLE de protección
 Todos los demás bytes del indicador se conservan sin excepción. En particular:
@@ -24,7 +30,7 @@ Todos los demás bytes del indicador se conservan sin excepción. En particular:
 - Tiempos de caducidad, confirmaciones, stops, selección broker y snapshots.
 
 ## Evidencia y honestidad
-`crt-radar-pro/performance/tests/test_perf_v34_12x_exact_diff.py` verifica equivalencia exacta del archivo completo y presencia de los **15 colores configurables**. GitHub Actions `.github/workflows/crt-v34-12x-performance-parity.yml` ejecuta ese bloqueo.
+`crt-radar-pro/performance/tests/test_perf_v34_12x_exact_diff.py` verifica equivalencia exacta del archivo completo, con seis calificadores de almacenamiento permitidos y ningún otro cambio y presencia de los **15 colores configurables**. GitHub Actions `.github/workflows/crt-v34-12x-performance-parity.yml` ejecuta ese bloqueo.
 
 **La prueba estática NO demuestra rapidez ni compilación Pine real.** El principal costo sigue siendo escanear 34×600 velas M5 y ejecutar la lógica de siete familias; dos cambios de listas pueden tener un efecto pequeño. Si no existe mejora material, NO reemplazar el indicador.
 
