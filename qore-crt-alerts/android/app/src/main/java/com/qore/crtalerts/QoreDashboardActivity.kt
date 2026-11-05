@@ -565,8 +565,13 @@ class QoreDashboardActivity : Activity() {
             "la autorización del propietario en Railway.",
             12f, muted
         ), 8)
-        qaStatusView = text(qaStatus, 12f, aqua)
+        qaStatusView = text(qaStatus, 12f, aqua).apply {
+            setTextIsSelectable(true)
+        }
         append(test, qaStatusView!!, 9)
+        append(test, button("Preparar identidad Firebase (obtener UID)") {
+            QaDeviceTransport.identifyForOwner(this) { reportQaStatus(it) }
+        }, 12)
         append(test, button("Vincular mi Android para pruebas") {
             beginQaEnrollment()
         }, 12)
