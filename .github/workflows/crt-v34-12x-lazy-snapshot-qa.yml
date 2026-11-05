@@ -1,0 +1,25 @@
+name: CRT V34.12X Lazy Signal — strict parity QA
+
+on:
+  pull_request:
+    paths:
+      - "crt-radar-pro/performance/**"
+      - ".github/workflows/crt-v34-12x-lazy-snapshot-qa.yml"
+  push:
+    branches:
+      - "perf/crt-v34-12x-lazy-snapshot-qa-20261105"
+    paths:
+      - "crt-radar-pro/performance/**"
+      - ".github/workflows/crt-v34-12x-lazy-snapshot-qa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-engine-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure exact only-output-UDT change and unchanged previous Owner version
+        run: |
+          python3 -m unittest discover -s crt-radar-pro/performance/tests -p 'test_perf_v34_12x_*.py' -v
