@@ -18,6 +18,12 @@ class QoreMessagingService : FirebaseMessagingService() {
     }
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
+        // Only an explicitly enrolled device can show a non-market QA ping.
+        // This path never calls the CRT/MSS notification policy.
+        if (message.data["schema"] == "QORE_QA_SYSTEM_TEST_V1") {
+            showSystemTransportTest(message.data)
+            return
+        }
         // Hard block in QA, even for forged "certified" payloads.
         if (!BuildConfig.STAGING_NOTIFICATIONS_ENABLED) return
         // A future permitted data-only FCM message MUST carry the original
@@ -86,4 +92,47 @@ class QoreMessagingService : FirebaseMessagingService() {
                 }
                 .build())
     }
+    private fun showSystemTransportTest(data: Map<String, String>) {
+        val prefs = getSharedPreferences(QaConsentGate.PREFS, MODE_PRIVATE)
+        val verdict = QaSystemTestPolicy.check(
+            data, System.currentTimeMillis(),
+            consent = prefs.getBoolean(QaSystemTestPolicy.ENABLED_KEY, false),
+            enrolled = prefs.getBoolean(QaSystemTestPolicy.ENROLLED_KEY, false),
+            buildReady = BuildConfig.QA_TEST_TRANSPORT_ENABLED
+        )
+        if (!verdict.accepted) return
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                PackageManager.PERMISSION_GRANTED) return
+        val nonce = verdict.nonce ?: return
+        val memory = getSharedPreferences("qore_qa_test_dedup", MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if ((memory.getLong(nonce, 0L)) > now) return
+        val change = memory.edit()
+        for ((key, value) in memory.all)
+            if (value is Long && value <= now) change.remove(key)
+        if (!change.putLong(nonce, verdict.expiryMs).commit()) return
+
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = "qore_crt_connection_test"
+        if (Build.VERSION.SDK_INT >= 26)
+            manager.createNotificationChannel(NotificationChannel(
+                channel,"Pruebas de conexión CRT",
+                NotificationManager.IMPORTANCE_HIGH
+            ))
+        val notification = if (Build.VERSION.SDK_INT >= 26)
+            Notification.Builder(this,channel) else Notification.Builder(this)
+        notification.setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("QORE CRT · Prueba de conexión")
+            .setContentText("Mensaje recibido desde Firebase. NO es una señal CRT.")
+            .setStyle(Notification.BigTextStyle().bigText(
+                "Prueba técnica recibida del servidor de alertas QA. " +
+                "No contiene precios, CRT, MSS ni instrucciones de trading."
+            ))
+            .setAutoCancel(true)
+        if (Build.VERSION.SDK_INT >= 26)
+            notification.setTimeoutAfter(verdict.expiryMs-now)
+        manager.notify(nonce.hashCode(),notification.build())
+    }
+
 }
