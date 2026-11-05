@@ -1,0 +1,25 @@
+name: CRT V34.12X Perf Only — Exact Parity
+
+on:
+  pull_request:
+    paths:
+      - "crt-radar-pro/performance/**"
+      - "crt-radar-pro/qa-34-feed-memory-probes/QORE_CRT_RADAR_34_CHART_V34_12X_COLORES_PERSONALIZABLES_QA_NO_LIVE.pine"
+      - ".github/workflows/crt-v34-12x-performance-parity.yml"
+  push:
+    branches:
+      - "perf/crt-v34-12x-colores-only-speed-20261105"
+    paths:
+      - "crt-radar-pro/performance/**"
+      - ".github/workflows/crt-v34-12x-performance-parity.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  exact-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify exact original V34.12X plus two var qualifiers ONLY
+        run: python3 -m unittest discover -s crt-radar-pro/performance/tests -p 'test_perf_v34_12x_exact_diff.py' -v
