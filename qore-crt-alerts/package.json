@@ -16,6 +16,10 @@
     "audit:ctrader-demo": "node scripts/qa-ctrader-demo-inventory.mjs",
     "audit:ctrader-viewonly-34": "node scripts/qa-ctrader-viewonly-34.mjs",
     "probe:ctrader:demo:view": "node scripts/run-ctrader-demo-one-shot.mjs",
-    "railway:ctrader:demo:qa": "node scripts/railway-ctrader-demo-entry.mjs"
+    "railway:ctrader:demo:qa": "node scripts/railway-ctrader-demo-entry.mjs",
+    "railway:firebase:qa": "node scripts/railway-firebase-transport-entry.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
   }
 }
