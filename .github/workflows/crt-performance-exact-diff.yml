@@ -1,0 +1,24 @@
+name: CRT Performance Only — Exact Source Diff
+on:
+  pull_request:
+    paths:
+      - "crt-radar-pro/performance/**"
+      - "crt-radar-pro/qa-34-feed-memory-probes/QORE_CRT_RADAR_34_CHART_INTEGRADO_600M5_QA_NO_LIVE.pine"
+      - ".github/workflows/crt-performance-exact-diff.yml"
+  push:
+    branches:
+      - "perf/crt-v34-12n-immutable-arrays-no-logic-change-20261105"
+    paths:
+      - "crt-radar-pro/performance/**"
+      - ".github/workflows/crt-performance-exact-diff.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  exact-two-line-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check perf script changes nothing else
+        run: python3 -m unittest discover -s crt-radar-pro/performance/tests -p 'test_perf_*.py' -v
