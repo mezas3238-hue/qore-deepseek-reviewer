@@ -20,6 +20,9 @@ import java.io.IOException
 // User-tapped QA enrollment only. No market push, token logging or trades.
 internal object QaDeviceTransport {
     private val http = OkHttpClient()
+    private fun identityReady() = BuildConfig.QA_FIREBASE_IDENTIFICATION_ENABLED &&
+        BuildConfig.QA_FIREBASE_APP_ID.isNotBlank() &&
+        BuildConfig.QA_FIREBASE_API_KEY.isNotBlank()
     private fun ready() = BuildConfig.QA_TEST_TRANSPORT_ENABLED &&
         BuildConfig.QA_BRIDGE_URL.startsWith("https://") &&
         BuildConfig.QA_FIREBASE_APP_ID.isNotBlank() &&
@@ -62,7 +65,7 @@ internal object QaDeviceTransport {
                             fail("App Check no emitió comprobante.")
                         else ok(user.uid, jwt, check.token)
                     }.addOnFailureListener {
-                        fail("App Check pendiente; registra tu dispositivo QA.")
+                        fail("App Check pendiente; registra dispositivo QA. UID: " + user.uid)
                     }
             }.addOnFailureListener { fail("No se obtuvo identidad Firebase.") }
         }
@@ -99,6 +102,26 @@ internal object QaDeviceTransport {
                 }
             }
         })
+    }
+    fun identifyForOwner(activity: Activity, notice: (String) -> Unit) {
+        if (!identityReady()) return notice(
+            "Primero configura los identificadores públicos de Firebase QA en GitHub Secrets.")
+        val firebase = try { app(activity) } catch (_: Exception) {
+            return notice("No se pudo iniciar Firebase QA.")
+        }
+        val auth = FirebaseAuth.getInstance(firebase)
+        val old = auth.currentUser
+        if (old != null) {
+            notice("UID de este teléfono: " + old.uid +
+                ". Registra esta UID únicamente en Railway STAGING.")
+        } else {
+            auth.signInAnonymously().addOnSuccessListener { login ->
+                notice("UID de este teléfono: " + login.user?.uid +
+                    ". Regístrala en Railway STAGING. Nunca envíes tokens.")
+            }.addOnFailureListener {
+                notice("Habilita Firebase Auth anónimo para iniciar identidad QA.")
+            }
+        }
     }
     fun enroll(activity: Activity, notice: (String) -> Unit) {
         authenticated(activity, { uid, jwt, check ->
