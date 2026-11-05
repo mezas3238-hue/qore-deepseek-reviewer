@@ -28,7 +28,10 @@ internal object QaDeviceTransport {
         val existing = FirebaseApp.getApps(context).firstOrNull {
             it.name == FirebaseApp.DEFAULT_APP_NAME
         }
-        if (existing != null) return existing
+        if (existing != null) {
+            QaAppCheckFactory.install(existing)
+            return existing
+        }
         val opts = FirebaseOptions.Builder()
             .setApplicationId(BuildConfig.QA_FIREBASE_APP_ID)
             .setApiKey(BuildConfig.QA_FIREBASE_API_KEY)
