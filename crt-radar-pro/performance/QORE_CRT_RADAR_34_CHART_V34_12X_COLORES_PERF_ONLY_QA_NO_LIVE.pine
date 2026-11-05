@@ -544,8 +544,8 @@ f_m15_phase_ok(int closedAt, int sourcePhaseMin) =>
 // En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
 // UNA peticion request.security por activo en vez de tres peticiones.
 f_engine() =>
-    bool isIndex = f_index()
-    bool isBTC = str.upper(syminfo.ticker) == "BTCUSD"
+    var bool isIndex = f_index()
+    var bool isBTC = str.upper(syminfo.ticker) == "BTCUSD"
     int barT = time[1]
     int barEnd = time_close[1]
     float bH = high[1]
@@ -610,8 +610,8 @@ f_engine() =>
     // BTCUSD no hereda sesiones de Forex: PDH/PDL del dia civil NY
     // completo (00:00-00:00), 7 dias. Cierre M5 [1] confirmado.
     // En DST NY el dia completo tiene 23, 24 o 25 horas.
-    bool pdhRth = isIndex and not useExtIdx
-    string pdhSession = isBTC ? "0000-0000:1234567" : pdhRth ? "0930-1600:23456" : "1700-1700:23456"
+    var bool pdhRth = isIndex and not useExtIdx
+    var string pdhSession = isBTC ? "0000-0000:1234567" : pdhRth ? "0930-1600:23456" : "1700-1700:23456"
     bool pdhInSession = not na(time("5", pdhSession, TZ)[1])
     if isBTC
         if pdhInSession and not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
