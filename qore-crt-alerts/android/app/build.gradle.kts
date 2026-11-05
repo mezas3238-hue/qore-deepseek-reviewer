@@ -28,6 +28,10 @@ android {
         versionName = "0.3.0-qa-transport"
         // A REAL market notification is never authorized by this flag.
         buildConfigField("boolean", "STAGING_NOTIFICATIONS_ENABLED", "false")
+        buildConfigField("boolean", "QA_FIREBASE_IDENTIFICATION_ENABLED",
+            if (firebaseApiKey.isNotBlank() && firebaseAppId.isNotBlank() &&
+                firebaseProjectId.isNotBlank() && firebaseSenderId.isNotBlank())
+                "true" else "false")
         buildConfigField("boolean", "QA_TEST_TRANSPORT_ENABLED",
             if (qaConfigured) "true" else "false")
         buildConfigField("String", "QA_FIREBASE_API_KEY", gradleString(firebaseApiKey))
