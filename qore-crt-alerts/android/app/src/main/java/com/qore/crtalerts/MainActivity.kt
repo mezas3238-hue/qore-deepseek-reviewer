@@ -214,6 +214,83 @@ class MainActivity : Activity() {
             }
         })
 
+        // Import a QA-only replay inbox exported from the localhost tester.
+        // This is an inspection surface: it neither contacts a server nor
+        // certifies OHLC or schedules a market notification.
+        root.addView(label("Buzón de eventos CRT / MSS · QA", 19f, Color.WHITE, true)
+            .apply { setPadding(0, 34, 0, 8) })
+        root.addView(label(
+            "Pega el JSON de /qa/v1/alerts de una prueba offline. " +
+                "Verás únicamente los eventos válidos y vigentes de las últimas 4 horas. " +
+                "Sin conexión, sin notificaciones y sin órdenes.",
+            13f, muted
+        ))
+        val replayInput = EditText(this).apply {
+            hint = "JSON QA con campo alerts: [...]"
+            setHintTextColor(muted)
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            minLines = 3
+            maxLines = 6
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        }
+        val replayResult = label("Sin eventos importados. Alertas de mercado bloqueadas.", 13f, amber)
+        root.addView(replayInput)
+        root.addView(Button(this).apply {
+            text = "Revisar eventos locales (sin activar alertas)"
+            isAllCaps = false
+            setOnClickListener {
+                val json = replayInput.text.toString()
+                if (json.length > 150_000) {
+                    replayResult.text = "Archivo demasiado grande. Máximo 150 KB."
+                } else {
+                    try {
+                        val array = org.json.JSONObject(json).getJSONArray("alerts")
+                        if (array.length() > 1024) {
+                            replayResult.text = "Límite de 1024 eventos QA por revisión."
+                        } else {
+                            val rows = mutableListOf<Map<String, String>>()
+                            for (index in 0 until array.length()) {
+                                val item = array.optJSONObject(index) ?: continue
+                                val map = mutableMapOf<String, String>()
+                                val keys = item.keys()
+                                while (keys.hasNext()) {
+                                    val key = keys.next()
+                                    val value = item.opt(key)
+                                    if (value != null && value != org.json.JSONObject.NULL &&
+                                        (value is String || value is Number || value is Boolean)) {
+                                        map[key] = value.toString()
+                                    }
+                                }
+                                rows.add(map)
+                            }
+                            val active = QaReplayInboxPreview.project(
+                                rows, System.currentTimeMillis(), chosen
+                            )
+                            val clock = java.text.SimpleDateFormat(
+                                "dd/MM HH:mm", java.util.Locale.getDefault()
+                            )
+                            replayResult.text = if (active.isEmpty()) {
+                                "0 eventos QA vigentes y válidos. Sin señales certificadas."
+                            } else {
+                                active.take(25).joinToString("\\n\\n", prefix =
+                                    "${active.size} eventos QA vigentes (NO OPERAR):\\n\\n") { item ->
+                                    "${item.instrumentId} · ${item.family} · ${item.direction}\\n" +
+                                    "${item.eventType} · MSS M5: ${item.mssM5} · MSS M15: ${item.mssM15}\\n" +
+                                    "Hora: ${clock.format(java.util.Date(item.confirmedAtMs))} · " +
+                                    "Vence: ${clock.format(java.util.Date(item.expiresAtMs))}"
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        replayResult.text = "JSON QA inválido. Se necesita {alerts:[...]}."
+                    }
+                }
+            }
+        })
+        root.addView(replayResult)
+
         root.addView(label("LECTURAS DESDE MI CELULAR · cTrader DEMO", 18f, cyan, true)
             .apply { setPadding(0, 36, 0, 8) })
         root.addView(label(
