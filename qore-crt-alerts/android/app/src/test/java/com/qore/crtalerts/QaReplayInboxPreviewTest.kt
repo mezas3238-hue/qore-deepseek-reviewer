@@ -74,7 +74,7 @@ class QaReplayInboxPreviewTest {
             event(family="MULTI4")
         )
         assertEquals(4,QaReplayInboxPreview.project(rows,at+1000).size)
-        assertEquals(1,QaReplayInboxPreview.project(rows,at+1000,setOf("USDCAD")).size - 3)
+        assertEquals(4,QaReplayInboxPreview.project(rows,at+1000,setOf("USDCAD")).size)
         assertTrue(QaReplayInboxPreview.project(rows,at+1000,setOf("EURUSD")).isEmpty())
         assertEquals(1,QaReplayInboxPreview.project(
             listOf(event(id="NDX100")),at+1000
