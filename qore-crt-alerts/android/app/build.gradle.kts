@@ -6,8 +6,8 @@ android {
         applicationId = "com.qore.crtalerts.qa"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-qa"
+        versionCode = 2
+        versionName = "0.2.0-qa-ui"
         buildConfigField("boolean", "STAGING_NOTIFICATIONS_ENABLED", "false")
     }
     buildFeatures { buildConfig = true }
