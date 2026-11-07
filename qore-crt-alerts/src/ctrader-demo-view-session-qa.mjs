@@ -5,6 +5,10 @@
 import {randomUUID} from "node:crypto";
 import {INSTRUMENTS} from "./instruments.mjs";
 import {normalizeClosedCtraderTrendbar} from "./ctrader-readonly-m5-qa.mjs";
+import {deriveClosedEurusdM15Context}
+ from "./qa-eurusd-closed-m15-context.mjs";
+import {decodeClosedNativeEurusdM15,compareNativeDerivedEurusdM15}
+ from "./qa-ctrader-native-m15-compare.mjs";
 
 export const CTRADER_DEMO_JSON_URL="wss://demo.ctraderapi.com:5036";
 export const VIEW_ONLY_TYPES=Object.freeze({
@@ -59,13 +63,20 @@ export class CtraderDemoViewSessionQa {
  constructor({clientId,clientSecret,accessToken,demoAccountId,
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
   sampleInstrumentId=null,
-  maxBars=300,historyPages=1,now=Date.now,idFn=randomUUID}={}){
+  maxBars=300,historyPages=1,compareNativeM15=false,
+  now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
   if(!secret(clientId)||!secret(clientSecret)||!secret(accessToken)||
     !accountId||!safeName(expectedBrokerTitle)||!Number.isSafeInteger(maxBars)||
     maxBars<48||maxBars>500||![1,2,3].includes(historyPages)||
-    (historyPages>1&&chosenId===null)||typeof now!=="function"||
+    (historyPages>1&&chosenId===null)||
+    typeof compareNativeM15!=="boolean"||
+    (compareNativeM15&&!(chosenId===1&&
+      sampleSymbolName==="EURUSD"&&sampleInstrumentId==="EURUSD"&&
+      expectedBrokerTitle==="Raw Trading Ltd"&&historyPages===2&&
+      maxBars===300))||
+    typeof now!=="function"||
     typeof idFn!=="function"||
     ((chosenId===null)!==(sampleSymbolName===null))||
     ((chosenId===null)!==(sampleInstrumentId===null))||
@@ -75,7 +86,7 @@ export class CtraderDemoViewSessionQa {
     throw Error("CTRADER_VIEW_ONLY_DEMO_CONFIG_REQUIRED");
   this.#config={clientId,clientSecret,accessToken,demoAccountId:accountId,
     expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName,
-    sampleInstrumentId};
+    sampleInstrumentId,compareNativeM15};
   this.#maxBars=maxBars;this.#now=now;this.#idFn=idFn;
   this.#historyPages=historyPages;
  }
@@ -258,6 +269,21 @@ export class CtraderDemoViewSessionQa {
     phase=current;
     if(i>0&&all[i].openedAt!==all[i-1].openedAt+300000)gaps++;
    }
+   if(c.compareNativeM15){
+     if(all.length!==600||gaps!==0||phase!==0||
+        all[0].openedAt%900000!==0||
+        (all.at(-1).closedAt%900000)!==0)
+       return this.#hold("CTRADER_NATIVE_M15_QA_M5_COHORT_REQUIRED");
+     const start=all[0].openedAt,finish=all.at(-1).closedAt;
+     if(!Number.isSafeInteger(start)||!Number.isSafeInteger(finish)||
+        finish-start!==600*300000)
+       return this.#hold("CTRADER_NATIVE_M15_QA_WINDOW_INVALID");
+     return this.#message(VIEW_ONLY_TYPES.HISTORY,
+       {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+        period:7,count:200,
+        fromTimestamp:start,toTimestamp:finish-1},
+       "NATIVE_M15_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+   }
    this.#state="COMPLETE";
    return Object.freeze({state:"HISTORICAL_M5_QA_UNCERTIFIED",
      symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
@@ -265,6 +291,36 @@ export class CtraderDemoViewSessionQa {
      nativePhaseMin:phase===null?null:phase/60000,
      bars:Object.freeze(all),
      sourceParityCertified:false,sendPush:false,canTrade:false});
+  }
+  if(this.#state==="NATIVE_M15_PENDING"){
+   if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
+     (p.period!==7&&p.period!=="M15")||
+     (p.symbolId!==undefined&&safeInt(p.symbolId)!==c.sampleSymbolId)||
+     !Array.isArray(p.trendbar)||p.trendbar.length>200)
+    return this.#hold("CTRADER_NATIVE_M15_RESPONSE_SCOPE_INVALID");
+   let summary;
+   try{
+     const derived=deriveClosedEurusdM15Context(this.#historyBars);
+     if(derived.completeM15!==200||derived.partialM15!==0||
+        derived.rejectedM15!==0)
+       return this.#hold("CTRADER_NATIVE_M15_DERIVED_COHORT_NOT_READY");
+     const native=decodeClosedNativeEurusdM15({
+       raw:p.trendbar,nowMs:this.#now(),expectedDigits:this.#symbol.digits
+     });
+     summary=compareNativeDerivedEurusdM15({
+       nativeBars:native,derivedBars:derived.bars
+     });
+   }catch{return this.#hold("CTRADER_NATIVE_M15_QA_INVALID_HISTORY");}
+   this.#state="COMPLETE";
+   return Object.freeze({
+     state:"HISTORICAL_M5_M15_QA_UNCERTIFIED",
+     symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
+     total:this.#historyBars.length,gaps:0,
+     pagesFetched:this.#historyPageCount,nativePhaseMin:0,
+     bars:Object.freeze(this.#historyBars),
+     nativeM15Summary:summary,
+     sourceParityCertified:false,sendPush:false,canTrade:false
+   });
   }
   return this.#hold("CTRADER_UNKNOWN_STATE");
  }
