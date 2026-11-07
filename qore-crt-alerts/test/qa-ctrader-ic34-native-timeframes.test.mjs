@@ -66,7 +66,9 @@ test("missing M5 during a session cannot create a synthetic completed M15 or H4"
  });
  assert.ok(a.skippedNativeBlocks>=4);
  assert.ok(a.matchedUtcAndCompleteM5Blocks<200);
- assert.equal(a.mismatchBars,0);
+ // After a 12-bar time shift the synthetic prices no longer correspond
+ // to the same real timestamps, so mismatches MUST be reported too.
+ assert.ok(a.mismatchBars>0);
  assert.equal(a.nativeDerivedFullCoverageCertified,false);
  const n4=decodeNative34Trendbars({
   raw:rawFrom(makeBars(),10),period:10,symbolId,nowMs:NOW,maxBars:100
