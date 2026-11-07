@@ -46,7 +46,8 @@ export async function performStagingProbe({
   const includeCandidateManifest=
     env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
   const includePrivateCsv=cfg.exportPrivateCsv===true;
-  if(includeCandidateManifest&&includePrivateCsv)
+  if((includeCandidateManifest&&includePrivateCsv)||
+     (includeCandidateManifest&&cfg.compareNativeM15))
     return Object.freeze({state:"CTRADER_CONFLICTING_QA_EXPORT_MODES",
       connected:false,sourceParityCertified:false,canTrade:false,sendPush:false});
   const output=await probe({
@@ -55,7 +56,8 @@ export async function performStagingProbe({
     ...(cfg.historyPages>1?{timeoutMs:35_000}:{})
   });
   const success=output?.state==="INVENTORY_QA_ONLY"||
-    output?.state==="HISTORICAL_M5_QA_UNCERTIFIED";
+    output?.state==="HISTORICAL_M5_QA_UNCERTIFIED"||
+    output?.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED";
   // Keep response slim: no access/refresh tokens, no raw OHLC, no credentials.
   return Object.freeze({
     state:success?output.state:output?.reason||"CTRADER_QA_PROBE_FAILED",
@@ -71,6 +73,8 @@ export async function performStagingProbe({
       {h4QaSummary:output.h4Summary}:{}),
     ...(cfg.historyPages>1&&output.m15Summary?
       {m15QaSummary:output.m15Summary}:{}),
+    ...(cfg.compareNativeM15===true&&output.nativeM15Summary?
+      {nativeM15QaSummary:output.nativeM15Summary}:{}),
     ...(success&&includePrivateCsv&&output.privateCsv?
       {privateCsv:output.privateCsv}:{}),
     nativePhaseMin:success?output.nativePhaseMin??null:null,
