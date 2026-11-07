@@ -79,6 +79,12 @@ test("two bounded EURUSD pages deliver 600 strictly closed M5 and NY-anchored H4
  assert.equal(result.nativePhaseMin,0);
  assert.equal(result.h4Summary.anchor,"America/New_York Forex 01/05/09");
  assert.ok(result.h4Summary.completeH4Blocks>=10);
+ assert.equal(result.m15Summary.completeM15,200);
+ assert.equal(result.m15Summary.partialM15,0);
+ assert.equal(result.m15Summary.rejectedM15,0);
+ assert.equal(result.m15Summary.mssM5Certified,false);
+ assert.equal(result.m15Summary.mssM15Certified,false);
+ assert.equal(result.m15Summary.nativeBrokerM15Compared,false);
  assert.equal(result.h4Summary.sourceParityCertified,false);
  assert.equal(result.h4Summary.crtFamiliesCertified,false);
  assert.equal(result.h4Summary.mssCertified,false);

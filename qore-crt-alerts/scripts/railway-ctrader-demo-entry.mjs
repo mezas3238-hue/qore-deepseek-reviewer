@@ -69,6 +69,8 @@ export async function performStagingProbe({
     m5PagesFetched:success?output.pagesFetched??null:null,
     ...(cfg.historyPages>1&&output.h4Summary?
       {h4QaSummary:output.h4Summary}:{}),
+    ...(cfg.historyPages>1&&output.m15Summary?
+      {m15QaSummary:output.m15Summary}:{}),
     ...(success&&includePrivateCsv&&output.privateCsv?
       {privateCsv:output.privateCsv}:{}),
     nativePhaseMin:success?output.nativePhaseMin??null:null,
