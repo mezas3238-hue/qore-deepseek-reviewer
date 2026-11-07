@@ -10,6 +10,8 @@ import {discoverAuthorizedDemoAccounts,DISCOVERY_OPT_IN}
   from "../src/qa-ctrader-demo-account-discovery.mjs";
 import {IC34_MANIFEST_OPT_IN}
   from "../src/qa-ctrader-ic34-owner-manifest.mjs";
+import {CTRADER_EURUSD_CSV_EXPORT_OPT_IN}
+  from "../src/qa-ctrader-eurusd-parity-csv.mjs";
 
 export function stagingGuard(env) {
   if(env.QORE_CT_STAGE!=="DEMO"||
@@ -43,8 +45,12 @@ export async function performStagingProbe({
       connected:false});}
   const includeCandidateManifest=
     env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
+  const includePrivateCsv=cfg.exportPrivateCsv===true;
+  if(includeCandidateManifest&&includePrivateCsv)
+    return Object.freeze({state:"CTRADER_CONFLICTING_QA_EXPORT_MODES",
+      connected:false,sourceParityCertified:false,canTrade:false,sendPush:false});
   const output=await probe({
-    config:cfg,includeCandidateManifest,
+    config:cfg,includeCandidateManifest,includePrivateCsv,
     // Two 300-bar historical pages: bounded 35s WSS, no auto retry.
     ...(cfg.historyPages>1?{timeoutMs:35_000}:{})
   });
@@ -63,6 +69,8 @@ export async function performStagingProbe({
     m5PagesFetched:success?output.pagesFetched??null:null,
     ...(cfg.historyPages>1&&output.h4Summary?
       {h4QaSummary:output.h4Summary}:{}),
+    ...(success&&includePrivateCsv&&output.privateCsv?
+      {privateCsv:output.privateCsv}:{}),
     nativePhaseMin:success?output.nativePhaseMin??null:null,
     ...(includeCandidateManifest&&output?.state==="INVENTORY_QA_ONLY" &&
        output.ownerReviewManifest?.state==="IC34_CANDIDATES_OWNER_REVIEW_ONLY"?
@@ -90,13 +98,32 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
       process.env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
     const inHistoricalQaMode=
       ["2","3"].includes(process.env.QORE_CT_QA_HISTORY_PAGES);
+    const inCsvExportMode=
+      process.env.QORE_CT_QA_M5_CSV_EXPORT===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
     const delivery=inManifestMode?
       {state:"NOT_ATTEMPTED_IN_OWNER_REVIEW_MANIFEST"}:
-      inHistoricalQaMode?
+      inHistoricalQaMode||inCsvExportMode?
         {state:"NOT_ATTEMPTED_IN_HISTORICAL_M5_QA"}:
         await publishQaProbe({env:process.env,probe:result});
+    // Never print a 600-bar OHLC record in one log line. Private
+    // Railway STAGING logs receive bounded, individually numbered chunks;
+    // public gateway and Firebase receive nothing.
+    const {privateCsv,...slim}=result;
+    if(inCsvExportMode&&privateCsv&&Array.isArray(privateCsv.chunks)){
+      for(const chunk of privateCsv.chunks)
+        process.stdout.write(JSON.stringify({...chunk,
+          fullCsvSha256:privateCsv.sha256})+"\\n");
+    }
     process.stdout.write(JSON.stringify({
-      ...result,
+      ...slim,
+      ...(inCsvExportMode&&privateCsv?{
+       privateCsvSummary:{
+        schema:privateCsv.schema,count:privateCsv.count,
+        chunkCount:privateCsv.chunkCount,sha256:privateCsv.sha256,
+        firstOpenedAtMs:privateCsv.firstOpenedAtMs,
+        lastClosedAtMs:privateCsv.lastClosedAtMs,
+        sourceParityCertified:false,sendPush:false,canTrade:false
+       }}:{}),
       qaMobileProbeBridge:delivery.state
     })+"\\n");
   }
