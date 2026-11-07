@@ -69,13 +69,22 @@ export class CtraderDemoViewSessionQa {
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
   sampleInstrumentId=null,
   maxBars=300,historyPages=1,compareNativeM15=false,
-  compareNativeH4=false,now=Date.now,idFn=randomUUID}={}){
+  compareNativeH4=false,allowCohortPaging=false,
+  now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
   if(!secret(clientId)||!secret(clientSecret)||!secret(accessToken)||
     !accountId||!safeName(expectedBrokerTitle)||!Number.isSafeInteger(maxBars)||
     maxBars<48||maxBars>500||![1,2,3].includes(historyPages)||
     (historyPages>1&&chosenId===null)||
+    typeof allowCohortPaging!=="boolean"||
+    (allowCohortPaging&&!(
+      historyPages===2&&maxBars===300&&chosenId!==null&&
+      expectedBrokerTitle==="Raw Trading Ltd"&&
+      !compareNativeM15&&!compareNativeH4&&
+      INSTRUMENTS.some(x=>x.id===sampleInstrumentId&&
+        x.tvSymbol==="IC:"+sampleSymbolName)
+    ))||
     typeof compareNativeM15!=="boolean"||
     typeof compareNativeH4!=="boolean"||
     (compareNativeH4&&!compareNativeM15)||
@@ -268,13 +277,25 @@ export class CtraderDemoViewSessionQa {
    const unique=new Set(all.map(x=>x.openedAt));
    if(unique.size!==all.length)
      return this.#hold("CTRADER_HISTORY_CROSS_PAGE_DUPLICATE");
-   let gaps=0,phase=null;
+   let gaps=0,phase=null,missingM5Intervals=0;
+   const gapIntervals=[];
    for(let i=0;i<all.length;i++){
     const current=all[i].openedAt%300000;
     if(phase!==null&&phase!==current)
       return this.#hold("CTRADER_HISTORY_PHASE_CHANGED");
     phase=current;
-    if(i>0&&all[i].openedAt!==all[i-1].openedAt+300000)gaps++;
+    if(i>0&&all[i].openedAt!==all[i-1].openedAt+300000){
+      const diff=all[i].openedAt-all[i-1].openedAt;
+      if(diff<=300000||diff%300000!==0)
+        return this.#hold("CTRADER_HISTORY_NON_INTEGRAL_M5_GAP");
+      gaps++;
+      missingM5Intervals+=diff/300000-1;
+      if(gapIntervals.length<16)gapIntervals.push(Object.freeze({
+        leftClosedAtMs:all[i-1].closedAt,
+        nextOpenedAtMs:all[i].openedAt,
+        missingM5Intervals:diff/300000-1
+      }));
+    }
    }
    if(c.compareNativeM15){
      if(all.length!==600||gaps!==0||phase!==0||
@@ -295,6 +316,9 @@ export class CtraderDemoViewSessionQa {
    return Object.freeze({state:"HISTORICAL_M5_QA_UNCERTIFIED",
      symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
      total:all.length, gaps,pagesFetched:this.#historyPageCount,
+     missingM5Intervals,
+     gapIntervals:Object.freeze(gapIntervals),
+     gapIntervalsTruncated:gaps>gapIntervals.length,
      nativePhaseMin:phase===null?null:phase/60000,
      bars:Object.freeze(all),
      sourceParityCertified:false,sendPush:false,canTrade:false});
