@@ -28,7 +28,8 @@ function nativeRaw(){
  }));
 }
 class NativeWssFake {
- static requests=[],mismatch=false,wrongPeriod=false,missing=false,wrongAccount=false,scope=0;
+ static requests=[];static mismatch=false;static wrongPeriod=false;
+ static missing=false;static wrongAccount=false;static scope=0;
  constructor(url){assert.equal(url,"wss://demo.ctraderapi.com:5036");
   this.events=new Map();this.history=0;
   queueMicrotask(()=>this.events.get("open")?.());
