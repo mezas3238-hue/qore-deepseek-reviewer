@@ -87,7 +87,7 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
     catch{result={state:"CTRADER_DISCOVERY_INTERNAL_FAILURE",accounts:[],
       canTrade:false,sendPush:false,sourceParityCertified:false};}
     process.stdout.write(JSON.stringify({...result,
-      qaMobileProbeBridge:"NOT_ATTEMPTED_IN_DISCOVERY"})+"\\n");
+      qaMobileProbeBridge:"NOT_ATTEMPTED_IN_DISCOVERY"})+"\n");
   }else{
     try{result=await performStagingProbe();}
     catch{result={state:"CTRADER_QA_INTERNAL_FAILURE",connected:false,
@@ -112,7 +112,7 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
     if(inCsvExportMode&&privateCsv&&Array.isArray(privateCsv.chunks)){
       for(const chunk of privateCsv.chunks)
         process.stdout.write(JSON.stringify({...chunk,
-          fullCsvSha256:privateCsv.sha256})+"\\n");
+          fullCsvSha256:privateCsv.sha256})+"\n");
     }
     process.stdout.write(JSON.stringify({
       ...slim,
@@ -125,7 +125,7 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
         sourceParityCertified:false,sendPush:false,canTrade:false
        }}:{}),
       qaMobileProbeBridge:delivery.state
-    })+"\\n");
+    })+"\n");
   }
   // One-shot. A missing credential is not a deploy failure.
   // No long-running process; never retry without explicit operator action.
