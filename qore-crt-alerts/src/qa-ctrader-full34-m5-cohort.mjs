@@ -123,6 +123,9 @@ export async function runAuthorizedFull34M5Cohort({
   // The inventory query MUST stay single-page even when symbol history is
   // two pages. Never request M5 when the manifest has not been verified.
   e.QORE_CT_QA_HISTORY_PAGES="1";
+  // Inventory never requests candles. Native timeframe authorization is
+  // applied ONLY after the entire real 34-ID manifest is reverified.
+  e.QORE_CT_QA_NATIVE_ALL34_TF="DISABLED";
   cfg=readDemoViewProbeConfig(e);
  }catch{return fail("CTRADER_34_DEMO_VIEW_CONFIG_INVALID");}
  let inventory;
