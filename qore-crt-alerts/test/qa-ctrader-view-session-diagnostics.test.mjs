@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {CtraderDemoViewSessionQa,VIEW_ONLY_TYPES}
+import {CtraderDemoViewSessionQa,VIEW_ONLY_TYPES,
+  classifyCtraderQaErrorCode}
   from "../src/ctrader-demo-view-session-qa.mjs";
 
 const credentials={
@@ -96,4 +97,38 @@ test("empty application-auth response may omit payload but must correlate exactl
     payloadType:VIEW_ONLY_TYPES.ACCOUNTS_OK});
   assert.equal(denied.reason,"CTRADER_MALFORMED_RESPONSE");
   assert.equal(denied.canTrade,false);
+});
+
+test("cTrader known error labels are classified without disclosing arbitrary server fields",()=>{
+  const cases=[
+    ["CH_CLIENT_AUTH_FAILURE","APP_AUTH_FAILURE"],
+    ["CH_OA_CLIENT_NOT_FOUND","APP_NOT_FOUND"],
+    ["CH_ACCESS_TOKEN_INVALID","ACCESS_TOKEN_INVALID"],
+    ["CONNECTIONS_LIMIT_EXCEEDED","CONNECTIONS_LIMIT"],
+    ["REQUEST_FREQUENCY_EXCEEDED","REQUEST_RATE_LIMIT"],
+    ["SERVER_IS_UNDER_MAINTENANCE","SERVER_MAINTENANCE"],
+    ["CH_SERVER_NOT_REACHABLE","SERVER_NOT_REACHABLE"],
+    ["BLOCKED_PAYLOAD_TYPE","PAYLOAD_RATE_LIMIT"],
+    ["OA_AUTH_TOKEN_EXPIRED","TOKEN_EXPIRED"],
+    ["ACCOUNT_NOT_AUTHORIZED","ACCOUNT_NOT_AUTHORIZED"]
+  ];
+  for(const [code,category] of cases){
+    assert.equal(classifyCtraderQaErrorCode(code),category,code);
+    const {session,initial}=fresh();
+    const result=session.accept({
+      clientMsgId:initial.clientMsgId,payloadType:2142,
+      payload:{errorCode:code,description:"private-token must-not-appear",
+        maintenanceEndTimestamp:1794000000,retryAfter:50}
+    });
+    assert.equal(result.reason,"CTRADER_API_ERROR_"+category+"_APP_PENDING");
+    assert.equal(result.canTrade,false);
+    assert.equal(result.sendPush,false);
+    assert.equal(result.sourceParityCertified,false);
+    assert.ok(!JSON.stringify(result).includes("private-token"));
+    assert.ok(!JSON.stringify(result).includes("1794000000"));
+  }
+  for(const untrusted of ["SECRET_myprivatevalue",null,101,{},undefined,
+    "NOT_DOCUMENTED","SERVER_IS_UNDER_MAINTENANCE;TOKEN"]){
+    assert.equal(classifyCtraderQaErrorCode(untrusted),"UNKNOWN");
+  }
 });
