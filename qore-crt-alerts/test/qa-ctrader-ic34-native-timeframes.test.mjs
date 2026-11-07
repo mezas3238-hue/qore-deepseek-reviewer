@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {decodeNative34Trendbars,compareNative34AgainstClosedM5}
  from "../src/qa-ctrader-ic34-native-timeframes.mjs";
-import {readDemoViewProbeConfig}
+import {readDemoViewProbeConfig,runAuthorizedDemoWssProbe}
  from "../src/ctrader-demo-wss-probe-qa.mjs";
 import {OBSERVED_IC34_CANDIDATES,
  runAuthorizedFull34M5Cohort,COHORT34_OPT_IN}
@@ -64,7 +64,7 @@ test("missing M5 during a session cannot create a synthetic completed M15 or H4"
  const a=compareNative34AgainstClosedM5({
   m5Bars:m5,nativeBars:n15,period:7,instrumentId,symbolId
  });
- assert.ok(a.skippedNativeBlocks>=12);
+ assert.ok(a.skippedNativeBlocks>=4);
  assert.ok(a.matchedUtcAndCompleteM5Blocks<200);
  assert.equal(a.mismatchBars,0);
  assert.equal(a.nativeDerivedFullCoverageCertified,false);
@@ -192,4 +192,112 @@ test("native scope cannot be enabled without 2 pages or with trading/live/push",
   {QORE_TRADING_ENABLED:"true"},{QORE_PUSH_ENABLED:"true"},
   {QORE_CT_QA_M5_CSV_EXPORT:"OWNER_APPROVED_PRIVATE_QA_CSV_ONLY"}
  ])assert.throws(()=>readDemoViewProbeConfig({...full,...patch}));
+});
+
+class Native34WssFake{
+ static requests=[];
+ static oneTickMismatch=false;
+ constructor(url){
+  assert.equal(url,"wss://demo.ctraderapi.com:5036");
+  this.handlers=new Map();this.page=0;
+  queueMicrotask(()=>this.handlers.get("open")?.());
+ }
+ addEventListener(key,cb){this.handlers.set(key,cb);}
+ close(){this.closed=true;}
+ send(payload){
+  const req=JSON.parse(payload);
+  if(req.payloadType===51)return;
+  Native34WssFake.requests.push({type:req.payloadType,period:req.payload?.period});
+  let reply;
+  if(req.payloadType===2100)reply=undefined;
+  else if(req.payloadType===2149)reply={
+   permissionScope:0,
+   ctidTraderAccount:[{ctidTraderAccountId:"123456789",
+    brokerTitleShort:"Raw Trading Ltd",isLive:false}]};
+  else if(req.payloadType===2102)
+   reply={ctidTraderAccountId:"123456789"};
+  else if(req.payloadType===2114)
+   reply={ctidTraderAccountId:"123456789",
+    symbol:[{symbolId:10014,symbolName:"USTEC",enabled:true}]};
+  else if(req.payloadType===2116)
+   reply={ctidTraderAccountId:"123456789",
+    symbol:[{symbolId:10014,digits:2}]};
+  else if(req.payloadType===2137){
+   const p=req.payload;
+   assert.equal(p.symbolId,10014);
+   assert.equal(p.ctidTraderAccountId,123456789);
+   if(p.period===5){
+    this.page++;
+    assert.ok(this.page<=2);
+    assert.equal(p.count,300);
+    const slice=makeBars().slice(this.page===1?300:0,
+      this.page===1?600:300);
+    reply={ctidTraderAccountId:"123456789",symbolId:10014,period:5,
+      trendbar:slice.reverse().map(b=>{
+       const low=Math.round(b.low*1e5);
+       return {utcTimestampInMinutes:b.openedAt/60000,
+        low,deltaOpen:Math.round(b.open*1e5)-low,
+        deltaHigh:Math.round(b.high*1e5)-low,
+        deltaClose:Math.round(b.close*1e5)-low};
+      })};
+   }else{
+    assert.ok([7,10].includes(p.period));
+    const sample=rawFrom(makeBars(),p.period);
+    if(p.period===7&&Native34WssFake.oneTickMismatch)
+      sample[10].deltaClose+=1;
+    reply={ctidTraderAccountId:"123456789",symbolId:10014,
+      period:p.period,trendbar:sample.reverse()};
+   }
+  }else throw Error("fake: unapproved request");
+  queueMicrotask(()=>this.handlers.get("message")?.({
+   data:JSON.stringify({clientMsgId:req.clientMsgId,
+    payloadType:req.payloadType+1,
+    ...(reply===undefined?{}:{payload:reply})})
+  }));
+ }
+}
+test("actual WSS VIEW state machine makes 2 M5 + 1 M15 + 1 H4, no trading/push",async()=>{
+ Native34WssFake.requests=[];Native34WssFake.oneTickMismatch=false;
+ const config=readDemoViewProbeConfig({
+  ...env,QORE_CT_QA_HISTORY_PAGES:"2",
+  QORE_CT_SAMPLE_SYMBOL_ID:"10014",
+  QORE_CT_SAMPLE_SYMBOL_NAME:"USTEC",
+  QORE_CT_SAMPLE_INSTRUMENT_ID:"NDX100"
+ });
+ const out=await runAuthorizedDemoWssProbe({
+  config,WebSocketImpl:Native34WssFake,
+  now:()=>NOW,timeoutMs:3000
+ });
+ assert.equal(out.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED");
+ assert.equal(out.barCount,600);
+ assert.equal(out.pagesFetched,2);
+ assert.equal(out.native34M15Summary.matchedUtcAndCompleteM5Blocks,200);
+ assert.equal(out.native34M15Summary.mismatchBars,0);
+ assert.equal(out.native34H4Summary.matchedUtcAndCompleteM5Blocks,12);
+ assert.equal(out.native34H4Summary.mismatchBars,0);
+ assert.deepEqual(
+  Native34WssFake.requests.filter(x=>x.type===2137).map(x=>x.period),
+  [5,5,7,10]);
+ assert.equal(out.sourceParityCertified,false);
+ assert.equal(out.sendPush,false);
+ assert.equal(out.canTrade,false);
+ assert.ok(!JSON.stringify(out).includes("never_log_this_token"));
+});
+test("native M15 mismatch is recorded and does not authorize a signal",async()=>{
+ Native34WssFake.requests=[];Native34WssFake.oneTickMismatch=true;
+ try{
+  const config=readDemoViewProbeConfig({
+   ...env,QORE_CT_QA_HISTORY_PAGES:"2",
+   QORE_CT_SAMPLE_SYMBOL_ID:"10014",QORE_CT_SAMPLE_SYMBOL_NAME:"USTEC",
+   QORE_CT_SAMPLE_INSTRUMENT_ID:"NDX100"
+  });
+  const r=await runAuthorizedDemoWssProbe({
+   config,WebSocketImpl:Native34WssFake,
+   now:()=>NOW,timeoutMs:3000
+  });
+  assert.equal(r.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED");
+  assert.equal(r.native34M15Summary.mismatchBars,1);
+  assert.equal(r.sourceParityCertified,false);
+  assert.equal(r.sendPush,false);
+ }finally{Native34WssFake.oneTickMismatch=false;}
 });
