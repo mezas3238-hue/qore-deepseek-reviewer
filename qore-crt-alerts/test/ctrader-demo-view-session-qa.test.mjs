@@ -100,7 +100,7 @@ test("permission TRADING / missing scope / LIVE / other broker / wrong account r
  }
  const s=make(),r=s.start();
  const res=s.accept({clientMsgId:"forged",payloadType:2101,payload:{}});
- assert.equal(res.reason,"CTRADER_UNEXPECTED_RESPONSE_OR_ID");
+ assert.equal(res.reason,"CTRADER_RESPONSE_ID_MISMATCH_APP_PENDING");
  assert.equal(s.status.state,"HELD");
  assert.equal(s.accept(message(r,{})).state,"HELD");
 });
@@ -137,7 +137,7 @@ test("cannot restart a completed or held session; errors are not printed",()=>{
  assert.throws(()=>s.start(),/START_ALREADY_USED/);
  const res=s.accept({clientMsgId:a.clientMsgId,payloadType:2142,
    payload:{errorCode:"TRADING_ERROR",secret:"must-not-echo"}});
- assert.equal(res.reason,"CTRADER_UNEXPECTED_RESPONSE_OR_ID");
+ assert.equal(res.reason,"CTRADER_API_ERROR_UNKNOWN_APP_PENDING");
  assert.ok(!JSON.stringify(res).includes("must-not-echo"));
  assert.equal(s.status.canTrade,false);
  assert.equal(s.status.sendPush,false);

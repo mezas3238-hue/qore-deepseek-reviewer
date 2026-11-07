@@ -6,6 +6,8 @@
 import {readDemoViewProbeConfig,runAuthorizedDemoWssProbe}
   from "../src/ctrader-demo-wss-probe-qa.mjs";
 import {publishQaProbe} from "../src/qa-ctrader-mobile-probe-bridge.mjs";
+import {discoverAuthorizedDemoAccounts,DISCOVERY_OPT_IN}
+  from "../src/qa-ctrader-demo-account-discovery.mjs";
 
 export function stagingGuard(env) {
   if(env.QORE_CT_STAGE!=="DEMO"||
@@ -56,17 +58,24 @@ export async function performStagingProbe({
 
 if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
   let result;
-  try{result=await performStagingProbe();}
-  catch{result={state:"CTRADER_QA_INTERNAL_FAILURE",connected:false,
-    canTrade:false,sendPush:false,sourceParityCertified:false};}
-  // Optional Owner-approved staging-only QA status relay.
-  // Never sends orders, market alerts, raw OHLC or OAuth credentials.
-  // Without explicit bridge config it does NOT make a gateway request.
-  const delivery=await publishQaProbe({env:process.env,probe:result});
-  process.stdout.write(JSON.stringify({
-    ...result,
-    qaMobileProbeBridge:delivery.state
-  })+"\n");
+  if(process.env.QORE_CT_ACCOUNT_DISCOVERY===DISCOVERY_OPT_IN){
+    // DEMO account discovery: no HMAC, alerts, data, orders or gateway call.
+    // Only proven DEMO API IDs and broker short names go to private QA logs.
+    try{result=await discoverAuthorizedDemoAccounts();}
+    catch{result={state:"CTRADER_DISCOVERY_INTERNAL_FAILURE",accounts:[],
+      canTrade:false,sendPush:false,sourceParityCertified:false};}
+    process.stdout.write(JSON.stringify({...result,
+      qaMobileProbeBridge:"NOT_ATTEMPTED_IN_DISCOVERY"})+"\\n");
+  }else{
+    try{result=await performStagingProbe();}
+    catch{result={state:"CTRADER_QA_INTERNAL_FAILURE",connected:false,
+      canTrade:false,sendPush:false,sourceParityCertified:false};}
+    const delivery=await publishQaProbe({env:process.env,probe:result});
+    process.stdout.write(JSON.stringify({
+      ...result,
+      qaMobileProbeBridge:delivery.state
+    })+"\\n");
+  }
   // One-shot. A missing credential is not a deploy failure.
   // No long-running process; never retry without explicit operator action.
   process.exitCode=0;
