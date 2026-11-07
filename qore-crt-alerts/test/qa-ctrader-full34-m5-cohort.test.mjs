@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {INSTRUMENTS} from "../src/instruments.mjs";
+import {readDemoViewProbeConfig}
+ from "../src/ctrader-demo-wss-probe-qa.mjs";
 import {
  COHORT34_OPT_IN,COHORT34_MANIFEST_SHA256,OBSERVED_IC34_CANDIDATES,
  verifyObservedIc34Manifest,runAuthorizedFull34M5Cohort
@@ -28,7 +30,7 @@ function fake({failInstrument=null,oneGap=null,calls=[]}={}){
  return async({config,includeCandidateManifest,includePrivateCsv})=>{
    assert.equal(includePrivateCsv,false);
    assert.equal(config.expectedBrokerTitle,"Raw Trading Ltd");
-   assert.equal(config.historyPages,1);
+   assert.equal(config.historyPages,config.allowCohortPaging?2:1);
    assert.equal(config.exportPrivateCsv,false);
    assert.equal(config.compareNativeM15,false);
    assert.equal(config.compareNativeH4,false);
@@ -45,10 +47,20 @@ function fake({failInstrument=null,oneGap=null,calls=[]}={}){
    calls.push(requested.instrumentId);
    if(requested.instrumentId===failInstrument)
      return {state:"BLOCKED",reason:"CTRADER_HISTORY_EMPTY_PAGE"};
+   const barCount=config.historyPages*300;
+   const gap=requested.instrumentId===oneGap;
    return {state:"HISTORICAL_M5_QA_UNCERTIFIED",
-    symbolName:requested.nativeName,barCount:300,
-    gaps:requested.instrumentId===oneGap?1:0,nativePhaseMin:0,
-    earliestClosedAtMs:1800000000000-90000000,
+    symbolName:requested.nativeName,barCount,
+    pagesFetched:config.historyPages,
+    gaps:gap?1:0,nativePhaseMin:0,
+    missingM5Intervals:gap?12:0,
+    gapIntervals:gap?[{
+      leftClosedAtMs:1800000000000-40*300000,
+      nextOpenedAtMs:1800000000000-27*300000,
+      missingM5Intervals:12
+    }]:[],
+    gapIntervalsTruncated:false,
+    earliestClosedAtMs:1800000000000-barCount*300000,
     latestClosedAtMs:1800000000000};
  };
 }
@@ -125,7 +137,8 @@ test("no trading scope, missing explicit opt-in, production, Firebase or other b
   {QORE_CT_QA_HISTORY_PAGES:"2"},{QORE_CT_QA_M5_CSV_EXPORT:"OWNER_APPROVED_PRIVATE_QA_CSV_ONLY"},
   {QORE_CT_QA_NATIVE_M15_COMPARE:"OWNER_APPROVED_NATIVE_M15_COMPARE"},
   {QORE_CT_QA_NATIVE_H4_AUDIT:"OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT"},
-  {QORE_CT_EXPECTED_BROKER_TITLE:"Not IC"}
+  {QORE_CT_EXPECTED_BROKER_TITLE:"Not IC"},
+  {QORE_CT_QA_COHORT34_PAGES:"9"}
  ];
  for(const variation of forbidden){
   let calls=0;
@@ -155,4 +168,69 @@ test("manifest verification fails closed before historical requests",async()=>{
  assert.equal(out.state,"CTRADER_34_MANIFEST_RECHECK_FAILED");
  assert.equal(out.attempted,0);
  assert.equal(out.sendPush,false);
+});
+
+test("all 34 DEMO native instruments fetch 600 closed M5 in two bounded pages",async()=>{
+ const calls=[],seen=[];
+ const enhanced={...env,QORE_CT_QA_COHORT34_PAGES:"2"};
+ const result=await runAuthorizedFull34M5Cohort({
+   env:enhanced,probe:fake({calls,oneGap:"BTCUSD"}),
+   onRow:row=>seen.push(row),throttleMs:0
+ });
+ assert.equal(result.state,"CTRADER_34_600_M5_SAMPLES_OBSERVED_UNCERTIFIED");
+ assert.equal(result.requestedM5PerInstrument,600);
+ assert.equal(result.totalClosedM5,20400);
+ assert.equal(result.completeRequestedSamples,34);
+ assert.equal(result.all34RequestedSamplesComplete,true);
+ assert.equal(result.all34M5Observed,true);
+ assert.equal(result.attempted,34);
+ assert.equal(result.m5Observed,34);
+ assert.equal(result.blocked,0);
+ assert.equal(seen.length,34);
+ assert.equal(calls.length,35);
+ assert.equal(result.withUnclassifiedGaps,1);
+ const btc=result.rows.find(r=>r.instrumentId==="BTCUSD");
+ assert.equal(btc.historyPages,2);
+ assert.equal(btc.closedM5,600);
+ assert.equal(btc.missingIntervals,1);
+ assert.equal(btc.missingM5Bars,12);
+ assert.equal(btc.gapsSample.length,1);
+ assert.equal(btc.group,"BTC_INDEPENDENT");
+ assert.equal(result.sourceParityCertified,false);
+ assert.equal(result.crtFamiliesCertified,false);
+ assert.equal(result.mssM5Certified,false);
+ assert.equal(result.mssM15Certified,false);
+ assert.equal(result.canTrade,false);
+ assert.equal(result.sendPush,false);
+ assert.ok(!JSON.stringify(result).includes("private_token_do_not_emit"));
+});
+test("a single absent 600-M5 symbol prevents declaring all-34 complete",async()=>{
+ const result=await runAuthorizedFull34M5Cohort({
+  env:{...env,QORE_CT_QA_COHORT34_PAGES:"2"},
+  probe:fake({failInstrument:"XAUUSD"}),throttleMs:0
+ });
+ assert.equal(result.requestedM5PerInstrument,600);
+ assert.equal(result.totalClosedM5,33*600);
+ assert.equal(result.m5Observed,33);
+ assert.equal(result.completeRequestedSamples,33);
+ assert.equal(result.all34RequestedSamplesComplete,false);
+ assert.equal(result.state,"CTRADER_34_M5_SAMPLES_PARTIAL_UNCERTIFIED");
+ assert.equal(result.sendPush,false);
+});
+test("cohort paging has no path via LIVE, trading scope, unapproved broker or stand-alone symbol",()=>{
+ const full={...env,
+  QORE_CT_QA_COHORT34_PAGES:"2",QORE_CT_QA_HISTORY_PAGES:"2"};
+ const cfg=readDemoViewProbeConfig(full);
+ assert.equal(cfg.historyPages,2);
+ assert.equal(cfg.allowCohortPaging,true);
+ for(const changed of [
+   {QORE_CT_STAGE:"LIVE"},
+   {QORE_CT_OAUTH_SCOPE:"trading"},
+   {QORE_CT_EXPECTED_BROKER_TITLE:"Other"},
+   {QORE_CT_QA_COHORT34:"DISABLED"},
+   {QORE_CT_QA_COHORT34_PAGES:"1"},
+   {QORE_CT_QA_M5_CSV_EXPORT:"OWNER_APPROVED_PRIVATE_QA_CSV_ONLY"},
+   {QORE_CT_QA_NATIVE_M15_COMPARE:"OWNER_APPROVED_NATIVE_M15_COMPARE"},
+   {QORE_CT_QA_NATIVE_H4_AUDIT:"OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT"}
+ ]) assert.throws(()=>readDemoViewProbeConfig({...full,...changed}));
 });
