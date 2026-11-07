@@ -202,3 +202,92 @@ test("Railway result remains OHLC-free and FCM-free with native QA counters",asy
  assert.equal(result.sendPush,false);
  assert.ok(!JSON.stringify(result).includes("9.999"));
 });
+
+class NativeH4WssFake extends NativeWssFake {
+ static phaseShiftHours=0;
+ static wrongPeriod=false;
+ static wrongAccount=false;
+ send(raw){
+  const msg=JSON.parse(raw),p=msg.payload;
+  if(msg.payloadType===2137&&p.period===10){
+   NativeWssFake.requests.push({type:msg.payloadType,period:p.period});
+   assert.equal(p.ctidTraderAccountId,ACCOUNT);
+   assert.equal(p.symbolId,1);
+   assert.equal(p.count,20);
+   const start=NOW-600*M5;
+   const shift=NativeH4WssFake.phaseShiftHours*3600000;
+   const bars=Array.from({length:12},(_,i)=>({
+     utcTimestampInMinutes:(start+shift+i*4*3600000)/60000,
+     low:100000,deltaOpen:200,deltaHigh:350,deltaClose:290
+   }));
+   const payload={
+    ctidTraderAccountId:String(ACCOUNT+(NativeH4WssFake.wrongAccount?1:0)),
+    period:NativeH4WssFake.wrongPeriod?7:10,
+    symbolId:1,trendbar:bars.reverse()
+   };
+   queueMicrotask(()=>this.events.get("message")?.({
+     data:JSON.stringify({clientMsgId:msg.clientMsgId,
+       payloadType:2138,payload})
+   }));
+   return;
+  }
+  super.send(raw);
+ }
+}
+async function runNativeH4(flag="OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT"){
+ reset();
+ return runAuthorizedDemoWssProbe({
+  config:readDemoViewProbeConfig({...ENV,QORE_CT_QA_NATIVE_H4_AUDIT:flag}),
+  WebSocketImpl:NativeH4WssFake,now:()=>NOW,timeoutMs:3000
+ });
+}
+test("native H4 request only after 200 native M15 exact match; 1/5/9 same phase",async()=>{
+ NativeH4WssFake.phaseShiftHours=0;
+ NativeH4WssFake.wrongPeriod=false;
+ NativeH4WssFake.wrongAccount=false;
+ const result=await runNativeH4();
+ assert.equal(result.state,"HISTORICAL_M5_M15_H4_QA_UNCERTIFIED");
+ assert.equal(result.nativeM15Summary.nativeDerivedOhlcMatch,true);
+ assert.equal(result.nativeH4Summary.state,"CTRADER_NATIVE_H4_NY_OHLC_MATCH_QA");
+ assert.equal(result.nativeH4Summary.nativeH4BarsObserved,12);
+ assert.equal(result.nativeH4Summary.matchedUtcStarts,12);
+ assert.equal(result.nativeH4Summary.fullOhlcAlignment,true);
+ assert.equal(result.nativeH4Summary.tradingViewParityCertified,false);
+ assert.equal(result.sendPush,false);
+ assert.deepEqual(NativeWssFake.requests.slice(-4).map(x=>x.period),[5,5,7,10]);
+});
+test("native H4 server offset is diagnosed; never forced to NY time",async()=>{
+ NativeH4WssFake.phaseShiftHours=2;
+ try{
+  const result=await runNativeH4();
+  assert.equal(result.state,"HISTORICAL_M5_M15_H4_QA_UNCERTIFIED");
+  assert.equal(result.nativeH4Summary.state,"CTRADER_NATIVE_H4_NY_CLOCK_MISMATCH_OR_INCOMPLETE_QA");
+  assert.equal(result.nativeH4Summary.matchedUtcStarts,0);
+  assert.equal(result.nativeH4Summary.forcedTimestampShiftMinutes,0);
+  assert.equal(result.nativeH4Summary.fullOhlcAlignment,false);
+  assert.equal(result.canTrade,false);
+ }finally{NativeH4WssFake.phaseShiftHours=0;}
+});
+test("invalid native H4 period and account are blocked",async()=>{
+ for(const bad of ["wrongPeriod","wrongAccount"]){
+  NativeH4WssFake[bad]=true;
+  try{
+   const res=await runNativeH4();
+   assert.equal(res.state,"BLOCKED");
+   assert.equal(res.reason,"CTRADER_NATIVE_H4_QA_RESPONSE_SCOPE_INVALID");
+   assert.equal(res.sendPush,false);
+  }finally{NativeH4WssFake[bad]=false;}
+ }
+});
+test("H4 flag without native M15 and exact DEMO safety gates cannot run",()=>{
+ const flag="OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT";
+ for(const delta of [
+  {QORE_CT_QA_NATIVE_M15_COMPARE:"DISABLED"},
+  {QORE_CT_STAGE:"LIVE"},
+  {QORE_CT_OAUTH_SCOPE:"trading"},
+  {QORE_CT_SAMPLE_SYMBOL_ID:"2"},
+  {QORE_CT_QA_NATIVE_H4_AUDIT:"WRONG"}
+ ])assert.throws(()=>readDemoViewProbeConfig({
+   ...ENV,QORE_CT_QA_NATIVE_H4_AUDIT:flag,...delta
+ }));
+});
