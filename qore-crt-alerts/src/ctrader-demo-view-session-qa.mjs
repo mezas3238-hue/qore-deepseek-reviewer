@@ -55,16 +55,17 @@ export function classifyCtraderQaErrorCode(code){
 export class CtraderDemoViewSessionQa {
  #config;#state="NEW";#lastId=null;#expected=null;
  #fail=null;#inventory=null;#symbol=null;
- #maxBars;#now;#idFn;
+ #maxBars;#now;#idFn;#historyPages;#historyPageCount=0;#historyBars=[];
  constructor({clientId,clientSecret,accessToken,demoAccountId,
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
   sampleInstrumentId=null,
-  maxBars=300,now=Date.now,idFn=randomUUID}={}){
+  maxBars=300,historyPages=1,now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
   if(!secret(clientId)||!secret(clientSecret)||!secret(accessToken)||
     !accountId||!safeName(expectedBrokerTitle)||!Number.isSafeInteger(maxBars)||
-    maxBars<48||maxBars>500||typeof now!=="function"||
+    maxBars<48||maxBars>500||![1,2,3].includes(historyPages)||
+    (historyPages>1&&chosenId===null)||typeof now!=="function"||
     typeof idFn!=="function"||
     ((chosenId===null)!==(sampleSymbolName===null))||
     ((chosenId===null)!==(sampleInstrumentId===null))||
@@ -76,6 +77,7 @@ export class CtraderDemoViewSessionQa {
     expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName,
     sampleInstrumentId};
   this.#maxBars=maxBars;this.#now=now;this.#idFn=idFn;
+  this.#historyPages=historyPages;
  }
  #message(type,payload,state,expected){
   if(this.#state==="HELD")throw Error("CTRADER_VIEW_QA_HELD");
@@ -221,21 +223,47 @@ export class CtraderDemoViewSessionQa {
     candles.push(normalized);
    }
    candles.sort((a,b)=>a.openedAt-b.openedAt);
-   const unique=new Set(candles.map(x=>x.openedAt));
-   if(unique.size!==candles.length)return this.#hold("CTRADER_HISTORY_DUPLICATE_TIME");
+   const currentUnique=new Set(candles.map(x=>x.openedAt));
+   if(currentUnique.size!==candles.length)
+     return this.#hold("CTRADER_HISTORY_DUPLICATE_TIME");
+   if(this.#historyPages>1 && candles.length===0)
+     return this.#hold("CTRADER_HISTORY_EMPTY_PAGE");
+   // cTrader may return trendbars latest-first. After sorting, each
+   // preceding page must be strictly older; duplicates fail closed.
+   if(this.#historyBars.length>0 &&
+      candles.at(-1)?.openedAt>=this.#historyBars[0].openedAt)
+     return this.#hold("CTRADER_HISTORY_PAGE_OVERLAP_OR_ORDER");
+   this.#historyBars.unshift(...candles);
+   this.#historyPageCount++;
+   if(this.#historyPageCount<this.#historyPages){
+     const earliest=this.#historyBars[0]?.openedAt;
+     if(!Number.isSafeInteger(earliest)||earliest<72*3600000+300000)
+       return this.#hold("CTRADER_HISTORY_CURSOR_INVALID");
+     return this.#message(VIEW_ONLY_TYPES.HISTORY,
+       {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+        period:5,count:this.#maxBars,
+        fromTimestamp:earliest-72*3600000,
+        toTimestamp:earliest-300000},
+       "HISTORY_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+   }
+   const all=this.#historyBars;
+   const unique=new Set(all.map(x=>x.openedAt));
+   if(unique.size!==all.length)
+     return this.#hold("CTRADER_HISTORY_CROSS_PAGE_DUPLICATE");
    let gaps=0,phase=null;
-   for(let i=0;i<candles.length;i++){
-    const current=candles[i].openedAt%300000;
+   for(let i=0;i<all.length;i++){
+    const current=all[i].openedAt%300000;
     if(phase!==null&&phase!==current)
       return this.#hold("CTRADER_HISTORY_PHASE_CHANGED");
     phase=current;
-    if(i>0&&candles[i].openedAt!==candles[i-1].openedAt+300000)gaps++;
+    if(i>0&&all[i].openedAt!==all[i-1].openedAt+300000)gaps++;
    }
    this.#state="COMPLETE";
    return Object.freeze({state:"HISTORICAL_M5_QA_UNCERTIFIED",
      symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
-     total: candles.length, gaps,nativePhaseMin:phase===null?null:phase/60000,
-     bars:Object.freeze(candles),
+     total:all.length, gaps,pagesFetched:this.#historyPageCount,
+     nativePhaseMin:phase===null?null:phase/60000,
+     bars:Object.freeze(all),
      sourceParityCertified:false,sendPush:false,canTrade:false});
   }
   return this.#hold("CTRADER_UNKNOWN_STATE");
