@@ -4,6 +4,8 @@
 import {CtraderDemoViewSessionQa,CTRADER_DEMO_JSON_URL,VIEW_ONLY_TYPES}
  from "./ctrader-demo-view-session-qa.mjs";
 import {auditUnapprovedIc34Candidates} from "./ctrader-ic34-candidate-audit-qa.mjs";
+import {buildUnapprovedIc34OwnerManifest}
+ from "./qa-ctrader-ic34-owner-manifest.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
 const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
@@ -49,7 +51,7 @@ export function readDemoViewProbeConfig(env={}){
 }
 export function runAuthorizedDemoWssProbe({
  config,WebSocketImpl=globalThis.WebSocket,timeoutMs=25_000,
- now=Date.now,idFn
+ now=Date.now,idFn,includeCandidateManifest=false
 }={}){
  if(typeof WebSocketImpl!=="function"||
     !Number.isSafeInteger(timeoutMs)||timeoutMs<3000||timeoutMs>40_000||
@@ -108,15 +110,26 @@ export function runAuthorizedDemoWssProbe({
       // Only after DEMO+SCOPE_VIEW+expected broker is proven.
       // Exact native spelling produces OWNER-REVIEW candidates, never
       // approved mappings or certified TradingView source equivalence.
-      let candidateAudit=null;
-      try{candidateAudit=auditUnapprovedIc34Candidates({
-       inventory:next.symbols,viewAccountProven:true
-      });}catch{}
+      let candidateAudit=null,ownerReviewManifest=null;
+      try{
+        candidateAudit=auditUnapprovedIc34Candidates({
+          inventory:next.symbols,viewAccountProven:true
+        });
+        if(includeCandidateManifest===true)
+          ownerReviewManifest=buildUnapprovedIc34OwnerManifest({
+            inventory:next.symbols,viewAccountProven:true
+          });
+      }catch{
+        if(includeCandidateManifest===true)
+          return finish(fail("CTRADER_QA_MANIFEST_VALIDATION_FAILED"));
+      }
       return finish(Object.freeze({state:next.state,
        count:next.count,enabled:next.symbols.filter(x=>x.enabled).length,
        exactNameCandidates:candidateAudit?.exactNameCandidates??null,
        ambiguousNameCandidates:candidateAudit?.ambiguous??null,
        pendingOwnerApproval:34,
+       ...(includeCandidateManifest===true?
+         {ownerReviewManifest}:{}),
        // Sanitized native names and IDs are not secrets; no OAuth data.
        symbols:Object.freeze(next.symbols.filter(x=>x.enabled).slice(0,1000)),
        sendPush:false,canTrade:false,sourceParityCertified:false}));
