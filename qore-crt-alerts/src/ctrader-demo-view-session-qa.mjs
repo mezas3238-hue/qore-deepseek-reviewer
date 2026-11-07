@@ -71,10 +71,27 @@ export class CtraderDemoViewSessionQa {
     return this.#hold("CTRADER_UNEXPECTED_MESSAGE");
   const msg=typeof raw==="string"&&raw.length<=2000000?
     (()=>{try{return JSON.parse(raw);}catch{return null;}})():raw;
-  if(!isObject(msg)||!isObject(msg.payload)||
-     msg.clientMsgId!==this.#lastId ||
-     msg.payloadType!==this.#expected)
-    return this.#hold("CTRADER_UNEXPECTED_RESPONSE_OR_ID");
+  // Keep remote protocol faults separate from our request-ID/response-type
+  // checks. Only fixed error-code labels may appear in private QA telemetry:
+  // never echo error descriptions, credentials, token, IDs or raw payloads.
+  if(!isObject(msg)||!isObject(msg.payload))
+    return this.#hold("CTRADER_MALFORMED_RESPONSE");
+  if(msg.clientMsgId!==this.#lastId)
+    return this.#hold("CTRADER_RESPONSE_ID_MISMATCH_"+this.#state);
+  if(msg.payloadType===2142){
+    const codes=new Map([
+      ["OA_AUTH_TOKEN_EXPIRED","TOKEN_EXPIRED"],
+      ["ACCOUNT_NOT_AUTHORIZED","ACCOUNT_NOT_AUTHORIZED"],
+      ["CH_CLIENT_AUTH_FAILURE","APP_AUTH_FAILURE"],
+      ["CH_CLIENT_NOT_AUTHENTICATED","APP_NOT_AUTHENTICATED"],
+      ["CONNECTIONS_LIMIT_EXCEEDED","CONNECTIONS_LIMIT"],
+      ["BLOCKED_PAYLOAD_TYPE","RATE_LIMIT"]
+    ]);
+    return this.#hold("CTRADER_API_ERROR_"+
+      (codes.get(msg.payload.errorCode)||"UNKNOWN")+"_"+this.#state);
+  }
+  if(msg.payloadType!==this.#expected)
+    return this.#hold("CTRADER_RESPONSE_TYPE_MISMATCH_"+this.#state);
   const p=msg.payload,c=this.#config;
   if(this.#state==="APP_PENDING"){
    return this.#message(VIEW_ONLY_TYPES.ACCOUNTS,
