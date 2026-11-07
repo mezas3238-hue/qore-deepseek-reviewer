@@ -111,3 +111,11 @@ test("the export path is wired to WSS only after explicit scope and full 600 bar
  assert.equal(response.sendPush,false);
  assert.equal(response.sourceParityCertified,false);
 });
+
+test("Railway export emits true newline-separated JSON log records",async()=>{
+ const {readFileSync}=await import("node:fs");
+ const source=readFileSync(new URL("../scripts/railway-ctrader-demo-entry.mjs",
+   import.meta.url),"utf8");
+ assert.equal(source.includes(String.raw`+"\\n"`),false);
+ assert.ok(source.includes(String.raw`+"\n"`));
+});
