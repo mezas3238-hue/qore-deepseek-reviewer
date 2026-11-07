@@ -47,12 +47,21 @@ export function readDemoViewProbeConfig(env={}){
  // a separately enabled QA-only page count; default remains one page.
  const pageOption=env.QORE_CT_QA_HISTORY_PAGES;
  const historyPages=pageOption===undefined?1:Number(pageOption);
+ const cohort34TwoPages=
+   env.QORE_CT_QA_COHORT34==="OWNER_APPROVED_FULL_34_DEMO_M5_QA"&&
+   env.QORE_CT_QA_COHORT34_PAGES==="2"&&
+   historyPages===2&&
+   env.QORE_CT_EXPECTED_BROKER_TITLE==="Raw Trading Ltd"&&
+   env.QORE_CT_QA_M5_CSV_EXPORT==="DISABLED"&&
+   env.QORE_CT_QA_NATIVE_M15_COMPARE==="DISABLED"&&
+   env.QORE_CT_QA_NATIVE_H4_AUDIT==="DISABLED";
  if(![1,2,3].includes(historyPages)||
     (pageOption!==undefined&&
       !["1","2","3"].includes(pageOption))||
     (historyPages>1&&
       !(values.every(x=>typeof x==="string"&&x.length>0)&&
-        values[2]==="EURUSD"&&values[1]==="EURUSD")))
+        ((values[2]==="EURUSD"&&values[1]==="EURUSD")||
+          cohort34TwoPages))))
   throw Error("CTRADER_QA_HISTORY_PAGES_NOT_AUTHORIZED_FOR_EURUSD");
  const exportMode=env.QORE_CT_QA_M5_CSV_EXPORT;
  if(exportMode!==undefined&&exportMode!=="DISABLED"&&
@@ -88,6 +97,7 @@ export function readDemoViewProbeConfig(env={}){
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
   historyPages,exportPrivateCsv,compareNativeM15,compareNativeH4,
+  allowCohortPaging:cohort34TwoPages,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
    sampleSymbolName:values[1],
@@ -202,7 +212,13 @@ export function runAuthorizedDemoWssProbe({
       return finish(Object.freeze({state:next.state,
        symbolName:next.symbolName,barCount:next.total,
        pagesFetched:next.pagesFetched??1,
-       gaps:next.gaps,nativePhaseMin:next.nativePhaseMin,
+       gaps:next.gaps,
+       ...(config?.allowCohortPaging===true?{
+         missingM5Intervals:next.missingM5Intervals,
+         gapIntervals:next.gapIntervals,
+         gapIntervalsTruncated:next.gapIntervalsTruncated
+       }:{}),
+       nativePhaseMin:next.nativePhaseMin,
        earliestClosedAtMs:next.bars[0]?.closedAt??null,
        latestClosedAtMs:next.bars.at(-1)?.closedAt??null,
        ...(privateCsv?{privateCsv}:{}),
