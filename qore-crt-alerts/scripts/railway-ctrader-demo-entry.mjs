@@ -12,6 +12,8 @@ import {IC34_MANIFEST_OPT_IN}
   from "../src/qa-ctrader-ic34-owner-manifest.mjs";
 import {CTRADER_EURUSD_CSV_EXPORT_OPT_IN}
   from "../src/qa-ctrader-eurusd-parity-csv.mjs";
+import {COHORT34_OPT_IN,runAuthorizedFull34M5Cohort}
+  from "../src/qa-ctrader-full34-m5-cohort.mjs";
 
 export function stagingGuard(env) {
   if(env.QORE_CT_STAGE!=="DEMO"||
@@ -89,7 +91,36 @@ export async function performStagingProbe({
 
 if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
   let result;
-  if(process.env.QORE_CT_ACCOUNT_DISCOVERY===DISCOVERY_OPT_IN){
+  if(process.env.QORE_CT_QA_COHORT34===COHORT34_OPT_IN){
+    // Always short-circuit the normal gateway publisher and sample path.
+    // Each row is a single real cTrader DEMO read-only attempt; never CRT.
+    const preflight=stagingGuard(process.env);
+    if(preflight!=="AUTHORIZED_QA_PROBE_READY")
+      result={state:"CTRADER_34_UNSAFE_CONFIG_BLOCKED",
+       canTrade:false,sendPush:false,sourceParityCertified:false};
+    else try{
+      result=await runAuthorizedFull34M5Cohort({
+        env:process.env,onRow:row=>process.stdout.write(JSON.stringify({
+          record:"CTRADER_34_M5_QA_ROW",...row
+        })+"\n")
+      });
+    }catch{
+      result={state:"CTRADER_34_COHORT_INTERNAL_FAILURE",
+       canTrade:false,sendPush:false,sourceParityCertified:false};
+    }
+    const {rows,...summary}=result;
+    process.stdout.write(JSON.stringify({
+      record:"CTRADER_34_M5_QA_FINAL",...summary,
+      qaMobileProbeBridge:"NOT_ATTEMPTED_FULL34_M5_QA"
+    })+"\n");
+  }else if(process.env.QORE_CT_QA_COHORT34!==undefined&&
+           process.env.QORE_CT_QA_COHORT34!=="DISABLED"){
+    process.stdout.write(JSON.stringify({
+      state:"CTRADER_34_INVALID_OPT_IN_BLOCKED",
+      canTrade:false,sendPush:false,sourceParityCertified:false,
+      qaMobileProbeBridge:"NOT_ATTEMPTED_FULL34_M5_QA"
+    })+"\n");
+  }else if(process.env.QORE_CT_ACCOUNT_DISCOVERY===DISCOVERY_OPT_IN){
     // DEMO account discovery: no HMAC, alerts, data, orders or gateway call.
     // Only proven DEMO API IDs and broker short names go to private QA logs.
     try{result=await discoverAuthorizedDemoAccounts();}
