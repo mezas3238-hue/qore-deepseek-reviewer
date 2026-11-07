@@ -47,6 +47,10 @@ export function readDemoViewProbeConfig(env={}){
  // a separately enabled QA-only page count; default remains one page.
  const pageOption=env.QORE_CT_QA_HISTORY_PAGES;
  const historyPages=pageOption===undefined?1:Number(pageOption);
+ const all34NativeMode=env.QORE_CT_QA_NATIVE_ALL34_TF;
+ if(all34NativeMode!==undefined&&all34NativeMode!=="DISABLED"&&
+   all34NativeMode!=="OWNER_APPROVED_34_NATIVE_M15_H4_QA")
+  throw Error("CTRADER_34_NATIVE_TF_INVALID_OPT_IN");
  const cohort34TwoPages=
    env.QORE_CT_QA_COHORT34==="OWNER_APPROVED_FULL_34_DEMO_M5_QA"&&
    env.QORE_CT_QA_COHORT34_PAGES==="2"&&
@@ -68,6 +72,15 @@ export function readDemoViewProbeConfig(env={}){
    exportMode!==CTRADER_EURUSD_CSV_EXPORT_OPT_IN)
   throw Error("CTRADER_QA_PRIVATE_CSV_OPT_IN_INVALID");
  const exportPrivateCsv=exportMode===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
+ const compareNativeAll34=
+   all34NativeMode==="OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+ if(compareNativeAll34&&(!cohort34TwoPages||
+    env.QORE_CT_STAGE!=="DEMO"||
+    env.QORE_CT_OAUTH_SCOPE!=="accounts"||
+    env.QORE_TRADING_ENABLED!=="false"||
+    env.QORE_PUSH_ENABLED!=="false"||
+    exportPrivateCsv))
+  throw Error("CTRADER_34_NATIVE_TF_DEMO_PAGES_REQUIRED");
  const nativeOption=env.QORE_CT_QA_NATIVE_M15_COMPARE;
  if(nativeOption!==undefined&&nativeOption!=="DISABLED"&&
     nativeOption!=="OWNER_APPROVED_NATIVE_M15_COMPARE")
@@ -97,6 +110,7 @@ export function readDemoViewProbeConfig(env={}){
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
   historyPages,exportPrivateCsv,compareNativeM15,compareNativeH4,
+  compareNativeAll34,
   allowCohortPaging:cohort34TwoPages,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
@@ -193,7 +207,8 @@ export function runAuthorizedDemoWssProbe({
      }
      if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"||
         next.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED"||
-        next.state==="HISTORICAL_M5_M15_H4_QA_UNCERTIFIED"){
+        next.state==="HISTORICAL_M5_M15_H4_QA_UNCERTIFIED"||
+        next.state==="HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED"){
       let h4=null,m15=null,privateCsv=null;
       if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
         try{
@@ -224,6 +239,12 @@ export function runAuthorizedDemoWssProbe({
        ...(privateCsv?{privateCsv}:{}),
        ...(next.nativeM15Summary?{
          nativeM15Summary:next.nativeM15Summary
+       }:{}),
+       ...(next.native34M15Summary?{
+         native34M15Summary:next.native34M15Summary
+       }:{}),
+       ...(next.native34H4Summary?{
+         native34H4Summary:next.native34H4Summary
        }:{}),
        ...(next.nativeH4Summary?{
          nativeH4Summary:next.nativeH4Summary
