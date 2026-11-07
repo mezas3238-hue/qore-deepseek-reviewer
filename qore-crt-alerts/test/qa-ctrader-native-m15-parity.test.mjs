@@ -143,7 +143,8 @@ test("wrong native timeframe and account fail closed",async()=>{
  for(const errorCase of ["wrongPeriod","wrongAccount"]){
   reset();NativeWssFake[errorCase]=true;
   const r=await run();
-  assert.equal(r.state,"CTRADER_NATIVE_M15_RESPONSE_SCOPE_INVALID");
+  assert.equal(r.state,"BLOCKED");
+  assert.equal(r.reason,"CTRADER_NATIVE_M15_RESPONSE_SCOPE_INVALID");
   assert.equal(r.sendPush,false);
   assert.equal(r.canTrade,false);
  }
@@ -152,7 +153,8 @@ test("wrong native timeframe and account fail closed",async()=>{
 test("no SCOPE_VIEW means no native trendbar or market data requests",async()=>{
  reset();NativeWssFake.scope=1;
  try{const r=await run();
-  assert.equal(r.state,"CTRADER_SCOPE_VIEW_NOT_PROVEN");
+  assert.equal(r.state,"BLOCKED");
+  assert.equal(r.reason,"CTRADER_SCOPE_VIEW_NOT_PROVEN");
   assert.deepEqual(NativeWssFake.requests.map(x=>x.type),[2100,2149]);
  }finally{reset();}
 });
