@@ -13,6 +13,8 @@ import {summarizeClosedEurusdH4}
  from "./qa-eurusd-ny-h4-reconstruction.mjs";
 import {decodeClosedNativeEurusdH4,auditNativeVsNyForexH4}
  from "./qa-ctrader-native-h4-ny-phase-audit.mjs";
+import {decodeNative34Trendbars,compareNative34AgainstClosedM5}
+ from "./qa-ctrader-ic34-native-timeframes.mjs";
 
 export const CTRADER_DEMO_JSON_URL="wss://demo.ctraderapi.com:5036";
 export const VIEW_ONLY_TYPES=Object.freeze({
@@ -65,12 +67,13 @@ export class CtraderDemoViewSessionQa {
  #fail=null;#inventory=null;#symbol=null;
  #maxBars;#now;#idFn;#historyPages;#historyPageCount=0;#historyBars=[];
  #nativeM15Summary=null;
+ #cohortM15Summary=null;#cohortGaps=null;
  constructor({clientId,clientSecret,accessToken,demoAccountId,
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
   sampleInstrumentId=null,
   maxBars=300,historyPages=1,compareNativeM15=false,
   compareNativeH4=false,allowCohortPaging=false,
-  now=Date.now,idFn=randomUUID}={}){
+  compareNativeAll34=false,now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
   if(!secret(clientId)||!secret(clientSecret)||!secret(accessToken)||
@@ -78,6 +81,12 @@ export class CtraderDemoViewSessionQa {
     maxBars<48||maxBars>500||![1,2,3].includes(historyPages)||
     (historyPages>1&&chosenId===null)||
     typeof allowCohortPaging!=="boolean"||
+    typeof compareNativeAll34!=="boolean"||
+    (compareNativeAll34&&
+      (!allowCohortPaging||historyPages!==2||maxBars!==300||
+       compareNativeM15||compareNativeH4||
+       !INSTRUMENTS.some(x=>x.id===sampleInstrumentId&&
+        x.tvSymbol==="IC:"+sampleSymbolName)))||
     (allowCohortPaging&&!(
       historyPages===2&&maxBars===300&&chosenId!==null&&
       expectedBrokerTitle==="Raw Trading Ltd"&&
@@ -102,7 +111,8 @@ export class CtraderDemoViewSessionQa {
     throw Error("CTRADER_VIEW_ONLY_DEMO_CONFIG_REQUIRED");
   this.#config={clientId,clientSecret,accessToken,demoAccountId:accountId,
     expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName,
-    sampleInstrumentId,compareNativeM15,compareNativeH4};
+    sampleInstrumentId,compareNativeM15,compareNativeH4,
+    compareNativeAll34};
   this.#maxBars=maxBars;this.#now=now;this.#idFn=idFn;
   this.#historyPages=historyPages;
  }
@@ -297,6 +307,23 @@ export class CtraderDemoViewSessionQa {
       }));
     }
    }
+   if(c.compareNativeAll34){
+     if(all.length!==600||phase!==0||
+        !Number.isSafeInteger(all[0]?.openedAt)||
+        !Number.isSafeInteger(all.at(-1)?.closedAt))
+       return this.#hold("CTRADER_34_NATIVE_M5_BASE_INCOMPLETE");
+     this.#cohortGaps=Object.freeze({
+       gaps,missingM5Intervals,
+       gapIntervals:Object.freeze(gapIntervals),
+       gapIntervalsTruncated:gaps>gapIntervals.length
+     });
+     return this.#message(VIEW_ONLY_TYPES.HISTORY,
+       {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+        period:7,count:250,
+        fromTimestamp:all[0].openedAt-900000,
+        toTimestamp:all.at(-1).closedAt-1},
+       "COHORT34_M15_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+   }
    if(c.compareNativeM15){
      if(all.length!==600||gaps!==0||phase!==0||
         all[0].openedAt%900000!==0||
@@ -322,6 +349,64 @@ export class CtraderDemoViewSessionQa {
      nativePhaseMin:phase===null?null:phase/60000,
      bars:Object.freeze(all),
      sourceParityCertified:false,sendPush:false,canTrade:false});
+  }
+  if(this.#state==="COHORT34_M15_PENDING"){
+   if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
+      (p.period!==7&&p.period!=="M15")||
+      (p.symbolId!==undefined&&safeInt(p.symbolId)!==c.sampleSymbolId)||
+      !Array.isArray(p.trendbar)||p.trendbar.length>250||
+      !this.#cohortGaps||this.#historyBars.length!==600)
+    return this.#hold("CTRADER_34_NATIVE_M15_RESPONSE_SCOPE_INVALID");
+   try{
+    const native=decodeNative34Trendbars({
+      raw:p.trendbar,period:7,symbolId:c.sampleSymbolId,
+      nowMs:this.#now(),maxBars:250
+    });
+    this.#cohortM15Summary=compareNative34AgainstClosedM5({
+      m5Bars:this.#historyBars,nativeBars:native,
+      period:7,instrumentId:c.sampleInstrumentId,
+      symbolId:c.sampleSymbolId
+    });
+   }catch{return this.#hold("CTRADER_34_NATIVE_M15_INVALID_OR_UNCLOSED");}
+   const all=this.#historyBars;
+   return this.#message(VIEW_ONLY_TYPES.HISTORY,
+     {ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+      period:10,count:30,
+      fromTimestamp:all[0].openedAt-14400000,
+      toTimestamp:all.at(-1).closedAt-1},
+      "COHORT34_H4_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+  }
+  if(this.#state==="COHORT34_H4_PENDING"){
+   if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
+      (p.period!==10&&p.period!=="H4")||
+      (p.symbolId!==undefined&&safeInt(p.symbolId)!==c.sampleSymbolId)||
+      !Array.isArray(p.trendbar)||p.trendbar.length>30||
+      !this.#cohortM15Summary||!this.#cohortGaps)
+    return this.#hold("CTRADER_34_NATIVE_H4_RESPONSE_SCOPE_INVALID");
+   let summary;
+   try{
+     const native=decodeNative34Trendbars({
+      raw:p.trendbar,period:10,symbolId:c.sampleSymbolId,
+      nowMs:this.#now(),maxBars:30
+     });
+     summary=compareNative34AgainstClosedM5({
+       m5Bars:this.#historyBars,nativeBars:native,
+       period:10,instrumentId:c.sampleInstrumentId,
+       symbolId:c.sampleSymbolId
+     });
+   }catch{return this.#hold("CTRADER_34_NATIVE_H4_INVALID_OR_UNCLOSED");}
+   this.#state="COMPLETE";
+   return Object.freeze({
+     state:"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED",
+     symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
+     total:this.#historyBars.length,
+     pagesFetched:this.#historyPageCount,nativePhaseMin:0,
+     ...this.#cohortGaps,
+     bars:Object.freeze(this.#historyBars),
+     native34M15Summary:this.#cohortM15Summary,
+     native34H4Summary:summary,
+     sourceParityCertified:false,canTrade:false,sendPush:false
+   });
   }
   if(this.#state==="NATIVE_M15_PENDING"){
    if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||

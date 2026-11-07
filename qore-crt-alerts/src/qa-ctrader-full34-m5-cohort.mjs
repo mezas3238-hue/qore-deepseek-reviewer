@@ -79,6 +79,10 @@ const envSafe=e=>e?.QORE_CT_QA_COHORT34===COHORT34_OPT_IN&&
  e.QORE_CT_ACCOUNT_DISCOVERY==="DISABLED"&&
  e.QORE_CT_QA_HISTORY_PAGES==="1"&&
  [undefined,"1","2"].includes(e.QORE_CT_QA_COHORT34_PAGES)&&
+ [undefined,"DISABLED","OWNER_APPROVED_34_NATIVE_M15_H4_QA"]
+   .includes(e.QORE_CT_QA_NATIVE_ALL34_TF)&&
+ (e.QORE_CT_QA_NATIVE_ALL34_TF!=="OWNER_APPROVED_34_NATIVE_M15_H4_QA"||
+   e.QORE_CT_QA_COHORT34_PAGES==="2")&&
  e.QORE_CT_QA_M5_CSV_EXPORT==="DISABLED"&&
  e.QORE_CT_QA_NATIVE_M15_COMPARE==="DISABLED"&&
  e.QORE_CT_QA_NATIVE_H4_AUDIT==="DISABLED"&&
@@ -92,7 +96,8 @@ function mappedConfig(env,row){
   QORE_CT_SAMPLE_SYMBOL_NAME:row.nativeName,
   QORE_CT_SAMPLE_INSTRUMENT_ID:row.instrumentId};
  const cfg=readDemoViewProbeConfig(e);
- if(cfg.historyPages!==pages||
+ const tf=e.QORE_CT_QA_NATIVE_ALL34_TF==="OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+ if(cfg.compareNativeAll34!==tf||cfg.historyPages!==pages||
     cfg.allowCohortPaging!==(pages===2)||
     cfg.exportPrivateCsv||cfg.compareNativeM15||
     cfg.compareNativeH4||cfg.sampleSymbolId!==String(row.nativeId)||
@@ -118,6 +123,9 @@ export async function runAuthorizedFull34M5Cohort({
   // The inventory query MUST stay single-page even when symbol history is
   // two pages. Never request M5 when the manifest has not been verified.
   e.QORE_CT_QA_HISTORY_PAGES="1";
+  // Inventory never requests candles. Native timeframe authorization is
+  // applied ONLY after the entire real 34-ID manifest is reverified.
+  e.QORE_CT_QA_NATIVE_ALL34_TF="DISABLED";
   cfg=readDemoViewProbeConfig(e);
  }catch{return fail("CTRADER_34_DEMO_VIEW_CONFIG_INVALID");}
  let inventory;
@@ -150,7 +158,11 @@ export async function runAuthorizedFull34M5Cohort({
       includeCandidateManifest:false,includePrivateCsv:false});
    }catch{out={state:"BLOCKED",reason:"CTRADER_COHORT_SAMPLE_BLOCKED"};}
    const pages=env.QORE_CT_QA_COHORT34_PAGES==="2"?2:1;
-   const observed=out?.state==="HISTORICAL_M5_QA_UNCERTIFIED"&&
+   const tfRequested=env.QORE_CT_QA_NATIVE_ALL34_TF===
+     "OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+   const observed=(tfRequested?
+     out?.state==="HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED":
+     out?.state==="HISTORICAL_M5_QA_UNCERTIFIED")&&
     Number.isInteger(out.barCount)&&out.barCount>=1&&
     out.barCount<=300*pages&&out.pagesFetched===pages&&
     Number.isInteger(out.gaps)&&out.gaps>=0&&
@@ -175,6 +187,10 @@ export async function runAuthorizedFull34M5Cohort({
         gapsTruncated:out.gapIntervalsTruncated??false
       }:{}),
       nativePhaseMin:out.nativePhaseMin,
+      ...(tfRequested?{
+        nativeM15QaSummary:out.native34M15Summary??null,
+        nativeH4QaSummary:out.native34H4Summary??null
+      }:{}),
       earliestClosedAtMs:out.earliestClosedAtMs??null,
       latestClosedAtMs:out.latestClosedAtMs??null
     }:{closedM5:0,missingIntervals:null,nativePhaseMin:null,
@@ -194,11 +210,24 @@ export async function runAuthorizedFull34M5Cohort({
  const gapUnknown=scanned.filter(r=>r.missingIntervals>0).length;
  const requestedPages=env.QORE_CT_QA_COHORT34_PAGES==="2"?2:1;
  const completeRows=scanned.filter(r=>r.closedM5===300*requestedPages).length;
- const status=m5Observed===34&&completeRows===34?
-  (requestedPages===2?
-   "CTRADER_34_600_M5_SAMPLES_OBSERVED_UNCERTIFIED":
-   "CTRADER_34_M5_SAMPLES_OBSERVED_UNCERTIFIED"):
-  "CTRADER_34_M5_SAMPLES_PARTIAL_UNCERTIFIED";
+ const tfRequested=env.QORE_CT_QA_NATIVE_ALL34_TF===
+   "OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+ const nativeM15Read=scanned.filter(r=>
+   Number.isInteger(r.nativeM15QaSummary?.nativeBarsFetched)&&
+   r.nativeM15QaSummary.nativeBarsFetched>0).length;
+ const nativeH4Read=scanned.filter(r=>
+   Number.isInteger(r.nativeH4QaSummary?.nativeBarsFetched)&&
+   r.nativeH4QaSummary.nativeBarsFetched>0).length;
+ const status=tfRequested?
+   (m5Observed===34&&completeRows===34&&
+     nativeM15Read===34&&nativeH4Read===34?
+     "CTRADER_34_NATIVE_M15_H4_SAMPLES_OBSERVED_UNCERTIFIED":
+     "CTRADER_34_NATIVE_M15_H4_PARTIAL_UNCERTIFIED"):
+   m5Observed===34&&completeRows===34?
+    (requestedPages===2?
+      "CTRADER_34_600_M5_SAMPLES_OBSERVED_UNCERTIFIED":
+      "CTRADER_34_M5_SAMPLES_OBSERVED_UNCERTIFIED"):
+    "CTRADER_34_M5_SAMPLES_PARTIAL_UNCERTIFIED";
  return Object.freeze({
   state:status,manifestSha256:COHORT34_MANIFEST_SHA256,
   inventoryCount:inventory.length,
@@ -207,6 +236,21 @@ export async function runAuthorizedFull34M5Cohort({
   totalClosedM5:scanned.reduce((sum,r)=>sum+r.closedM5,0),
   completeRequestedSamples:completeRows,
   all34RequestedSamplesComplete:completeRows===34,
+  nativeM15MarketsRead:nativeM15Read,
+  nativeH4MarketsRead:nativeH4Read,
+  all34NativeFramesRead:tfRequested&&nativeM15Read===34&&nativeH4Read===34,
+  totalNativeM15Bars:scanned.reduce((a,r)=>
+    a+(r.nativeM15QaSummary?.nativeBarsFetched??0),0),
+  totalNativeH4Bars:scanned.reduce((a,r)=>
+    a+(r.nativeH4QaSummary?.nativeBarsFetched??0),0),
+  totalM15ComparedBlocks:scanned.reduce((a,r)=>
+    a+(r.nativeM15QaSummary?.matchedUtcAndCompleteM5Blocks??0),0),
+  totalH4ComparedBlocks:scanned.reduce((a,r)=>
+    a+(r.nativeH4QaSummary?.matchedUtcAndCompleteM5Blocks??0),0),
+  totalM15MismatchBars:scanned.reduce((a,r)=>
+    a+(r.nativeM15QaSummary?.mismatchBars??0),0),
+  totalH4MismatchBars:scanned.reduce((a,r)=>
+    a+(r.nativeH4QaSummary?.mismatchBars??0),0),
   withUnclassifiedGaps:gapUnknown,
   all34M5Observed:m5Observed===34,rows:scanned,
   ownerApprovedMappings:0,sourceParityCertified:false,
