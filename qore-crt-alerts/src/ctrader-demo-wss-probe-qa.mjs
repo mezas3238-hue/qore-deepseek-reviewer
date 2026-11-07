@@ -8,6 +8,9 @@ import {buildUnapprovedIc34OwnerManifest}
  from "./qa-ctrader-ic34-owner-manifest.mjs";
 import {summarizeClosedEurusdH4}
  from "./qa-eurusd-ny-h4-reconstruction.mjs";
+import {buildPrivateCtraderEurusdParityCsv,
+ CTRADER_EURUSD_CSV_EXPORT_OPT_IN}
+ from "./qa-ctrader-eurusd-parity-csv.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
 const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
@@ -49,13 +52,23 @@ export function readDemoViewProbeConfig(env={}){
       !(values.every(x=>typeof x==="string"&&x.length>0)&&
         values[2]==="EURUSD"&&values[1]==="EURUSD")))
   throw Error("CTRADER_QA_HISTORY_PAGES_NOT_AUTHORIZED_FOR_EURUSD");
+ const exportMode=env.QORE_CT_QA_M5_CSV_EXPORT;
+ if(exportMode!==undefined&&exportMode!=="DISABLED"&&
+   exportMode!==CTRADER_EURUSD_CSV_EXPORT_OPT_IN)
+  throw Error("CTRADER_QA_PRIVATE_CSV_OPT_IN_INVALID");
+ const exportPrivateCsv=exportMode===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
+ if(exportPrivateCsv&&
+    (historyPages!==2||values[0]!=="1"||values[1]!=="EURUSD"||
+     values[2]!=="EURUSD"||
+     env.QORE_CT_EXPECTED_BROKER_TITLE!=="Raw Trading Ltd"))
+  throw Error("CTRADER_QA_PRIVATE_CSV_REQUIRES_VERIFIED_EURUSD_DEMO");
  return Object.freeze({
   clientId:env.QORE_CT_CLIENT_ID,
   clientSecret:env.QORE_CT_CLIENT_SECRET,
   accessToken:env.QORE_CT_VIEW_ACCESS_TOKEN,
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
-  historyPages,
+  historyPages,exportPrivateCsv,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
    sampleSymbolName:values[1],
@@ -65,7 +78,8 @@ export function readDemoViewProbeConfig(env={}){
 }
 export function runAuthorizedDemoWssProbe({
  config,WebSocketImpl=globalThis.WebSocket,timeoutMs=25_000,
- now=Date.now,idFn,includeCandidateManifest=false
+ now=Date.now,idFn,includeCandidateManifest=false,
+ includePrivateCsv=false
 }={}){
  if(typeof WebSocketImpl!=="function"||
     !Number.isSafeInteger(timeoutMs)||timeoutMs<3000||timeoutMs>40_000||
@@ -149,10 +163,18 @@ export function runAuthorizedDemoWssProbe({
        sendPush:false,canTrade:false,sourceParityCertified:false}));
      }
      if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"){
-      let h4=null;
+      let h4=null,privateCsv=null;
       if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
         try{h4=summarizeClosedEurusdH4(next.bars);}
         catch{return finish(fail("CTRADER_H4_QA_RECONSTRUCTION_INVALID"));}
+      }
+      if(includePrivateCsv===true){
+        if(config?.exportPrivateCsv!==true||
+           next.symbolName!=="EURUSD"||
+           next.pagesFetched!==2||next.total!==600||next.gaps!==0)
+          return finish(fail("CTRADER_PRIVATE_CSV_SOURCE_GATE_FAILED"));
+        try{privateCsv=buildPrivateCtraderEurusdParityCsv(next.bars);}
+        catch{return finish(fail("CTRADER_PRIVATE_CSV_VALIDATION_FAILED"));}
       }
       return finish(Object.freeze({state:next.state,
        symbolName:next.symbolName,barCount:next.total,
@@ -160,6 +182,7 @@ export function runAuthorizedDemoWssProbe({
        gaps:next.gaps,nativePhaseMin:next.nativePhaseMin,
        earliestClosedAtMs:next.bars[0]?.closedAt??null,
        latestClosedAtMs:next.bars.at(-1)?.closedAt??null,
+       ...(privateCsv?{privateCsv}:{}),
        ...(h4?{h4Summary:Object.freeze({
          anchor:h4.anchor,completeH4Blocks:h4.completeH4Blocks,
          partialH4Blocks:h4.partialH4Blocks,
