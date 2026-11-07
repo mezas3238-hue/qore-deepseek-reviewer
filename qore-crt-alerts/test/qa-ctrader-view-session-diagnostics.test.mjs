@@ -76,3 +76,24 @@ test("expired token is recognized while preserving an independent permission gat
   assert.equal(result.sourceParityCertified,false);
   assert.equal(result.sendPush,false);
 });
+
+test("empty application-auth response may omit payload but must correlate exactly",()=>{
+  const first=fresh();
+  const accepted=first.session.accept({clientMsgId:first.initial.clientMsgId,
+    payloadType:VIEW_ONLY_TYPES.APP_AUTH_OK});
+  assert.equal(accepted.payloadType,VIEW_ONLY_TYPES.ACCOUNTS);
+  assert.equal(accepted.payload.accessToken,"fake-access-token");
+
+  const forged=fresh();
+  const held=forged.session.accept({clientMsgId:"wrong",
+    payloadType:VIEW_ONLY_TYPES.APP_AUTH_OK});
+  assert.equal(held.reason,"CTRADER_RESPONSE_ID_MISMATCH_APP_PENDING");
+
+  const emptyAccounts=fresh();
+  const req=emptyAccounts.session.accept({clientMsgId:emptyAccounts.initial.clientMsgId,
+    payloadType:VIEW_ONLY_TYPES.APP_AUTH_OK});
+  const denied=emptyAccounts.session.accept({clientMsgId:req.clientMsgId,
+    payloadType:VIEW_ONLY_TYPES.ACCOUNTS_OK});
+  assert.equal(denied.reason,"CTRADER_MALFORMED_RESPONSE");
+  assert.equal(denied.canTrade,false);
+});
