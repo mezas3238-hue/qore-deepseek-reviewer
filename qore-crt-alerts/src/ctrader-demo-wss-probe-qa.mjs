@@ -64,6 +64,13 @@ export function readDemoViewProbeConfig(env={}){
     nativeOption!=="OWNER_APPROVED_NATIVE_M15_COMPARE")
   throw Error("CTRADER_QA_NATIVE_M15_COMPARE_OPT_IN_INVALID");
  const compareNativeM15=nativeOption==="OWNER_APPROVED_NATIVE_M15_COMPARE";
+ const h4Option=env.QORE_CT_QA_NATIVE_H4_AUDIT;
+ if(h4Option!==undefined&&h4Option!=="DISABLED"&&
+    h4Option!=="OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT")
+  throw Error("CTRADER_QA_NATIVE_H4_AUDIT_OPT_IN_INVALID");
+ const compareNativeH4=h4Option==="OWNER_APPROVED_NATIVE_H4_PHASE_AUDIT";
+ if(compareNativeH4&&!compareNativeM15)
+  throw Error("CTRADER_QA_NATIVE_H4_REQUIRES_PROVEN_M15");
  if(compareNativeM15&&
     (exportPrivateCsv||historyPages!==2||values[0]!=="1"||
      values[1]!=="EURUSD"||values[2]!=="EURUSD"||
@@ -80,7 +87,7 @@ export function readDemoViewProbeConfig(env={}){
   accessToken:env.QORE_CT_VIEW_ACCESS_TOKEN,
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
-  historyPages,exportPrivateCsv,compareNativeM15,
+  historyPages,exportPrivateCsv,compareNativeM15,compareNativeH4,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
    sampleSymbolName:values[1],
@@ -175,7 +182,8 @@ export function runAuthorizedDemoWssProbe({
        sendPush:false,canTrade:false,sourceParityCertified:false}));
      }
      if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"||
-        next.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED"){
+        next.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED"||
+        next.state==="HISTORICAL_M5_M15_H4_QA_UNCERTIFIED"){
       let h4=null,m15=null,privateCsv=null;
       if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
         try{
@@ -200,6 +208,9 @@ export function runAuthorizedDemoWssProbe({
        ...(privateCsv?{privateCsv}:{}),
        ...(next.nativeM15Summary?{
          nativeM15Summary:next.nativeM15Summary
+       }:{}),
+       ...(next.nativeH4Summary?{
+         nativeH4Summary:next.nativeH4Summary
        }:{}),
        ...(m15?{m15Summary:Object.freeze({
          closedM5Inputs:m15.m5ClosedInputs,
