@@ -57,7 +57,8 @@ export async function performStagingProbe({
   });
   const success=output?.state==="INVENTORY_QA_ONLY"||
     output?.state==="HISTORICAL_M5_QA_UNCERTIFIED"||
-    output?.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED";
+    output?.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED"||
+    output?.state==="HISTORICAL_M5_M15_H4_QA_UNCERTIFIED";
   // Keep response slim: no access/refresh tokens, no raw OHLC, no credentials.
   return Object.freeze({
     state:success?output.state:output?.reason||"CTRADER_QA_PROBE_FAILED",
@@ -75,6 +76,8 @@ export async function performStagingProbe({
       {m15QaSummary:output.m15Summary}:{}),
     ...(cfg.compareNativeM15===true&&output.nativeM15Summary?
       {nativeM15QaSummary:output.nativeM15Summary}:{}),
+    ...(cfg.compareNativeH4===true&&output.nativeH4Summary?
+      {nativeH4QaSummary:output.nativeH4Summary}:{}),
     ...(success&&includePrivateCsv&&output.privateCsv?
       {privateCsv:output.privateCsv}:{}),
     nativePhaseMin:success?output.nativePhaseMin??null:null,
