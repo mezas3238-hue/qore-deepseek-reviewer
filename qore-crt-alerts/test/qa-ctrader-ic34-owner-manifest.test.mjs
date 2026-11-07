@@ -56,7 +56,7 @@ test("no proven DEMO VIEW inventory; duplicate IDs; suspect names all fail close
   }),/UNTRUSTED/);
 });
 test("ambiguous or missing exact broker names remain unapproved",()=>{
-  const sample=[...inventory.slice(1),
+  const sample=[...inventory.filter(x=>x.symbolName!=="EURUSD"),
     {symbolId:9000,symbolName:"EURUSD",enabled:true},
     {symbolId:9001,symbolName:"EUR/USD",enabled:true}
   ];
