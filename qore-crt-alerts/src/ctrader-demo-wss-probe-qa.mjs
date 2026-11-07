@@ -6,6 +6,8 @@ import {CtraderDemoViewSessionQa,CTRADER_DEMO_JSON_URL,VIEW_ONLY_TYPES}
 import {auditUnapprovedIc34Candidates} from "./ctrader-ic34-candidate-audit-qa.mjs";
 import {buildUnapprovedIc34OwnerManifest}
  from "./qa-ctrader-ic34-owner-manifest.mjs";
+import {summarizeClosedEurusdH4}
+ from "./qa-eurusd-ny-h4-reconstruction.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
 const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
@@ -36,12 +38,24 @@ export function readDemoViewProbeConfig(env={}){
      !isPositive(values[0])||!legalName(values[1])||
      !legalName(values[2])))
   throw Error("CTRADER_OWNER_SYMBOL_MAPPING_INCOMPLETE");
+ // More than one historical query requires a named sample symbol and
+ // a separately enabled QA-only page count; default remains one page.
+ const pageOption=env.QORE_CT_QA_HISTORY_PAGES;
+ const historyPages=pageOption===undefined?1:Number(pageOption);
+ if(![1,2,3].includes(historyPages)||
+    (pageOption!==undefined&&
+      !["1","2","3"].includes(pageOption))||
+    (historyPages>1&&
+      !(values.every(x=>typeof x==="string"&&x.length>0)&&
+        values[2]==="EURUSD"&&values[1]==="EURUSD")))
+  throw Error("CTRADER_QA_HISTORY_PAGES_NOT_AUTHORIZED_FOR_EURUSD");
  return Object.freeze({
   clientId:env.QORE_CT_CLIENT_ID,
   clientSecret:env.QORE_CT_CLIENT_SECRET,
   accessToken:env.QORE_CT_VIEW_ACCESS_TOKEN,
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
+  historyPages,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
    sampleSymbolName:values[1],
@@ -134,13 +148,27 @@ export function runAuthorizedDemoWssProbe({
        symbols:Object.freeze(next.symbols.filter(x=>x.enabled).slice(0,1000)),
        sendPush:false,canTrade:false,sourceParityCertified:false}));
      }
-     if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED")
+     if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"){
+      let h4=null;
+      if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
+        try{h4=summarizeClosedEurusdH4(next.bars);}
+        catch{return finish(fail("CTRADER_H4_QA_RECONSTRUCTION_INVALID"));}
+      }
       return finish(Object.freeze({state:next.state,
        symbolName:next.symbolName,barCount:next.total,
+       pagesFetched:next.pagesFetched??1,
        gaps:next.gaps,nativePhaseMin:next.nativePhaseMin,
        earliestClosedAtMs:next.bars[0]?.closedAt??null,
        latestClosedAtMs:next.bars.at(-1)?.closedAt??null,
+       ...(h4?{h4Summary:Object.freeze({
+         anchor:h4.anchor,completeH4Blocks:h4.completeH4Blocks,
+         partialH4Blocks:h4.partialH4Blocks,
+         rejectedH4Blocks:h4.rejectedH4Blocks,
+         sourceParityCertified:false,crtFamiliesCertified:false,
+         mssCertified:false,canTrade:false,sendPush:false
+       })}:{}),
        sourceParityCertified:false,sendPush:false,canTrade:false}));
+     }
      send(next);
     }catch{finish(fail("CTRADER_QA_RESPONSE_REJECTED"));}
    });

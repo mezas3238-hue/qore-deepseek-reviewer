@@ -43,7 +43,11 @@ export async function performStagingProbe({
       connected:false});}
   const includeCandidateManifest=
     env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
-  const output=await probe({config:cfg,includeCandidateManifest});
+  const output=await probe({
+    config:cfg,includeCandidateManifest,
+    // Two 300-bar historical pages: bounded 35s WSS, no auto retry.
+    ...(cfg.historyPages>1?{timeoutMs:35_000}:{})
+  });
   const success=output?.state==="INVENTORY_QA_ONLY"||
     output?.state==="HISTORICAL_M5_QA_UNCERTIFIED";
   // Keep response slim: no access/refresh tokens, no raw OHLC, no credentials.
@@ -56,6 +60,9 @@ export async function performStagingProbe({
     ambiguityCount:success?output.ambiguousNameCandidates??null:null,
     m5ClosedBars:success?output.barCount??null:null,
     m5Gaps:success?output.gaps??null:null,
+    m5PagesFetched:success?output.pagesFetched??null:null,
+    ...(cfg.historyPages>1&&output.h4Summary?
+      {h4QaSummary:output.h4Summary}:{}),
     nativePhaseMin:success?output.nativePhaseMin??null:null,
     ...(includeCandidateManifest&&output?.state==="INVENTORY_QA_ONLY" &&
        output.ownerReviewManifest?.state==="IC34_CANDIDATES_OWNER_REVIEW_ONLY"?
@@ -81,9 +88,13 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
     // A QA manifest is printed only to private worker logs.
     const inManifestMode=
       process.env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
+    const inHistoricalQaMode=
+      ["2","3"].includes(process.env.QORE_CT_QA_HISTORY_PAGES);
     const delivery=inManifestMode?
       {state:"NOT_ATTEMPTED_IN_OWNER_REVIEW_MANIFEST"}:
-      await publishQaProbe({env:process.env,probe:result});
+      inHistoricalQaMode?
+        {state:"NOT_ATTEMPTED_IN_HISTORICAL_M5_QA"}:
+        await publishQaProbe({env:process.env,probe:result});
     process.stdout.write(JSON.stringify({
       ...result,
       qaMobileProbeBridge:delivery.state
