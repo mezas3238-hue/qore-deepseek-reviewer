@@ -8,6 +8,8 @@ import {readDemoViewProbeConfig,runAuthorizedDemoWssProbe}
 import {publishQaProbe} from "../src/qa-ctrader-mobile-probe-bridge.mjs";
 import {discoverAuthorizedDemoAccounts,DISCOVERY_OPT_IN}
   from "../src/qa-ctrader-demo-account-discovery.mjs";
+import {IC34_MANIFEST_OPT_IN}
+  from "../src/qa-ctrader-ic34-owner-manifest.mjs";
 
 export function stagingGuard(env) {
   if(env.QORE_CT_STAGE!=="DEMO"||
@@ -39,7 +41,9 @@ export async function performStagingProbe({
   catch{return Object.freeze({state:"BLOCKED_INVALID_DEMO_OAUTH_CONFIG",
       canTrade:false,sendPush:false,sourceParityCertified:false,
       connected:false});}
-  const output=await probe({config:cfg});
+  const includeCandidateManifest=
+    env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
+  const output=await probe({config:cfg,includeCandidateManifest});
   const success=output?.state==="INVENTORY_QA_ONLY"||
     output?.state==="HISTORICAL_M5_QA_UNCERTIFIED";
   // Keep response slim: no access/refresh tokens, no raw OHLC, no credentials.
@@ -52,7 +56,10 @@ export async function performStagingProbe({
     ambiguityCount:success?output.ambiguousNameCandidates??null:null,
     m5ClosedBars:success?output.barCount??null:null,
     m5Gaps:success?output.gaps??null:null,
-    nativePhaseMin:success?output.nativePhaseMin??null:null
+    nativePhaseMin:success?output.nativePhaseMin??null:null,
+    ...(includeCandidateManifest&&output?.state==="INVENTORY_QA_ONLY" &&
+       output.ownerReviewManifest?.state==="IC34_CANDIDATES_OWNER_REVIEW_ONLY"?
+      {ownerReviewManifest:output.ownerReviewManifest}:{})
   });
 }
 
@@ -70,7 +77,13 @@ if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
     try{result=await performStagingProbe();}
     catch{result={state:"CTRADER_QA_INTERNAL_FAILURE",connected:false,
       canTrade:false,sendPush:false,sourceParityCertified:false};}
-    const delivery=await publishQaProbe({env:process.env,probe:result});
+    // Owner-review symbol IDs must NEVER be published through a gateway.
+    // A QA manifest is printed only to private worker logs.
+    const inManifestMode=
+      process.env.QORE_CT_QA_SYMBOL_MANIFEST===IC34_MANIFEST_OPT_IN;
+    const delivery=inManifestMode?
+      {state:"NOT_ATTEMPTED_IN_OWNER_REVIEW_MANIFEST"}:
+      await publishQaProbe({env:process.env,probe:result});
     process.stdout.write(JSON.stringify({
       ...result,
       qaMobileProbeBridge:delivery.state
