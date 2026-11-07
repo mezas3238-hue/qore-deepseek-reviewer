@@ -25,6 +25,33 @@ const secret=v=>typeof v==="string"&&v.length>=4&&v.length<=4096&&
 const held=(reason)=>Object.freeze({state:"HELD",reason,
   sourceParityCertified:false,sendPush:false,canTrade:false});
 
+// Explicit allowlist from cTrader Open API model/error messages (read-only QA).
+// Categorization does not trigger retry, OAuth renewal or any broker action.
+const QA_API_ERROR_NAMES=Object.freeze({
+ OA_AUTH_TOKEN_EXPIRED:"TOKEN_EXPIRED",
+ ACCOUNT_NOT_AUTHORIZED:"ACCOUNT_NOT_AUTHORIZED",
+ RET_NO_SUCH_LOGIN:"ACCOUNT_NOT_FOUND",
+ ALREADY_LOGGED_IN:"ALREADY_LOGGED_IN",
+ CONNECTIONS_LIMIT_EXCEEDED:"CONNECTIONS_LIMIT",
+ CH_CLIENT_AUTH_FAILURE:"APP_AUTH_FAILURE",
+ CH_CLIENT_NOT_AUTHENTICATED:"APP_NOT_AUTHENTICATED",
+ CH_CLIENT_ALREADY_AUTHENTICATED:"APP_ALREADY_AUTHENTICATED",
+ CH_ACCESS_TOKEN_INVALID:"ACCESS_TOKEN_INVALID",
+ CH_SERVER_NOT_REACHABLE:"SERVER_NOT_REACHABLE",
+ CH_CTID_TRADER_ACCOUNT_NOT_FOUND:"ACCOUNT_NOT_FOUND",
+ CH_OA_CLIENT_NOT_FOUND:"APP_NOT_FOUND",
+ REQUEST_FREQUENCY_EXCEEDED:"REQUEST_RATE_LIMIT",
+ SERVER_IS_UNDER_MAINTENANCE:"SERVER_MAINTENANCE",
+ BLOCKED_PAYLOAD_TYPE:"PAYLOAD_RATE_LIMIT",
+ CHANNEL_IS_BLOCKED:"CHANNEL_BLOCKED"
+});
+export function classifyCtraderQaErrorCode(code){
+ return typeof code==="string" &&
+  Object.prototype.hasOwnProperty.call(QA_API_ERROR_NAMES,code)
+   ?QA_API_ERROR_NAMES[code]:"UNKNOWN";
+}
+
+
 export class CtraderDemoViewSessionQa {
  #config;#state="NEW";#lastId=null;#expected=null;
  #fail=null;#inventory=null;#symbol=null;
@@ -88,16 +115,11 @@ export class CtraderDemoViewSessionQa {
   if(!emptyApplicationAuth&&!isObject(msg.payload))
     return this.#hold("CTRADER_MALFORMED_RESPONSE");
   if(msg.payloadType===2142){
-    const codes=new Map([
-      ["OA_AUTH_TOKEN_EXPIRED","TOKEN_EXPIRED"],
-      ["ACCOUNT_NOT_AUTHORIZED","ACCOUNT_NOT_AUTHORIZED"],
-      ["CH_CLIENT_AUTH_FAILURE","APP_AUTH_FAILURE"],
-      ["CH_CLIENT_NOT_AUTHENTICATED","APP_NOT_AUTHENTICATED"],
-      ["CONNECTIONS_LIMIT_EXCEEDED","CONNECTIONS_LIMIT"],
-      ["BLOCKED_PAYLOAD_TYPE","RATE_LIMIT"]
-    ]);
+    // Only recognized enum names from the cTrader protocol may be exposed
+    // as diagnostic labels. Never emit remote description, raw errorCode,
+    // arbitrary account metadata or OAuth material in logs.
     return this.#hold("CTRADER_API_ERROR_"+
-      (codes.get(msg.payload.errorCode)||"UNKNOWN")+"_"+this.#state);
+      classifyCtraderQaErrorCode(msg.payload.errorCode)+"_"+this.#state);
   }
   if(msg.payloadType!==this.#expected)
     return this.#hold("CTRADER_RESPONSE_TYPE_MISMATCH_"+this.#state);
