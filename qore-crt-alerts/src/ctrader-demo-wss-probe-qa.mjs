@@ -59,6 +59,16 @@ export function readDemoViewProbeConfig(env={}){
    exportMode!==CTRADER_EURUSD_CSV_EXPORT_OPT_IN)
   throw Error("CTRADER_QA_PRIVATE_CSV_OPT_IN_INVALID");
  const exportPrivateCsv=exportMode===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
+ const nativeOption=env.QORE_CT_QA_NATIVE_M15_COMPARE;
+ if(nativeOption!==undefined&&nativeOption!=="DISABLED"&&
+    nativeOption!=="OWNER_APPROVED_NATIVE_M15_COMPARE")
+  throw Error("CTRADER_QA_NATIVE_M15_COMPARE_OPT_IN_INVALID");
+ const compareNativeM15=nativeOption==="OWNER_APPROVED_NATIVE_M15_COMPARE";
+ if(compareNativeM15&&
+    (exportPrivateCsv||historyPages!==2||values[0]!=="1"||
+     values[1]!=="EURUSD"||values[2]!=="EURUSD"||
+     env.QORE_CT_EXPECTED_BROKER_TITLE!=="Raw Trading Ltd"))
+  throw Error("CTRADER_QA_NATIVE_M15_REQUIRES_VERIFIED_EURUSD_DEMO");
  if(exportPrivateCsv&&
     (historyPages!==2||values[0]!=="1"||values[1]!=="EURUSD"||
      values[2]!=="EURUSD"||
@@ -70,7 +80,7 @@ export function readDemoViewProbeConfig(env={}){
   accessToken:env.QORE_CT_VIEW_ACCESS_TOKEN,
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
-  historyPages,exportPrivateCsv,
+  historyPages,exportPrivateCsv,compareNativeM15,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
    sampleSymbolName:values[1],
@@ -164,7 +174,8 @@ export function runAuthorizedDemoWssProbe({
        symbols:Object.freeze(next.symbols.filter(x=>x.enabled).slice(0,1000)),
        sendPush:false,canTrade:false,sourceParityCertified:false}));
      }
-     if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"){
+     if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"||
+        next.state==="HISTORICAL_M5_M15_QA_UNCERTIFIED"){
       let h4=null,m15=null,privateCsv=null;
       if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
         try{
@@ -187,6 +198,9 @@ export function runAuthorizedDemoWssProbe({
        earliestClosedAtMs:next.bars[0]?.closedAt??null,
        latestClosedAtMs:next.bars.at(-1)?.closedAt??null,
        ...(privateCsv?{privateCsv}:{}),
+       ...(next.nativeM15Summary?{
+         nativeM15Summary:next.nativeM15Summary
+       }:{}),
        ...(m15?{m15Summary:Object.freeze({
          closedM5Inputs:m15.m5ClosedInputs,
          completeM15:m15.completeM15,
