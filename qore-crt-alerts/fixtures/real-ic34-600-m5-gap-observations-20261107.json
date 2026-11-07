@@ -1,0 +1,708 @@
+{
+  "schema": "CTRADER_IC34_REAL_CLOSED_600_M5_GAP_FIXTURE_V1",
+  "collectedAt": "2026-11-07",
+  "deploymentId": "5543e9fd-79b8-4a11-9635-944a2da6095c",
+  "sourceCommitSha": "925b99fd43106e3065f66d82f4c010aa6c4d5086",
+  "manifestSha256": "98ee4738ffb49b894b6a25dc3ac80bfe43d77b6012cd7839733b5258d43e9885",
+  "source": "cTrader Open API IC Markets DEMO Raw Trading Ltd",
+  "all34RequestedSamplesComplete": true,
+  "closedM5Total": 20400,
+  "rows": [
+    {
+      "slot": 1,
+      "instrumentId": "AUDJPY",
+      "tvSymbol": "IC:AUDJPY",
+      "brokerNativeName": "AUDJPY",
+      "symbolId": 11,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 2,
+      "instrumentId": "GBPUSD",
+      "tvSymbol": "IC:GBPUSD",
+      "brokerNativeName": "GBPUSD",
+      "symbolId": 2,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793916600000,
+          "nextOpenedAtMs": 1793916900000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 3,
+      "instrumentId": "GBPJPY",
+      "tvSymbol": "IC:GBPJPY",
+      "brokerNativeName": "GBPJPY",
+      "symbolId": 7,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 4,
+      "instrumentId": "XAUUSD",
+      "tvSymbol": "IC:XAUUSD",
+      "brokerNativeName": "XAUUSD",
+      "symbolId": 41,
+      "group": "METALS",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 2,
+      "missingM5Bars": 24,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829600000,
+          "nextOpenedAtMs": 1793833200000,
+          "missingM5Intervals": 12
+        },
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793919600000,
+          "missingM5Intervals": 12
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 5,
+      "instrumentId": "NDX100",
+      "tvSymbol": "IC:USTEC",
+      "brokerNativeName": "USTEC",
+      "symbolId": 10014,
+      "group": "INDICES",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 2,
+      "missingM5Bars": 24,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829600000,
+          "nextOpenedAtMs": 1793833200000,
+          "missingM5Intervals": 12
+        },
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793919600000,
+          "missingM5Intervals": 12
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 6,
+      "instrumentId": "SPX500",
+      "tvSymbol": "IC:US500",
+      "brokerNativeName": "US500",
+      "symbolId": 10013,
+      "group": "INDICES",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 2,
+      "missingM5Bars": 24,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829600000,
+          "nextOpenedAtMs": 1793833200000,
+          "missingM5Intervals": 12
+        },
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793919600000,
+          "missingM5Intervals": 12
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 7,
+      "instrumentId": "US30",
+      "tvSymbol": "IC:US30",
+      "brokerNativeName": "US30",
+      "symbolId": 10015,
+      "group": "INDICES",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 2,
+      "missingM5Bars": 24,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829600000,
+          "nextOpenedAtMs": 1793833200000,
+          "missingM5Intervals": 12
+        },
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793919600000,
+          "missingM5Intervals": 12
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 8,
+      "instrumentId": "BTCUSD",
+      "tvSymbol": "IC:BTCUSD",
+      "brokerNativeName": "BTCUSD",
+      "symbolId": 10026,
+      "group": "BTC_INDEPENDENT",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 4,
+      "missingM5Bars": 22,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793916300000,
+          "missingM5Intervals": 1
+        },
+        {
+          "leftClosedAtMs": 1794002100000,
+          "nextOpenedAtMs": 1794005100000,
+          "missingM5Intervals": 10
+        },
+        {
+          "leftClosedAtMs": 1794043500000,
+          "nextOpenedAtMs": 1794046500000,
+          "missingM5Intervals": 10
+        },
+        {
+          "leftClosedAtMs": 1794088800000,
+          "nextOpenedAtMs": 1794089100000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 9,
+      "instrumentId": "AUDUSD",
+      "tvSymbol": "IC:AUDUSD",
+      "brokerNativeName": "AUDUSD",
+      "symbolId": 5,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793831100000,
+          "nextOpenedAtMs": 1793831400000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 10,
+      "instrumentId": "USDCAD",
+      "tvSymbol": "IC:USDCAD",
+      "brokerNativeName": "USDCAD",
+      "symbolId": 8,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793831700000,
+          "nextOpenedAtMs": 1793832000000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 11,
+      "instrumentId": "USDJPY",
+      "tvSymbol": "IC:USDJPY",
+      "brokerNativeName": "USDJPY",
+      "symbolId": 4,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793916300000,
+          "nextOpenedAtMs": 1793916600000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 12,
+      "instrumentId": "EURUSD",
+      "tvSymbol": "IC:EURUSD",
+      "brokerNativeName": "EURUSD",
+      "symbolId": 1,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 13,
+      "instrumentId": "USDCHF",
+      "tvSymbol": "IC:USDCHF",
+      "brokerNativeName": "USDCHF",
+      "symbolId": 6,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 3,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829900000,
+          "nextOpenedAtMs": 1793830800000,
+          "missingM5Intervals": 3
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 14,
+      "instrumentId": "NZDUSD",
+      "tvSymbol": "IC:NZDUSD",
+      "brokerNativeName": "NZDUSD",
+      "symbolId": 12,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793830500000,
+          "nextOpenedAtMs": 1793830800000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 15,
+      "instrumentId": "NZDJPY",
+      "tvSymbol": "IC:NZDJPY",
+      "brokerNativeName": "NZDJPY",
+      "symbolId": 21,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 16,
+      "instrumentId": "NZDCHF",
+      "tvSymbol": "IC:NZDCHF",
+      "brokerNativeName": "NZDCHF",
+      "symbolId": 39,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 1,
+      "missingM5Bars": 1,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793830500000,
+          "nextOpenedAtMs": 1793830800000,
+          "missingM5Intervals": 1
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 17,
+      "instrumentId": "XAGUSD",
+      "tvSymbol": "IC:XAGUSD",
+      "brokerNativeName": "XAGUSD",
+      "symbolId": 42,
+      "group": "METALS",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 2,
+      "missingM5Bars": 24,
+      "gapsTruncated": false,
+      "gapsSample": [
+        {
+          "leftClosedAtMs": 1793829600000,
+          "nextOpenedAtMs": 1793833200000,
+          "missingM5Intervals": 12
+        },
+        {
+          "leftClosedAtMs": 1793916000000,
+          "nextOpenedAtMs": 1793919600000,
+          "missingM5Intervals": 12
+        }
+      ],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 18,
+      "instrumentId": "AUDCAD",
+      "tvSymbol": "IC:AUDCAD",
+      "brokerNativeName": "AUDCAD",
+      "symbolId": 18,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 19,
+      "instrumentId": "AUDCHF",
+      "tvSymbol": "IC:AUDCHF",
+      "brokerNativeName": "AUDCHF",
+      "symbolId": 23,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 20,
+      "instrumentId": "AUDNZD",
+      "tvSymbol": "IC:AUDNZD",
+      "brokerNativeName": "AUDNZD",
+      "symbolId": 20,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 21,
+      "instrumentId": "CADCHF",
+      "tvSymbol": "IC:CADCHF",
+      "brokerNativeName": "CADCHF",
+      "symbolId": 27,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 22,
+      "instrumentId": "CADJPY",
+      "tvSymbol": "IC:CADJPY",
+      "brokerNativeName": "CADJPY",
+      "symbolId": 15,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 23,
+      "instrumentId": "CHFJPY",
+      "tvSymbol": "IC:CHFJPY",
+      "brokerNativeName": "CHFJPY",
+      "symbolId": 13,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 24,
+      "instrumentId": "EURAUD",
+      "tvSymbol": "IC:EURAUD",
+      "brokerNativeName": "EURAUD",
+      "symbolId": 14,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 25,
+      "instrumentId": "EURCAD",
+      "tvSymbol": "IC:EURCAD",
+      "brokerNativeName": "EURCAD",
+      "symbolId": 17,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 26,
+      "instrumentId": "EURCHF",
+      "tvSymbol": "IC:EURCHF",
+      "brokerNativeName": "EURCHF",
+      "symbolId": 10,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 27,
+      "instrumentId": "EURGBP",
+      "tvSymbol": "IC:EURGBP",
+      "brokerNativeName": "EURGBP",
+      "symbolId": 9,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 28,
+      "instrumentId": "EURJPY",
+      "tvSymbol": "IC:EURJPY",
+      "brokerNativeName": "EURJPY",
+      "symbolId": 3,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 29,
+      "instrumentId": "EURNZD",
+      "tvSymbol": "IC:EURNZD",
+      "brokerNativeName": "EURNZD",
+      "symbolId": 26,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 30,
+      "instrumentId": "GBPAUD",
+      "tvSymbol": "IC:GBPAUD",
+      "brokerNativeName": "GBPAUD",
+      "symbolId": 16,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 31,
+      "instrumentId": "GBPCAD",
+      "tvSymbol": "IC:GBPCAD",
+      "brokerNativeName": "GBPCAD",
+      "symbolId": 19,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 32,
+      "instrumentId": "GBPCHF",
+      "tvSymbol": "IC:GBPCHF",
+      "brokerNativeName": "GBPCHF",
+      "symbolId": 40,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 33,
+      "instrumentId": "GBPNZD",
+      "tvSymbol": "IC:GBPNZD",
+      "brokerNativeName": "GBPNZD",
+      "symbolId": 25,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    },
+    {
+      "slot": 34,
+      "instrumentId": "NZDCAD",
+      "tvSymbol": "IC:NZDCAD",
+      "brokerNativeName": "NZDCAD",
+      "symbolId": 30,
+      "group": "FOREX",
+      "closedM5": 600,
+      "historyPages": 2,
+      "missingIntervals": 0,
+      "missingM5Bars": 0,
+      "gapsTruncated": false,
+      "gapsSample": [],
+      "sourceParityCertified": false,
+      "canTrade": false,
+      "sendPush": false
+    }
+  ]
+}
