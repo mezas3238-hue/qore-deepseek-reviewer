@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readDemoViewProbeConfig,runAuthorizedDemoWssProbe}
  from "../src/ctrader-demo-wss-probe-qa.mjs";
+import {INSTRUMENTS} from "../src/instruments.mjs";
 
 const ACCOUNT=123456789,now=1_800_000_000_000;
 const rawEnv={
@@ -13,7 +14,7 @@ const rawEnv={
  QORE_CT_EXPECTED_BROKER_TITLE:"IC Markets"
 };
 class WssFake {
- static responseScope=0; static sent=[];
+ static responseScope=0; static sent=[]; static inventorySymbols=null;
  constructor(url){
   assert.equal(url,"wss://demo.ctraderapi.com:5036");
   this.listeners=new Map();
@@ -34,7 +35,7 @@ class WssFake {
     };break;
    case 2102: payload={ctidTraderAccountId:String(ACCOUNT)};break;
    case 2114: payload={ctidTraderAccountId:String(ACCOUNT),
-      symbol:[{symbolId:77,symbolName:"EURUSD",enabled:true}]};break;
+      symbol:WssFake.inventorySymbols??[{symbolId:77,symbolName:"EURUSD",enabled:true}]};break;
    case 2116: payload={ctidTraderAccountId:String(ACCOUNT),
       symbol:[{symbolId:77,digits:5}]};break;
    case 2137: payload={ctidTraderAccountId:String(ACCOUNT),
@@ -115,4 +116,30 @@ test("non-deployable transport rejects invalid setup before network",async()=>{
    config:{},WebSocketImpl:WssFake,timeoutMs:3000
  });
  assert.equal(result.reason,"CTRADER_VIEW_ONLY_CONFIG_INVALID");
+});
+
+test("real WSS transport creates 34-candidate owner manifest only with explicit flag",async()=>{
+  WssFake.sent=[];WssFake.responseScope=0;
+  WssFake.inventorySymbols=INSTRUMENTS.map((x,i)=>({
+    symbolId:i+3100,symbolName:x.tvSymbol.slice(3),enabled:true
+  }));
+  try{
+    const cfg=readDemoViewProbeConfig(rawEnv);
+    const report=await runAuthorizedDemoWssProbe({
+      config:cfg,WebSocketImpl:WssFake,now:()=>now,timeoutMs:3000,
+      includeCandidateManifest:true
+    });
+    assert.equal(report.state,"INVENTORY_QA_ONLY");
+    assert.equal(report.ownerReviewManifest.total,34);
+    assert.equal(report.ownerReviewManifest.exactNameCandidates,34);
+    assert.equal(report.ownerReviewManifest.approvedMappings,undefined);
+    assert.equal(report.ownerReviewManifest.ownerApprovedMappings,0);
+    assert.equal(report.ownerReviewManifest.sourceParityCertified,0);
+    assert.equal(report.ownerReviewManifest.canTrade,false);
+    assert.equal(report.ownerReviewManifest.sendPush,false);
+    assert.equal(report.ownerReviewManifest.rows.length,34);
+    assert.deepEqual(WssFake.sent,[2100,2149,2102,2114]);
+    assert.ok(!JSON.stringify(report.ownerReviewManifest).includes("fake_view_token"));
+    assert.ok(!JSON.stringify(report.ownerReviewManifest).includes("never_print_secret"));
+  }finally{WssFake.inventorySymbols=null;}
 });
