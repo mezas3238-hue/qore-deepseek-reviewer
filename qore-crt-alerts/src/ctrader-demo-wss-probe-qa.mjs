@@ -8,6 +8,8 @@ import {buildUnapprovedIc34OwnerManifest}
  from "./qa-ctrader-ic34-owner-manifest.mjs";
 import {summarizeClosedEurusdH4}
  from "./qa-eurusd-ny-h4-reconstruction.mjs";
+import {deriveClosedEurusdM15Context}
+ from "./qa-eurusd-closed-m15-context.mjs";
 import {buildPrivateCtraderEurusdParityCsv,
  CTRADER_EURUSD_CSV_EXPORT_OPT_IN}
  from "./qa-ctrader-eurusd-parity-csv.mjs";
@@ -163,10 +165,12 @@ export function runAuthorizedDemoWssProbe({
        sendPush:false,canTrade:false,sourceParityCertified:false}));
      }
      if(next.state==="HISTORICAL_M5_QA_UNCERTIFIED"){
-      let h4=null,privateCsv=null;
+      let h4=null,m15=null,privateCsv=null;
       if(next.symbolName==="EURUSD"&&next.pagesFetched>=2){
-        try{h4=summarizeClosedEurusdH4(next.bars);}
-        catch{return finish(fail("CTRADER_H4_QA_RECONSTRUCTION_INVALID"));}
+        try{
+          h4=summarizeClosedEurusdH4(next.bars);
+          m15=deriveClosedEurusdM15Context(next.bars);
+        }catch{return finish(fail("CTRADER_MULTI_TIMEFRAME_QA_RECONSTRUCTION_INVALID"));}
       }
       if(includePrivateCsv===true){
         if(config?.exportPrivateCsv!==true||
@@ -183,6 +187,15 @@ export function runAuthorizedDemoWssProbe({
        earliestClosedAtMs:next.bars[0]?.closedAt??null,
        latestClosedAtMs:next.bars.at(-1)?.closedAt??null,
        ...(privateCsv?{privateCsv}:{}),
+       ...(m15?{m15Summary:Object.freeze({
+         closedM5Inputs:m15.m5ClosedInputs,
+         completeM15:m15.completeM15,
+         partialM15:m15.partialM15,
+         rejectedM15:m15.rejectedM15,
+         nativeBrokerM15Compared:false,
+         mssM5Certified:false,mssM15Certified:false,
+         sourceParityCertified:false,canTrade:false,sendPush:false
+       })}:{}),
        ...(h4?{h4Summary:Object.freeze({
          anchor:h4.anchor,completeH4Blocks:h4.completeH4Blocks,
          partialH4Blocks:h4.partialH4Blocks,
