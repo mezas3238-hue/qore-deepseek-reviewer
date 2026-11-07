@@ -74,10 +74,19 @@ export class CtraderDemoViewSessionQa {
   // Keep remote protocol faults separate from our request-ID/response-type
   // checks. Only fixed error-code labels may appear in private QA telemetry:
   // never echo error descriptions, credentials, token, IDs or raw payloads.
-  if(!isObject(msg)||!isObject(msg.payload))
+  if(!isObject(msg))
     return this.#hold("CTRADER_MALFORMED_RESPONSE");
   if(msg.clientMsgId!==this.#lastId)
     return this.#hold("CTRADER_RESPONSE_ID_MISMATCH_"+this.#state);
+  // ProtoOAApplicationAuthRes has no message fields. Depending on the
+  // cTrader JSON encoder its 'payload' may be omitted, not just {}.
+  // This exception applies ONLY to the correlated 2101 APP auth reply.
+  const emptyApplicationAuth=
+    this.#state==="APP_PENDING" &&
+    msg.payloadType===VIEW_ONLY_TYPES.APP_AUTH_OK &&
+    msg.payload===undefined;
+  if(!emptyApplicationAuth&&!isObject(msg.payload))
+    return this.#hold("CTRADER_MALFORMED_RESPONSE");
   if(msg.payloadType===2142){
     const codes=new Map([
       ["OA_AUTH_TOKEN_EXPIRED","TOKEN_EXPIRED"],
