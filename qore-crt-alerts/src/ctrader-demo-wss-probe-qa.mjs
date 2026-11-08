@@ -152,10 +152,16 @@ export function runAuthorizedDemoWssProbe({
  try{session=new CtraderDemoViewSessionQa({...config,now,...(idFn?{idFn}:{})});}
  catch{return Promise.resolve(fail("CTRADER_VIEW_ONLY_CONFIG_INVALID"));}
  return new Promise(resolve=>{
-  let socket,finished=false,heartbeat=null;
+  let socket,finished=false,heartbeat=null,queuedHistoryTimer=null;
+  let lastHistorySentAt=0;
+  // Historical Open API limit is 5 requests/s per connection.
+  // Seasonal-only QA deliberately uses 600 ms spacing, below that limit.
+  // NO automatic retries, subscriptions or trading actions.
+  const seasonalHistorySpacingMs=config?.compareSeasonalIndexH4===true?600:0;
   const finish=value=>{
    if(finished)return;
    finished=true;clearTimeout(timer);if(heartbeat!==null)clearInterval(heartbeat);
+   if(queuedHistoryTimer!==null)clearTimeout(queuedHistoryTimer);
    try{socket?.close(1000,"QA_COMPLETE");}catch{}
    resolve(value);
   };
@@ -164,8 +170,25 @@ export function runAuthorizedDemoWssProbe({
    if(!msg||!allowedOutbound.has(msg.payloadType)||
       typeof msg.clientMsgId!=="string"||!msg.payload)
     return finish(fail("CTRADER_NON_READ_REQUEST_BLOCKED"));
-   try{socket.send(JSON.stringify(msg));}
-   catch{finish(fail("CTRADER_DEMO_SEND_FAILED"));}
+   const dispatch=()=>{
+    if(finished)return;
+    queuedHistoryTimer=null;
+    try{
+     socket.send(JSON.stringify(msg));
+     if(msg.payloadType===VIEW_ONLY_TYPES.HISTORY)
+       lastHistorySentAt=Date.now();
+    }catch{finish(fail("CTRADER_DEMO_SEND_FAILED"));}
+   };
+   if(msg.payloadType===VIEW_ONLY_TYPES.HISTORY&&
+      seasonalHistorySpacingMs>0){
+    const delay=Math.max(0,seasonalHistorySpacingMs-
+      (Date.now()-lastHistorySentAt));
+    if(delay>0){
+     queuedHistoryTimer=setTimeout(dispatch,delay);
+     return;
+    }
+   }
+   dispatch();
   };
   try{
    // Never use the LIVE endpoint, including via caller options.
