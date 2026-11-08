@@ -27,8 +27,12 @@ export function frozenM15Pivot(completedM15,{
     if(prior[i-1].closedAt!==prior[i].openedAt)split=i;
   }
   const run=prior.slice(split);
-  if(!run.length||run.at(-1).closedAt!==sweepStart &&
-     run.at(-1).closedAt>sweepStart) return null;
+  // The last CLOSED M15 may end 0, 5 or 10 minutes before an M5 sweep.
+  // It may NOT end a full M15 (or more) earlier: that means a missing
+  // M15 at the sweep boundary, and the old pivot is stale. The previous
+  // test accidentally allowed every historical M15 ending before sweep.
+  if(!run.length||run.at(-1).closedAt>sweepStart||
+     sweepStart-run.at(-1).closedAt>=M15_MS) return null;
   let frozen=null;
   for(let end=left+right;end<run.length;end++){
     const at=end-right,center=run[at],price=direction===1?center.high:center.low;
