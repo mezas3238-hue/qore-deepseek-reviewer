@@ -73,6 +73,22 @@ test("winter and summer native phase are observed distinctly, never assumed or c
   assert.equal(r.sendPush,false);
  }
 });
+test("cTrader count backfill before fromTimestamp is reported and excluded, not promoted to a seasonal candle",()=>{
+ const instrumentId="NDX100",symbolId=10014,index=0;
+ const first=IC34_H4_SEASON_WINDOWS[index].fromMs;
+ const earlier={utcTimestampInMinutes:(first-2*3600000)/60000,
+  low:100000,deltaOpen:100,deltaHigh:400,deltaClose:200};
+ const rows=[earlier,...rawH4(index,120,5)];
+ const r=summarizeVerifiedIndexH4Season({
+  instrumentId,symbolId,index,nowMs:NOW,trendbars:rows
+ });
+ assert.equal(r.returnedNativeH4Count,6);
+ assert.equal(r.priorWindowNativeH4Discarded,1);
+ assert.equal(r.closedNativeH4,5);
+ assert.deepEqual(r.nativeH4UtcPhaseMinutes,[120]);
+ assert.equal(r.sourceParityCertified,false);
+ assert.equal(r.sendPush,false);
+});
 test("missing winter bars, mixed intrawindow phases and out-of-window H4 fail closed",()=>{
  const id="NDX100",symbolId=10014;
  const empty=IC34_H4_SEASON_WINDOWS.map((_,i)=>
@@ -95,7 +111,7 @@ test("missing winter bars, mixed intrawindow phases and out-of-window H4 fail cl
    utcTimestampInMinutes:(IC34_H4_SEASON_WINDOWS[1].toMs+H4)/60000};
  assert.throws(()=>summarizeVerifiedIndexH4Season({
   instrumentId:id,symbolId,index:1,nowMs:NOW,trendbars:outside
- }),/CRT34_SEASON_H4_OUTSIDE_REQUESTED_WINDOW/);
+ }),/CRT34_SEASON_H4_AFTER_REQUESTED_WINDOW/);
 });
 const env={
  QORE_CT_QA_COHORT34:COHORT34_OPT_IN,
