@@ -83,6 +83,11 @@ const envSafe=e=>e?.QORE_CT_QA_COHORT34===COHORT34_OPT_IN&&
    .includes(e.QORE_CT_QA_NATIVE_ALL34_TF)&&
  [undefined,"DISABLED","OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA"]
    .includes(e.QORE_CT_QA_CRT_MSS_ALL34)&&
+ [undefined,"DISABLED","OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA"]
+   .includes(e.QORE_CT_QA_INDEX_H4_SEASONS_2026)&&
+ (e.QORE_CT_QA_INDEX_H4_SEASONS_2026!=="OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA"||
+   (e.QORE_CT_QA_NATIVE_ALL34_TF==="OWNER_APPROVED_34_NATIVE_M15_H4_QA"&&
+    e.QORE_CT_QA_COHORT34_PAGES==="2"))&&
  (e.QORE_CT_QA_CRT_MSS_ALL34!=="OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA"||
     e.QORE_CT_QA_NATIVE_ALL34_TF==="OWNER_APPROVED_34_NATIVE_M15_H4_QA")&&
  (e.QORE_CT_QA_NATIVE_ALL34_TF!=="OWNER_APPROVED_34_NATIVE_M15_H4_QA"||
@@ -103,7 +108,11 @@ function mappedConfig(env,row){
  const tf=e.QORE_CT_QA_NATIVE_ALL34_TF==="OWNER_APPROVED_34_NATIVE_M15_H4_QA";
  const crt=e.QORE_CT_QA_CRT_MSS_ALL34===
    "OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA";
- if(cfg.auditCrtMssAll34!==crt||
+ const seasons=e.QORE_CT_QA_INDEX_H4_SEASONS_2026===
+    "OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA"&&
+    ["NDX100","SPX500","US30"].includes(row.instrumentId);
+ if(cfg.compareSeasonalIndexH4!==seasons||
+    cfg.auditCrtMssAll34!==crt||
     cfg.compareNativeAll34!==tf||cfg.historyPages!==pages||
     cfg.allowCohortPaging!==(pages===2)||
     cfg.exportPrivateCsv||cfg.compareNativeM15||
@@ -134,6 +143,7 @@ export async function runAuthorizedFull34M5Cohort({
   // applied ONLY after the entire real 34-ID manifest is reverified.
   e.QORE_CT_QA_NATIVE_ALL34_TF="DISABLED";
   e.QORE_CT_QA_CRT_MSS_ALL34="DISABLED";
+  e.QORE_CT_QA_INDEX_H4_SEASONS_2026="DISABLED";
   cfg=readDemoViewProbeConfig(e);
  }catch{return fail("CTRADER_34_DEMO_VIEW_CONFIG_INVALID");}
  let inventory;
@@ -208,6 +218,10 @@ export async function runAuthorizedFull34M5Cohort({
         nativeH4QaSummary:out.native34H4Summary??null
       }:{}),
       ...(crtRequested?{crtMssQa:crtSeen??null}:{ }),
+      ...(tfRequested&&["NDX100","SPX500","US30"].includes(map.instrumentId)&&
+        env.QORE_CT_QA_INDEX_H4_SEASONS_2026===
+          "OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA"?
+        {nativeSeasonalIndexH4:out.nativeSeasonalH4Summary??null}:{}),
       earliestClosedAtMs:out.earliestClosedAtMs??null,
       latestClosedAtMs:out.latestClosedAtMs??null
     }:{closedM5:0,missingIntervals:null,nativePhaseMin:null,
@@ -251,7 +265,19 @@ export async function runAuthorizedFull34M5Cohort({
  const nativeOwnerH4Conflicts=clockCompared.filter(r=>
    r.crtMssQa.nativeOwnerClockQA.state===
      "NATIVE_VS_OWNER_H4_ANCHOR_CONFLICT_QA");
- const status=crtRequested?
+ const seasonalRequested=env.QORE_CT_QA_INDEX_H4_SEASONS_2026===
+   "OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA";
+ const seasonalSamples=scanned.filter(r=>
+   ["NDX100","SPX500","US30"].includes(r.instrumentId)&&
+   r.nativeSeasonalIndexH4?.requestedWindows===5&&
+   r.nativeSeasonalIndexH4.observedWindows===5&&
+   r.nativeSeasonalIndexH4.nativeH4Bars>0);
+ const status=seasonalRequested?
+    (seasonalSamples.length===3&&crtRows.length===34&&
+     nativeM15Read===34&&nativeH4Read===34?
+      "CTRADER_34_WITH_3_INDEX_H4_SEASONS_OBSERVED_UNCERTIFIED":
+      "CTRADER_34_INDEX_H4_SEASONAL_PARTIAL_UNCERTIFIED"):
+   crtRequested?
     (crtRows.length===34&&nativeM15Read===34&&nativeH4Read===34?
      "CTRADER_34_CRT_MSS_CLOCK_AUDIT_UNCERTIFIED":
      "CTRADER_34_CRT_MSS_REPLAY_PARTIAL_UNCERTIFIED"):
@@ -289,6 +315,13 @@ export async function runAuthorizedFull34M5Cohort({
     a+r.crtMssQa.nativeOwnerClockQA.ownerOnlyCompleteH4+
       r.crtMssQa.nativeOwnerClockQA.nativeOnlyCompleteH4,0),
   nativeVsOwnerClockCertified:false,
+  indexH4SeasonalMarketsRead:seasonalSamples.length,
+  indexH4SeasonalWindowsRead:seasonalSamples.reduce((a,r)=>
+    a+r.nativeSeasonalIndexH4.observedWindows,0),
+  indexH4SeasonalNativeBars:seasonalSamples.reduce((a,r)=>
+    a+r.nativeSeasonalIndexH4.nativeH4Bars,0),
+  allThreeIndexSeasonsObserved:seasonalRequested&&seasonalSamples.length===3,
+  crossSeasonClockCertified:false,
   totalCrtCyclesEvaluated:crtRows.reduce((a,r)=>
     a+(r.crtMssQa?.cyclesEvaluated??0),0),
   totalMssM5ClosedWitnesses:crtRows.reduce((a,r)=>
