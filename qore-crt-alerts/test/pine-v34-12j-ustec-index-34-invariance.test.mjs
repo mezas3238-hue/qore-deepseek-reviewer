@@ -103,3 +103,15 @@ test("Radar scans 34 by default, Chart scans its own chart only; neither file pe
  assert.ok(a.includes("Esta version NO autoriza enviar alertas a Android o trading live."));
  assert.ok(b.includes("Esta version NO autoriza enviar alertas a Android o trading live."));
 });
+
+test("standalone TradingView identity probe is chart-local, exposes actual syminfo.type, no alerts",()=>{
+ const probe=load("QORE_QA_FEED_IDENTITY_IC_USTEC_V34_12J_NO_ALERTAS.pine");
+ assert.ok(probe.startsWith("//@version=6"));
+ assert.ok(probe.includes("syminfo.prefix"));
+ assert.ok(probe.includes("syminfo.ticker"));
+ assert.ok(probe.includes("syminfo.type"));
+ assert.ok(probe.includes('or name == "USTEC"'));
+ assert.ok(probe.includes('display=display.data_window'));
+ assert.ok(probe.includes('isIndex ? "02/06/22" : "01/05/21"'));
+ assert.ok(!/request\.security\s*\(|alert\s*\(|alertcondition\s*\(|strategy\.|webhook|firebase/i.test(probe));
+});
