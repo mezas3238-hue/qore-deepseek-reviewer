@@ -124,8 +124,7 @@ function geometry(bars,c1Hours){
    if(!inRange(last.close,c1))break;
   }
   if(contiguous(bars,i,4)){
-   const [c2a,c2b,c3]=bars.slice(i,i+4).slice(1).reduce(
-     (acc,b)=>[...acc,b],[]);
+   const [c2a,c2b,c3]=bars.slice(i+1,i+4);
    // Independent four-H4 distributed-sweep hypothesis; one witness
    // only. Never promote to approved MULTI4/CRT.
    const low=c2a.low<c1.low&&c2a.high<=c1.high&&
