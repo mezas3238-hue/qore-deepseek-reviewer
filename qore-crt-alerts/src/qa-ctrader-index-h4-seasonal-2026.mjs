@@ -44,12 +44,22 @@ export function summarizeVerifiedIndexH4Season({
  const bars=decodeNative34Trendbars({raw:trendbars,period:10,
   symbolId,nowMs,maxBars:48});
  const phases=new Set(),openingNYHours=new Set();
- let approvedC1Opens=0,unapprovedEarlierOpens=0;
+ let approvedC1Opens=0,unapprovedEarlierOpens=0,priorDiscarded=0;
+ let accepted=0;
  const approved=C1_HOURS.index;
  for(const b of bars){
-  if(b.openedAt<w.fromMs||b.openedAt>=w.toMs||
-     b.closedAt>nowMs)
-   throw Error("CRT34_SEASON_H4_OUTSIDE_REQUESTED_WINDOW");
+  // Spotware documents that 'count' limits trendbars backward from
+  // toTimestamp. It may include bars older than fromTimestamp. Count
+  // these explicitly, but NEVER use them in the requested seasonal phase.
+  if(b.openedAt<w.fromMs){
+   if(b.openedAt<w.fromMs-14*86_400_000)
+    throw Error("CRT34_SEASON_H4_PRIOR_DATA_TOO_OLD");
+   priorDiscarded++;
+   continue;
+  }
+  if(b.openedAt>=w.toMs||b.closedAt>nowMs)
+   throw Error("CRT34_SEASON_H4_AFTER_REQUESTED_WINDOW");
+  accepted++;
   phases.add(b.openedAt%14_400_000/60_000);
   const h=nyParts(b.openedAt).hour;
   openingNYHours.add(h);
@@ -59,12 +69,14 @@ export function summarizeVerifiedIndexH4Season({
  }
  return Object.freeze({
   windowId:w.id,requestedFromMs:w.fromMs,requestedToMs:w.toMs,
-  instrumentId,symbolId,closedNativeH4:bars.length,
+  instrumentId,symbolId,closedNativeH4:accepted,
+  returnedNativeH4Count:bars.length,
+  priorWindowNativeH4Discarded:priorDiscarded,
   nativeH4UtcPhaseMinutes:Object.freeze([...phases].sort((a,b)=>a-b)),
   observedOpenHoursNY:Object.freeze([...openingNYHours].sort((a,b)=>a-b)),
   nativeAtOwnerC1HoursNY:approvedC1Opens,
   nativeAtUnapprovedEarlierHoursNY:unapprovedEarlierOpens,
-  samplesWithoutNativeH4:bars.length===0,
+  samplesWithoutNativeH4:accepted===0,
   multiPhaseInOneWindow:phases.size>1,
   crossSeasonClockCertified:false,
   priceParityForHistoricalWindowCertified:false,
