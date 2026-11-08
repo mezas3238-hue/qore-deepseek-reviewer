@@ -265,6 +265,9 @@ export async function runAuthorizedFull34M5Cohort({
  const nativeOwnerH4Conflicts=clockCompared.filter(r=>
    r.crtMssQa.nativeOwnerClockQA.state===
      "NATIVE_VS_OWNER_H4_ANCHOR_CONFLICT_QA");
+ const indexDualGeometry=crtRows.filter(r=>
+   r.crtMssQa.indexClockGeometryQA?.state===
+     "INDEX_H4_GEOMETRY_TWO_CLOCKS_COMPARED_UNCERTIFIED");
  const seasonalRequested=env.QORE_CT_QA_INDEX_H4_SEASONS_2026===
    "OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA";
  const seasonalSamples=scanned.filter(r=>
@@ -315,6 +318,20 @@ export async function runAuthorizedFull34M5Cohort({
     a+r.crtMssQa.nativeOwnerClockQA.ownerOnlyCompleteH4+
       r.crtMssQa.nativeOwnerClockQA.nativeOnlyCompleteH4,0),
   nativeVsOwnerClockCertified:false,
+  indexH4TwoClockGeometryMarkets:indexDualGeometry.length,
+  indexH4TwoClockGeometryIds:Object.freeze(
+    indexDualGeometry.map(r=>r.instrumentId)),
+  indexH4OwnerC2Returns:indexDualGeometry.reduce((a,r)=>
+    a+r.crtMssQa.indexClockGeometryQA.ownerGeometry.c2SingleSweepReturn,0),
+  indexH4NativeCandidateC2Returns:indexDualGeometry.reduce((a,r)=>
+    a+r.crtMssQa.indexClockGeometryQA.unapprovedNativeGeometry.c2SingleSweepReturn,0),
+  indexH4TwoClockSharedWitnesses:indexDualGeometry.reduce((a,r)=>
+    a+r.crtMssQa.indexClockGeometryQA.sharedWitnessIdentities,0),
+  indexH4TwoClockOwnerOnlyWitnesses:indexDualGeometry.reduce((a,r)=>
+    a+r.crtMssQa.indexClockGeometryQA.ownerOnlyWitnessIdentities,0),
+  indexH4TwoClockNativeOnlyWitnesses:indexDualGeometry.reduce((a,r)=>
+    a+r.crtMssQa.indexClockGeometryQA.nativeOnlyWitnessIdentities,0),
+  indexH4TwoClockCrtMssCertified:false,
   indexH4SeasonalMarketsRead:seasonalSamples.length,
   indexH4SeasonalWindowsRead:seasonalSamples.reduce((a,r)=>
     a+r.nativeSeasonalIndexH4.observedWindows,0),
