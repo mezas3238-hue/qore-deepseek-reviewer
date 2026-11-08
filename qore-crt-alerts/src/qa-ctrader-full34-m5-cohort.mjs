@@ -245,6 +245,12 @@ export async function runAuthorizedFull34M5Cohort({
  const crtAnalyzed=crtRows.filter(r=>
    r.crtMssQa.state==="CLOSED_DEMO_CRT_MSS_DIAGNOSTIC_REPLAY_UNCERTIFIED")
    .length;
+ const clockCompared=crtRows.filter(r=>
+   r.crtMssQa.nativeOwnerClockQA?.comparisonScope===
+     "BROKER_DEMO_CLOSED_M5_ONLY");
+ const nativeOwnerH4Conflicts=clockCompared.filter(r=>
+   r.crtMssQa.nativeOwnerClockQA.state===
+     "NATIVE_VS_OWNER_H4_ANCHOR_CONFLICT_QA");
  const status=crtRequested?
     (crtRows.length===34&&nativeM15Read===34&&nativeH4Read===34?
      "CTRADER_34_CRT_MSS_CLOCK_AUDIT_UNCERTIFIED":
@@ -274,6 +280,15 @@ export async function runAuthorizedFull34M5Cohort({
   crtCausalMarketsEvaluated:crtAnalyzed,
   clockMismatchMarketCount:clockMismatchMarkets.length,
   clockMismatchMarkets:Object.freeze(clockMismatchMarkets),
+  nativeVsOwnerClockComparedMarkets:clockCompared.length,
+  nativeVsOwnerClockConflictMarkets:Object.freeze(
+    nativeOwnerH4Conflicts.map(r=>r.instrumentId)),
+  nativeVsOwnerClockMatchedH4:clockCompared.reduce((a,r)=>
+    a+r.crtMssQa.nativeOwnerClockQA.timestampMatchedCompleteH4,0),
+  nativeVsOwnerClockDifferingH4:clockCompared.reduce((a,r)=>
+    a+r.crtMssQa.nativeOwnerClockQA.ownerOnlyCompleteH4+
+      r.crtMssQa.nativeOwnerClockQA.nativeOnlyCompleteH4,0),
+  nativeVsOwnerClockCertified:false,
   totalCrtCyclesEvaluated:crtRows.reduce((a,r)=>
     a+(r.crtMssQa?.cyclesEvaluated??0),0),
   totalMssM5ClosedWitnesses:crtRows.reduce((a,r)=>
