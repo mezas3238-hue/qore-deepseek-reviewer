@@ -458,7 +458,8 @@ export class CtraderDemoViewSessionQa {
     // Error descriptions or received OHLC must NEVER enter logs. Only
     // compile-time enumerated structural reasons and 0..4 window index.
     const category=({
-      CRT34_SEASON_H4_OUTSIDE_REQUESTED_WINDOW:"OUTSIDE_WINDOW",
+      CRT34_SEASON_H4_AFTER_REQUESTED_WINDOW:"AFTER_WINDOW",
+      CRT34_SEASON_H4_PRIOR_DATA_TOO_OLD:"PRIOR_TOO_OLD",
       CTRADER_34_NATIVE_TIME_INVALID:"NATIVE_TIME",
       CTRADER_34_NATIVE_CONFIG_INVALID:"NATIVE_CONFIG",
       CTRADER_34_NATIVE_PERIOD_INVALID:"NATIVE_PERIOD",
