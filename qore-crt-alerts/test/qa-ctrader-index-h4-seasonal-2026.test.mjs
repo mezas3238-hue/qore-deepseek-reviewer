@@ -184,7 +184,9 @@ const START=Date.parse("2026-11-05T00:00:00Z");
 const rawBars=(start,step,count)=>{
  return Array.from({length:count},(_,i)=>({
   utcTimestampInMinutes:(start+i*step)/60000,
-  low:100000,deltaOpen:100,deltaHigh:400,deltaClose:200
+  // Symbol digits=2, so use integer prices that survive M5 normalization
+  // without precision loss when compared against native trendbar deltas.
+  low:100000,deltaOpen:1000,deltaHigh:4000,deltaClose:2000
  }));
 };
 class SeasonalNativeIndexSocket{
