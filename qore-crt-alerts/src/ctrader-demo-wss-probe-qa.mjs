@@ -76,6 +76,16 @@ export function readDemoViewProbeConfig(env={}){
  const exportPrivateCsv=exportMode===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
  const compareNativeAll34=
    all34NativeMode==="OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+ const seasonMode=env.QORE_CT_QA_INDEX_H4_SEASONS_2026;
+ if(seasonMode!==undefined&&seasonMode!=="DISABLED"&&
+    seasonMode!=="OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA")
+  throw Error("CTRADER_34_INDEX_SEASONAL_FLAG_INVALID");
+ const seasonRequested=
+   seasonMode==="OWNER_APPROVED_INDEX_H4_SEASONS_READONLY_QA";
+ if(seasonRequested&&!compareNativeAll34)
+  throw Error("CTRADER_34_INDEX_SEASONS_REQUIRES_FULL_NATIVE_COHORT");
+ const compareSeasonalIndexH4=seasonRequested&&
+   ["NDX100","SPX500","US30"].includes(values[2]);
  const crtReplayMode=env.QORE_CT_QA_CRT_MSS_ALL34;
  if(crtReplayMode!==undefined&&crtReplayMode!=="DISABLED"&&
     crtReplayMode!=="OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA")
@@ -120,7 +130,7 @@ export function readDemoViewProbeConfig(env={}){
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
   historyPages,exportPrivateCsv,compareNativeM15,compareNativeH4,
-  compareNativeAll34,auditCrtMssAll34,
+  compareNativeAll34,auditCrtMssAll34,compareSeasonalIndexH4,
   allowCohortPaging:cohort34TwoPages,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
@@ -271,6 +281,9 @@ export function runAuthorizedDemoWssProbe({
        }:{}),
        ...(next.native34H4Summary?{
          native34H4Summary:next.native34H4Summary
+       }:{}),
+       ...(next.nativeSeasonalH4Summary?{
+         nativeSeasonalH4Summary:next.nativeSeasonalH4Summary
        }:{}),
        ...(crtMss34Replay?{crtMss34Replay}:{}),
        ...(next.nativeH4Summary?{
