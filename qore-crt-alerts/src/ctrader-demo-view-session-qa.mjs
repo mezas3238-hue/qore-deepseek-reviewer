@@ -15,6 +15,10 @@ import {decodeClosedNativeEurusdH4,auditNativeVsNyForexH4}
  from "./qa-ctrader-native-h4-ny-phase-audit.mjs";
 import {decodeNative34Trendbars,compareNative34AgainstClosedM5}
  from "./qa-ctrader-ic34-native-timeframes.mjs";
+import {IC34_H4_SEASON_WINDOWS,seasonH4HistoryRequest,
+ summarizeVerifiedIndexH4Season,evaluateIndexH4SeasonalEvidence,
+ INDICES_FOR_SEASONAL_H4}
+ from "./qa-ctrader-index-h4-seasonal-2026.mjs";
 
 export const CTRADER_DEMO_JSON_URL="wss://demo.ctraderapi.com:5036";
 export const VIEW_ONLY_TYPES=Object.freeze({
@@ -67,13 +71,15 @@ export class CtraderDemoViewSessionQa {
  #fail=null;#inventory=null;#symbol=null;
  #maxBars;#now;#idFn;#historyPages;#historyPageCount=0;#historyBars=[];
  #nativeM15Summary=null;
- #cohortM15Summary=null;#cohortGaps=null;
+ #cohortM15Summary=null;#cohortH4Summary=null;#cohortGaps=null;
+ #seasonResults=[];#seasonIndex=0;
  constructor({clientId,clientSecret,accessToken,demoAccountId,
   expectedBrokerTitle,sampleSymbolId=null,sampleSymbolName=null,
   sampleInstrumentId=null,
   maxBars=300,historyPages=1,compareNativeM15=false,
   compareNativeH4=false,allowCohortPaging=false,
-  compareNativeAll34=false,now=Date.now,idFn=randomUUID}={}){
+  compareNativeAll34=false,compareSeasonalIndexH4=false,
+  now=Date.now,idFn=randomUUID}={}){
   const accountId=safeInt(demoAccountId);
   const chosenId=sampleSymbolId===null?null:safeInt(sampleSymbolId);
   if(!secret(clientId)||!secret(clientSecret)||!secret(accessToken)||
@@ -82,6 +88,10 @@ export class CtraderDemoViewSessionQa {
     (historyPages>1&&chosenId===null)||
     typeof allowCohortPaging!=="boolean"||
     typeof compareNativeAll34!=="boolean"||
+    typeof compareSeasonalIndexH4!=="boolean"||
+    (compareSeasonalIndexH4&&(!compareNativeAll34||
+      INDICES_FOR_SEASONAL_H4[sampleInstrumentId]?.id!==chosenId||
+      INDICES_FOR_SEASONAL_H4[sampleInstrumentId]?.name!==sampleSymbolName))||
     (compareNativeAll34&&
       (!allowCohortPaging||historyPages!==2||maxBars!==300||
        compareNativeM15||compareNativeH4||
@@ -112,7 +122,7 @@ export class CtraderDemoViewSessionQa {
   this.#config={clientId,clientSecret,accessToken,demoAccountId:accountId,
     expectedBrokerTitle,sampleSymbolId:chosenId,sampleSymbolName,
     sampleInstrumentId,compareNativeM15,compareNativeH4,
-    compareNativeAll34};
+    compareNativeAll34,compareSeasonalIndexH4};
   this.#maxBars=maxBars;this.#now=now;this.#idFn=idFn;
   this.#historyPages=historyPages;
  }
@@ -125,6 +135,27 @@ export class CtraderDemoViewSessionQa {
   return Object.freeze({clientMsgId:id,payloadType:type,payload});
  }
  #hold(reason){this.#fail=reason;this.#state="HELD";return held(reason);}
+ #finishNativeAll34(){
+  this.#state="COMPLETE";
+  const seasonal=this.#config.compareSeasonalIndexH4?
+    evaluateIndexH4SeasonalEvidence({
+      instrumentId:this.#config.sampleInstrumentId,
+      symbolId:this.#config.sampleSymbolId,
+      windows:this.#seasonResults
+    }):null;
+  return Object.freeze({
+   state:"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED",
+   symbolId:this.#config.sampleSymbolId,
+   symbolName:this.#config.sampleSymbolName,
+   total:this.#historyBars.length,
+   pagesFetched:this.#historyPageCount,nativePhaseMin:0,
+   ...this.#cohortGaps,bars:Object.freeze(this.#historyBars),
+   native34M15Summary:this.#cohortM15Summary,
+   native34H4Summary:this.#cohortH4Summary,
+   ...(seasonal?{nativeSeasonalH4Summary:seasonal}:{}),
+   sourceParityCertified:false,canTrade:false,sendPush:false
+  });
+ }
  start(){
   if(this.#state!=="NEW")throw Error("CTRADER_QA_START_ALREADY_USED");
   const {clientId,clientSecret}=this.#config;
@@ -395,18 +426,65 @@ export class CtraderDemoViewSessionQa {
        symbolId:c.sampleSymbolId
      });
    }catch{return this.#hold("CTRADER_34_NATIVE_H4_INVALID_OR_UNCLOSED");}
-   this.#state="COMPLETE";
-   return Object.freeze({
-     state:"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED",
-     symbolId:c.sampleSymbolId,symbolName:c.sampleSymbolName,
-     total:this.#historyBars.length,
-     pagesFetched:this.#historyPageCount,nativePhaseMin:0,
-     ...this.#cohortGaps,
-     bars:Object.freeze(this.#historyBars),
-     native34M15Summary:this.#cohortM15Summary,
-     native34H4Summary:summary,
-     sourceParityCertified:false,canTrade:false,sendPush:false
-   });
+   this.#cohortH4Summary=summary;
+   if(c.compareSeasonalIndexH4){
+    let request;
+    try{request=seasonH4HistoryRequest({
+      instrumentId:c.sampleInstrumentId,symbolId:c.sampleSymbolId,
+      index:this.#seasonIndex,nowMs:this.#now()
+    });}catch{return this.#hold("CTRADER_34_SEASONAL_H4_WINDOW_INVALID");}
+    return this.#message(VIEW_ONLY_TYPES.HISTORY,{
+      ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+      ...request
+    },"COHORT34_SEASONAL_H4_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+   }
+   return this.#finishNativeAll34();
+  }
+  if(this.#state==="COHORT34_SEASONAL_H4_PENDING"){
+   if(!c.compareSeasonalIndexH4||
+      safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
+      (p.period!==10&&p.period!=="H4")||
+      (p.symbolId!==undefined&&safeInt(p.symbolId)!==c.sampleSymbolId)||
+      !Array.isArray(p.trendbar)||p.trendbar.length>48||
+      this.#seasonIndex>=IC34_H4_SEASON_WINDOWS.length)
+     return this.#hold("CTRADER_34_SEASONAL_H4_RESPONSE_SCOPE_INVALID");
+   try{
+    const result=summarizeVerifiedIndexH4Season({
+      instrumentId:c.sampleInstrumentId,symbolId:c.sampleSymbolId,
+      index:this.#seasonIndex,nowMs:this.#now(),trendbars:p.trendbar
+    });
+    this.#seasonResults.push(result);
+   }catch(error){
+    // Error descriptions or received OHLC must NEVER enter logs. Only
+    // compile-time enumerated structural reasons and 0..4 window index.
+    const category=({
+      CRT34_SEASON_H4_AFTER_REQUESTED_WINDOW:"AFTER_WINDOW",
+      CRT34_SEASON_H4_PRIOR_DATA_TOO_OLD:"PRIOR_TOO_OLD",
+      CTRADER_34_NATIVE_TIME_INVALID:"NATIVE_TIME",
+      CTRADER_34_NATIVE_CONFIG_INVALID:"NATIVE_CONFIG",
+      CTRADER_34_NATIVE_PERIOD_INVALID:"NATIVE_PERIOD",
+      CTRADER_34_NATIVE_DELTA_INVALID:"NATIVE_DELTA",
+      CTRADER_34_NATIVE_OHLC_INVALID:"NATIVE_OHLC",
+      CTRADER_34_NATIVE_DUPLICATE_TIME:"NATIVE_DUPLICATE",
+      CRT34_SEASON_RESPONSE_SCOPE_INVALID:"SOURCE_SCOPE"
+    })[error?.message]??"UNKNOWN";
+    return this.#hold("CTRADER_34_SEASON_"+category+
+      "_W"+this.#seasonIndex);
+   }
+   this.#seasonIndex++;
+   if(this.#seasonIndex<IC34_H4_SEASON_WINDOWS.length){
+    let request;
+    try{request=seasonH4HistoryRequest({
+      instrumentId:c.sampleInstrumentId,symbolId:c.sampleSymbolId,
+      index:this.#seasonIndex,nowMs:this.#now()
+    });}catch{return this.#hold("CTRADER_34_SEASONAL_H4_WINDOW_INVALID");}
+    return this.#message(VIEW_ONLY_TYPES.HISTORY,{
+      ctidTraderAccountId:c.demoAccountId,symbolId:c.sampleSymbolId,
+      ...request
+    },"COHORT34_SEASONAL_H4_PENDING",VIEW_ONLY_TYPES.HISTORY_OK);
+   }
+   try{return this.#finishNativeAll34();}
+   catch{return this.#hold("CTRADER_34_SEASONAL_H4_EVIDENCE_INCOMPLETE");}
   }
   if(this.#state==="NATIVE_M15_PENDING"){
    if(safeInt(p.ctidTraderAccountId)!==c.demoAccountId||
