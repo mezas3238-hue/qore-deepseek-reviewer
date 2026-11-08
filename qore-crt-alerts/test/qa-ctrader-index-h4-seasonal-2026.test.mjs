@@ -5,7 +5,7 @@ import {
  seasonH4HistoryRequest,summarizeVerifiedIndexH4Season,
  evaluateIndexH4SeasonalEvidence
 } from "../src/qa-ctrader-index-h4-seasonal-2026.mjs";
-import {readDemoViewProbeConfig}
+import {readDemoViewProbeConfig,runAuthorizedDemoWssProbe}
  from "../src/ctrader-demo-wss-probe-qa.mjs";
 import {
  runAuthorizedFull34M5Cohort,OBSERVED_IC34_CANDIDATES,COHORT34_OPT_IN
@@ -178,4 +178,103 @@ test("seasonal index analysis is blocked on LIVE, trading, push, or missing base
   {QORE_CT_QA_COHORT34_PAGES:"1"},
   {QORE_CT_QA_INDEX_H4_SEASONS_2026:"wrong"}
  ])assert.throws(()=>readDemoViewProbeConfig({...ref,...changed}));
+});
+
+const START=Date.parse("2026-11-05T00:00:00Z");
+const rawBars=(start,step,count)=>{
+ return Array.from({length:count},(_,i)=>({
+  utcTimestampInMinutes:(start+i*step)/60000,
+  low:100000,deltaOpen:100,deltaHigh:400,deltaClose:200
+ }));
+};
+class SeasonalNativeIndexSocket{
+ static requests=[];
+ constructor(url){
+  assert.equal(url,"wss://demo.ctraderapi.com:5036");
+  this.handlers=new Map();this.historyPage=0;
+  queueMicrotask(()=>this.handlers.get("open")?.());
+ }
+ addEventListener(key,callback){this.handlers.set(key,callback);}
+ close(){this.closed=true;}
+ send(json){
+  const req=JSON.parse(json);if(req.payloadType===51)return;
+  SeasonalNativeIndexSocket.requests.push({
+   payloadType:req.payloadType,period:req.payload?.period,
+   from:req.payload?.fromTimestamp,to:req.payload?.toTimestamp
+  });
+  const p=req.payload||{};
+  let reply;
+  switch(req.payloadType){
+   case 2100:reply=undefined;break;
+   case 2149:reply={permissionScope:0,
+    ctidTraderAccount:[{ctidTraderAccountId:"123456789",
+     brokerTitleShort:"Raw Trading Ltd",isLive:false}]};break;
+   case 2102:reply={ctidTraderAccountId:"123456789"};break;
+   case 2114:reply={ctidTraderAccountId:"123456789",
+    symbol:[{symbolId:10014,symbolName:"USTEC",enabled:true}]};break;
+   case 2116:reply={ctidTraderAccountId:"123456789",
+    symbol:[{symbolId:10014,digits:2}]};break;
+   case 2137:{
+    assert.equal(p.symbolId,10014);
+    assert.equal(p.ctidTraderAccountId,123456789);
+    let trendbar;
+    if(p.period===5){
+     this.historyPage++;
+     assert.ok(this.historyPage<=2);
+     const open=START+(this.historyPage===1?300:0)*M5;
+     trendbar=rawBars(open,M5,300);
+    }else if(p.period===7){
+     trendbar=rawBars(START,3*M5,200);
+    }else if(p.period===10&&p.count===30){
+     trendbar=rawBars(START+2*60_000,H4,12);
+    }else if(p.period===10&&p.count===48){
+     const w=IC34_H4_SEASON_WINDOWS.find(x=>x.fromMs===p.fromTimestamp);
+     assert.ok(w);
+     assert.equal(p.toTimestamp,w.toMs-1);
+     const index=IC34_H4_SEASON_WINDOWS.indexOf(w);
+     trendbar=rawH4(index,[120,60,60,60,120][index],5);
+    }else throw Error("Unexpected period or count");
+    reply={ctidTraderAccountId:"123456789",
+     symbolId:10014,period:p.period,trendbar:trendbar.reverse()};
+    break;
+   }
+   default:throw Error("Unexpected outbound non-view command");
+  }
+  queueMicrotask(()=>this.handlers.get("message")?.({
+   data:JSON.stringify({clientMsgId:req.clientMsgId,
+    payloadType:req.payloadType+1,
+    ...(reply===undefined?{}:{payload:reply})})
+  }));
+ }
+}
+test("WSS DEMO sends 2 M5, native M15/H4, then exactly 5 historical H4; no order call",async()=>{
+ SeasonalNativeIndexSocket.requests=[];
+ const config=readDemoViewProbeConfig({
+  ...env,QORE_CT_QA_HISTORY_PAGES:"2",
+  QORE_CT_SAMPLE_SYMBOL_ID:"10014",
+  QORE_CT_SAMPLE_SYMBOL_NAME:"USTEC",
+  QORE_CT_SAMPLE_INSTRUMENT_ID:"NDX100"
+ });
+ const out=await runAuthorizedDemoWssProbe({
+  config,WebSocketImpl:SeasonalNativeIndexSocket,
+  now:()=>NOW,timeoutMs:3000
+ });
+ assert.equal(out.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED");
+ assert.equal(out.barCount,600);
+ assert.equal(out.nativeSeasonalH4Summary.requestedWindows,5);
+ assert.equal(out.nativeSeasonalH4Summary.observedWindows,5);
+ assert.equal(out.nativeSeasonalH4Summary.nativeH4Bars,25);
+ assert.equal(out.nativeSeasonalH4Summary.clockCertified,false);
+ assert.equal(out.crtMss34Replay.state,
+   "NATIVE_VS_CONFIGURED_NY_H4_CLOCK_MISMATCH_QA");
+ assert.equal(out.crtMss34Replay.cyclesEvaluated,0);
+ assert.deepEqual(
+  SeasonalNativeIndexSocket.requests.filter(x=>x.payloadType===2137).map(x=>x.period),
+  [5,5,7,10,10,10,10,10,10]);
+ assert.equal(SeasonalNativeIndexSocket.requests.length,14);
+ assert.ok(SeasonalNativeIndexSocket.requests.every(x=>
+  [2100,2149,2102,2114,2116,2137].includes(x.payloadType)));
+ assert.equal(out.sendPush,false);assert.equal(out.canTrade,false);
+ assert.equal(out.sourceParityCertified,false);
+ assert.ok(!JSON.stringify(out).includes("token-not-for-logs"));
 });
