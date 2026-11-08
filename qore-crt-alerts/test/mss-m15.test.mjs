@@ -124,3 +124,46 @@ test("cycle identity includes provider, symbol, C1 timestamp and direction",()=>
   const s=scenario(),r=evalMSS(s);
   assert.equal(r.cycleId,"OFFLINE_FIXTURE|EURUSD|"+s.c1.openedAt+"|1");
 });
+
+test("terminal 15-minute gap before M5 sweep invalidates otherwise frozen stale pivot",()=>{
+  const s=scenario();
+  const m15=aggregateClosedM5(s.data,{timeframe:"M15",family:"forex"}).complete;
+  const withoutLastBeforeSweep=m15.filter(x=>x.openedAt!==s.c2.openedAt-900000);
+  // The previous guard returned the stale pre-gap #7 pivot even though
+  // the final CLOSED M15 immediately before sweep was absent.
+  assert.equal(frozenM15Pivot(withoutLastBeforeSweep,{
+    direction:1,sweepStart:s.c2.openedAt
+  }),null);
+  assert.equal(frozenM15Pivot(withoutLastBeforeSweep,{
+    direction:1,sweepStart:s.c2.openedAt+300000
+  }),null);
+  assert.equal(frozenM15Pivot(withoutLastBeforeSweep,{
+    direction:1,sweepStart:s.c2.openedAt+600000
+  }),null);
+});
+test("zero, five and ten minutes from valid last M15 closure to sweep are permitted",()=>{
+  const s=scenario();
+  const m15=aggregateClosedM5(s.data,{timeframe:"M15",family:"forex"}).complete;
+  const expected=frozenM15Pivot(m15,{direction:1,sweepStart:s.c2.openedAt});
+  assert.ok(expected);
+  for(const delta of [0,300000,600000]){
+    const pivot=frozenM15Pivot(m15,{
+      direction:1,sweepStart:s.c2.openedAt+delta
+    });
+    assert.deepEqual(pivot,expected);
+  }
+});
+test("later M15 bars cannot revise an already frozen pivot at the historical sweep",()=>{
+  const s=scenario();
+  const m15=aggregateClosedM5(s.data,{timeframe:"M15",family:"forex"}).complete;
+  const early=frozenM15Pivot(m15.filter(x=>
+    x.closedAt<=s.c2.openedAt),{
+    direction:1,sweepStart:s.c2.openedAt
+  });
+  const withFuture=frozenM15Pivot(m15,{
+    direction:1,sweepStart:s.c2.openedAt
+  });
+  assert.deepEqual(withFuture,early);
+  assert.ok(early);
+  assert.ok(early.confirmedAt<=s.c2.openedAt);
+});
