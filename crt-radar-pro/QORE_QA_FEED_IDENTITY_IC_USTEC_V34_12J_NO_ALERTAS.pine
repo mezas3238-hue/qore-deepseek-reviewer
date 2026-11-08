@@ -1,0 +1,34 @@
+//@version=6
+indicator("QORE QA | IC feed identity V34.12J (NO ALERTAS)", shorttitle="QORE Feed QA 12J", overlay=true)
+
+// Independiente: muestra exclusivamente la identidad del ticker del GRAFICO.
+// NO usa request.security, no lee los otros 33 feeds, NO cambia H4 ni C1,
+// NO calcula CRT/MSS, NO emite alertas ni operaciones.
+string idxList = "NAS100USD,USTEC,US500,US30,US100,SPX500,US2000,DE40,GER40,UK100,JP225,HK50,NAS100,SPX,NDX,DJI,ES1!,NQ1!,YM1!"
+string name = str.upper(syminfo.ticker)
+string csv = "," + idxList + ","
+bool listed = str.contains(csv, "," + name + ",")
+bool typical = str.contains(name, "NAS100") or str.contains(name,"US100") or str.contains(name,"US500") or str.contains(name,"SPX500") or str.contains(name,"US30") or str.contains(name,"US2000") or str.contains(name,"DE40") or str.contains(name,"GER40") or str.contains(name,"UK100") or str.contains(name,"JP225") or str.contains(name,"HK50") or name == "USTEC"
+bool tvIndex = syminfo.type == "index"
+bool isIndex = tvIndex or listed or typical
+
+var table audit = table.new(position.top_right, 2, 7, border_width=1)
+if barstate.islast
+    table.cell(audit, 0, 0, "QORE 12J QA", text_color=color.white, bgcolor=color.rgb(20,31,48))
+    table.cell(audit, 1, 0, "NO ALERTAS", text_color=color.orange, bgcolor=color.rgb(20,31,48))
+    table.cell(audit, 0, 1, "Proveedor")
+    table.cell(audit, 1, 1, syminfo.prefix)
+    table.cell(audit, 0, 2, "Ticker")
+    table.cell(audit, 1, 2, syminfo.ticker)
+    table.cell(audit, 0, 3, "syminfo.type")
+    table.cell(audit, 1, 3, syminfo.type)
+    table.cell(audit, 0, 4, "Index por nombre")
+    table.cell(audit, 1, 4, listed or typical ? "SI" : "NO")
+    table.cell(audit, 0, 5, "Familia resultante")
+    table.cell(audit, 1, 5, isIndex ? "INDICE" : "NO INDICE")
+    table.cell(audit, 0, 6, "C1 NY (sin cambio)")
+    table.cell(audit, 1, 6, isIndex ? "02/06/22" : "01/05/21")
+
+// Valor exacto para inspeccion en Ventana de datos: 1=indice, 0=no indice.
+plot(isIndex ? 1 : 0, title="QORE QA familia INDEX (1/0)", display=display.data_window)
+plot(tvIndex ? 1 : 0, title="QORE QA syminfo.type INDEX (1/0)", display=display.data_window)
