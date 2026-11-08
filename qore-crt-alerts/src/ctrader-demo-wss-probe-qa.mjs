@@ -13,6 +13,8 @@ import {deriveClosedEurusdM15Context}
 import {buildPrivateCtraderEurusdParityCsv,
  CTRADER_EURUSD_CSV_EXPORT_OPT_IN}
  from "./qa-ctrader-eurusd-parity-csv.mjs";
+import {auditCrtMss34ClosedBrokerBars}
+ from "./qa-ctrader-34-crt-mss-closed-replay.mjs";
 
 const isPositive=v=>typeof v==="string"&&/^[1-9][0-9]{0,15}$/.test(v);
 const legalName=v=>typeof v==="string"&&/^[A-Za-z0-9_./:-]{1,80}$/.test(v);
@@ -74,6 +76,14 @@ export function readDemoViewProbeConfig(env={}){
  const exportPrivateCsv=exportMode===CTRADER_EURUSD_CSV_EXPORT_OPT_IN;
  const compareNativeAll34=
    all34NativeMode==="OWNER_APPROVED_34_NATIVE_M15_H4_QA";
+ const crtReplayMode=env.QORE_CT_QA_CRT_MSS_ALL34;
+ if(crtReplayMode!==undefined&&crtReplayMode!=="DISABLED"&&
+    crtReplayMode!=="OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA")
+  throw Error("CTRADER_34_CRT_MSS_REPLAY_FLAG_INVALID");
+ const auditCrtMssAll34=
+   crtReplayMode==="OWNER_APPROVED_CLOSED_34_CRT_MSS_REPLAY_QA";
+ if(auditCrtMssAll34&&!compareNativeAll34)
+  throw Error("CTRADER_34_CRT_MSS_REQUIRES_NATIVE_34_FRAMES");
  if(compareNativeAll34&&(!cohort34TwoPages||
     env.QORE_CT_STAGE!=="DEMO"||
     env.QORE_CT_OAUTH_SCOPE!=="accounts"||
@@ -110,7 +120,7 @@ export function readDemoViewProbeConfig(env={}){
   demoAccountId:env.QORE_CT_DEMO_ACCOUNT_ID,
   expectedBrokerTitle:env.QORE_CT_EXPECTED_BROKER_TITLE,
   historyPages,exportPrivateCsv,compareNativeM15,compareNativeH4,
-  compareNativeAll34,
+  compareNativeAll34,auditCrtMssAll34,
   allowCohortPaging:cohort34TwoPages,
   ...(values.every(x=>typeof x==="string"&&x.length>0)?{
    sampleSymbolId:values[0],
@@ -224,6 +234,22 @@ export function runAuthorizedDemoWssProbe({
         try{privateCsv=buildPrivateCtraderEurusdParityCsv(next.bars);}
         catch{return finish(fail("CTRADER_PRIVATE_CSV_VALIDATION_FAILED"));}
       }
+      let crtMss34Replay=null;
+      if(config?.auditCrtMssAll34===true){
+        if(next.state!=="HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED"||
+           !next.native34M15Summary||!next.native34H4Summary)
+          return finish(fail("CTRADER_34_CRT_MSS_NATIVE_SOURCE_REQUIRED"));
+        try{
+         crtMss34Replay=auditCrtMss34ClosedBrokerBars({
+          instrumentId:config.sampleInstrumentId,
+          symbolId:Number(config.sampleSymbolId),bars:next.bars,
+          asOfMs:now(),nativeM15:next.native34M15Summary,
+          nativeH4:next.native34H4Summary
+         });
+        }catch{
+         return finish(fail("CTRADER_34_CRT_MSS_CAUSAL_INTEGRITY_FAILED"));
+        }
+      }
       return finish(Object.freeze({state:next.state,
        symbolName:next.symbolName,barCount:next.total,
        pagesFetched:next.pagesFetched??1,
@@ -246,6 +272,7 @@ export function runAuthorizedDemoWssProbe({
        ...(next.native34H4Summary?{
          native34H4Summary:next.native34H4Summary
        }:{}),
+       ...(crtMss34Replay?{crtMss34Replay}:{}),
        ...(next.nativeH4Summary?{
          nativeH4Summary:next.nativeH4Summary
        }:{}),
