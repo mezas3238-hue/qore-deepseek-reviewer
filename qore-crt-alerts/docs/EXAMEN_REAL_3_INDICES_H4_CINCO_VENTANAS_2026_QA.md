@@ -26,6 +26,8 @@ Primero se autentica el mismo manifiesto nativo completo de 34 nombres e IDs, co
 | 19–26 octubre 2026 | Antes del cambio DST de noviembre |
 | 2–7 noviembre 2026 | Después del cambio DST de noviembre |
 
+El mensaje `ProtoOAGetTrendbarsReq` limita la cantidad de velas respecto de `toTimestamp`; las respuestas reales devolvieron registros anteriores a `fromTimestamp` en la primera consulta. El validador ahora conserva un **conteo explícito de H4 descartadas por estar antes del inicio**, siempre dentro de una tolerancia histórica acotada de 14 días, y calcula las fases **exclusivamente** con las velas abiertas dentro de la ventana solicitada. Las barras posteriores al final, futuras o demasiado antiguas siguen bloqueadas. Fuente técnica: https://help.ctrader.com/open-api/symbol-data/ .
+
 Cada ventana registra solo el **número de H4 cerradas, fase UTC módulo cuatro horas, horas de apertura NY y conteos de H4 que caen en horas C1 actuales vs horas adyacentes no autorizadas**. Las H4 sin datos o ventanas mixtas por transición DST quedan clasificadas como bloqueadas; no se fabrican barras ni precios. Esta nueva muestra es de aperturas H4, no reconstrucción M5/H4 completa de meses anteriores.
 
 ## Criterio de seguridad y pasos siguientes
