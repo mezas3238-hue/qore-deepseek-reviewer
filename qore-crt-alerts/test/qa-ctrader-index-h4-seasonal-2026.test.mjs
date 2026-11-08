@@ -218,7 +218,8 @@ class SeasonalNativeIndexSocket{
   const req=JSON.parse(json);if(req.payloadType===51)return;
   SeasonalNativeIndexSocket.requests.push({
    payloadType:req.payloadType,period:req.payload?.period,
-   from:req.payload?.fromTimestamp,to:req.payload?.toTimestamp
+   from:req.payload?.fromTimestamp,to:req.payload?.toTimestamp,
+   wallAtMs:Date.now()
   });
   const p=req.payload||{};
   let reply;
@@ -275,7 +276,7 @@ test("WSS DEMO sends 2 M5, native M15/H4, then exactly 5 historical H4; no order
  });
  const out=await runAuthorizedDemoWssProbe({
   config,WebSocketImpl:SeasonalNativeIndexSocket,
-  now:()=>NOW,timeoutMs:3000
+  now:()=>NOW,timeoutMs:12000
  });
  assert.equal(out.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED",JSON.stringify({state:out.state,reason:out.reason}));
  assert.equal(out.barCount,600);
@@ -290,6 +291,12 @@ test("WSS DEMO sends 2 M5, native M15/H4, then exactly 5 historical H4; no order
   SeasonalNativeIndexSocket.requests.filter(x=>x.payloadType===2137).map(x=>x.period),
   [5,5,7,10,10,10,10,10,10]);
  assert.equal(SeasonalNativeIndexSocket.requests.length,14);
+ const history=SeasonalNativeIndexSocket.requests.filter(x=>
+   x.payloadType===2137);
+ for(let i=1;i<history.length;i++){
+  assert.ok(history[i].wallAtMs-history[i-1].wallAtMs>=500,
+   "historical calls must be paced, never burst");
+ }
  assert.ok(SeasonalNativeIndexSocket.requests.every(x=>
   [2100,2149,2102,2114,2116,2137].includes(x.payloadType)));
  assert.equal(out.sendPush,false);assert.equal(out.canTrade,false);
