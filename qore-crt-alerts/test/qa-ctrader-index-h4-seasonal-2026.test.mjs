@@ -259,7 +259,7 @@ test("WSS DEMO sends 2 M5, native M15/H4, then exactly 5 historical H4; no order
   config,WebSocketImpl:SeasonalNativeIndexSocket,
   now:()=>NOW,timeoutMs:3000
  });
- assert.equal(out.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED");
+ assert.equal(out.state,"HISTORICAL_34_M5_M15_H4_QA_UNCERTIFIED",JSON.stringify({state:out.state,reason:out.reason}));
  assert.equal(out.barCount,600);
  assert.equal(out.nativeSeasonalH4Summary.requestedWindows,5);
  assert.equal(out.nativeSeasonalH4Summary.observedWindows,5);
