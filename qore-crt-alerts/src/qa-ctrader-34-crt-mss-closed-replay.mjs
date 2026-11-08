@@ -11,6 +11,8 @@ import {inspectCrtMorphologies} from "./crt-structural-morphologies.mjs";
 import {SEVEN_CRT_ROLES} from "./crt-seven-role-certification-readiness.mjs";
 import {inspectAll34NativeVsOwnerH4ClockQA}
  from "./qa-ctrader-34-native-vs-owner-h4-clock.mjs";
+import {compareIndexH4GeometryTwoClocksQA}
+ from "./qa-ctrader-index-dual-h4-crt-geometry.mjs";
 const H4=14_400_000,M5=300_000,M15=900_000;
 const CONFIRMED=new Set(["MSS_CONFIRMED_C2","MSS_CONFIRMED_C3"]);
 const safeMs=x=>Number.isSafeInteger(x)&&x>0;
@@ -105,15 +107,21 @@ export function auditCrtMss34ClosedBrokerBars({
  const observedPhase=[...new Set(h4.complete.map(b=>
    (b.openedAt%H4)/60_000))].sort((a,b)=>a-b);
  if(!observedPhase.length||
-    !observedPhase.every(p=>nativePhase.includes(p)))
+    !observedPhase.every(p=>nativePhase.includes(p))){
+  const indexClockGeometryQA=family==="index"?
+    compareIndexH4GeometryTwoClocksQA({
+     instrumentId,symbolId,closedM5:bars,asOfMs,nativeH4
+    }):null;
   return closed("NATIVE_VS_CONFIGURED_NY_H4_CLOCK_MISMATCH_QA",{
    instrumentId,group:family,h4Complete:h4.complete.length,
    nativeH4UtcPhaseMin:Object.freeze([...nativePhase]),
    configuredNyH4UtcPhaseMin:Object.freeze(observedPhase),
    nativeOwnerClockQA,
+   ...(indexClockGeometryQA?{indexClockGeometryQA}:{}),
    prohibitedAutoShift:true,requiresOwnerClockReview:true,
    cyclesEvaluated:0,crtRoleObservations:gradeRoles(roleCount())
   });
+ }
  const counts=roleCount(),cycleStates={},mssStatesM5={},mssStatesM15={};
  const closes5=new Set(clean.map(x=>x.closedAt));
  const closes15=new Set(m15.complete.map(x=>x.closedAt));
