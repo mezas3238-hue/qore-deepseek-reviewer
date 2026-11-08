@@ -9,6 +9,8 @@ import {aggregateClosedCryptoM5} from "./crypto-aggregate.mjs";
 import {replayCycle} from "./replay-cycle.mjs";
 import {inspectCrtMorphologies} from "./crt-structural-morphologies.mjs";
 import {SEVEN_CRT_ROLES} from "./crt-seven-role-certification-readiness.mjs";
+import {inspectAll34NativeVsOwnerH4ClockQA}
+ from "./qa-ctrader-34-native-vs-owner-h4-clock.mjs";
 const H4=14_400_000,M5=300_000,M15=900_000;
 const CONFIRMED=new Set(["MSS_CONFIRMED_C2","MSS_CONFIRMED_C3"]);
 const safeMs=x=>Number.isSafeInteger(x)&&x>0;
@@ -91,6 +93,9 @@ export function auditCrtMss34ClosedBrokerBars({
  const m15=(family==="crypto"?
   aggregateClosedCryptoM5(clean,{timeframe:"M15"}):
   aggregateClosedM5(clean,{timeframe:"M15",family}));
+ const nativeOwnerClockQA=inspectAll34NativeVsOwnerH4ClockQA({
+  instrumentId,symbolId,closedM5:bars,asOfMs,nativeH4
+ });
  const nativePhase=nativeH4.nativeUtcH4PhasesMinutes;
  if(!Array.isArray(nativePhase)||!nativePhase.length||
     nativePhase.some(p=>!Number.isInteger(p)||p<0||p>=240))
@@ -105,6 +110,7 @@ export function auditCrtMss34ClosedBrokerBars({
    instrumentId,group:family,h4Complete:h4.complete.length,
    nativeH4UtcPhaseMin:Object.freeze([...nativePhase]),
    configuredNyH4UtcPhaseMin:Object.freeze(observedPhase),
+   nativeOwnerClockQA,
    prohibitedAutoShift:true,requiresOwnerClockReview:true,
    cyclesEvaluated:0,crtRoleObservations:gradeRoles(roleCount())
   });
@@ -160,6 +166,7 @@ export function auditCrtMss34ClosedBrokerBars({
   m15Complete:m15.complete.length,m15Rejected:m15.rejected.length,
   nativeH4UtcPhaseMin:Object.freeze([...nativePhase]),
   configuredNyH4UtcPhaseMin:Object.freeze(observedPhase),
+  nativeOwnerClockQA,
   prohibitedAutoShift:true,cyclesEvaluated:cycles,
   crtStates:Object.freeze(cycleStates),
   mssStatesM5:Object.freeze(mssStatesM5),
