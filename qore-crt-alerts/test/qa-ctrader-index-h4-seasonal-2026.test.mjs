@@ -226,7 +226,7 @@ class SeasonalNativeIndexSocket{
     }else if(p.period===7){
      trendbar=rawBars(START,3*M5,200);
     }else if(p.period===10&&p.count===30){
-     trendbar=rawBars(START+2*60_000,H4,12);
+     trendbar=rawBars(START+2*3600000,H4,12);
     }else if(p.period===10&&p.count===48){
      const w=IC34_H4_SEASON_WINDOWS.find(x=>x.fromMs===p.fromTimestamp);
      assert.ok(w);
