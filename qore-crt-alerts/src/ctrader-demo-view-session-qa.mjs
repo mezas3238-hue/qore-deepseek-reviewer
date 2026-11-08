@@ -454,7 +454,22 @@ export class CtraderDemoViewSessionQa {
       index:this.#seasonIndex,nowMs:this.#now(),trendbars:p.trendbar
     });
     this.#seasonResults.push(result);
-   }catch{return this.#hold("CTRADER_34_SEASONAL_H4_HISTORY_INVALID");}
+   }catch(error){
+    // Error descriptions or received OHLC must NEVER enter logs. Only
+    // compile-time enumerated structural reasons and 0..4 window index.
+    const category=({
+      CRT34_SEASON_H4_OUTSIDE_REQUESTED_WINDOW:"OUTSIDE_WINDOW",
+      CTRADER_34_NATIVE_TIME_INVALID:"NATIVE_TIME",
+      CTRADER_34_NATIVE_CONFIG_INVALID:"NATIVE_CONFIG",
+      CTRADER_34_NATIVE_PERIOD_INVALID:"NATIVE_PERIOD",
+      CTRADER_34_NATIVE_DELTA_INVALID:"NATIVE_DELTA",
+      CTRADER_34_NATIVE_OHLC_INVALID:"NATIVE_OHLC",
+      CTRADER_34_NATIVE_DUPLICATE_TIME:"NATIVE_DUPLICATE",
+      CRT34_SEASON_RESPONSE_SCOPE_INVALID:"SOURCE_SCOPE"
+    })[error?.message]??"UNKNOWN";
+    return this.#hold("CTRADER_34_SEASON_"+category+
+      "_W"+this.#seasonIndex);
+   }
    this.#seasonIndex++;
    if(this.#seasonIndex<IC34_H4_SEASON_WINDOWS.length){
     let request;
