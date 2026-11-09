@@ -35,8 +35,11 @@ REPLACEMENTS = [
         "f_monitorOwnMss(int slot) =>",
         "// M5/M15 QA: no atribuir a una familia MSS ajeno. Etiqueta la causa\n"
         "// de abstencion para poder depurar sin promover ninguna senal.\n"
-        "f_qaMssMissingReason(bool feedOK, bool ownedFamily, bool ownC1Ready, int ownSweepAt, int ownPivotAt, int ownMssAt) =>\n"
-        "    not feedOK ? \"SIN FEED\" : not ownedFamily ? \"SIN PRB\" : not ownC1Ready ? \"SIN C1\" : na(ownSweepAt) ? \"SIN SWP\" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? \"SIN PIV\" : na(ownMssAt) ? \"PEND MSS\" : \"NO VALID\"\n"
+        "// M5 extraFamilyM5PivotAt y extraFamilyM5At salen en Signal.new SOLO\n"
+        "// si extraMss5Causal es verdadero: un NA no demuestra que falte pivote.\n"
+        "// M15 conserva el pivote previo sin esa mascara, pero el MSS si va filtrado.\n"
+        "f_qaMssMissingReason(bool feedOK, bool ownedFamily, bool ownC1Ready, int ownSweepAt, int ownPivotAt, int ownMssAt, bool m5Masked) =>\n"
+        "    not feedOK ? \"SIN FEED\" : not ownedFamily ? \"SIN PRB\" : not ownC1Ready ? \"SIN C1\" : na(ownSweepAt) ? \"SIN SWP\" : m5Masked ? \"NO CERT\" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? \"SIN PIV\" : na(ownMssAt) ? \"NO CONF\" : \"REV GATE\"\n"
         "\n"
         "f_monitorOwnMss(int slot) =>",
     ),
@@ -48,8 +51,8 @@ REPLACEMENTS = [
         '                        // falta de prueba, C1, barrida, pivote o cruce sin tocar flags.\n'
         '                        bool ownExtraFamily = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")\n'
         '                        int ownExtraSweep = array.get(qaExtraSweepBySlot,i)\n'
-        '                        string m5MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot5AtBySlot,i), array.get(qaExtraBreak5BySlot,i))\n'
-        '                        string m15MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot15AtBySlot,i), array.get(qaExtraBreak15BySlot,i))\n'
+        '                        string m5MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot5AtBySlot,i), array.get(qaExtraBreak5BySlot,i), true)\n'
+        '                        string m15MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot15AtBySlot,i), array.get(qaExtraBreak15BySlot,i), false)\n'
         '                        string m5Text = core ? (ownM5 ? "SI" : "NO") : qaCore ? (ownM5 ? "QA SI" : "QA --") : ownExtraM5 ? "QA SI" : otherQA ? m5MissingReason : "—"\n'
         '                        string m15Text = core ? (ownM15 ? "SI" : "NO") : qaCore ? (ownM15 ? "QA SI" : "QA --") : ownExtraM15 ? "QA SI" : otherQA ? m15MissingReason : "—"\n'
         '                        string dirText = core or qaCore or otherQA or true3c ? (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "SIN DIR") : "—"',
@@ -93,8 +96,25 @@ class MissedMssDiagnosticTests(unittest.TestCase):
         ):
             self.assertIn(snippet, self.candidate)
 
+    def test_masked_m5_fields_do_not_imply_missing_pivot(self) -> None:
+        # Engine deliberately redacts these fields when extraMss5Causal
+        # is false, so a missing exported timestamp cannot prove no pivot.
+        self.assertIn(
+            'extraMss5Causal ? extraPivot5At : na', self.candidate
+        )
+        self.assertIn(
+            'extraMss5Causal ? extraMss5At : na', self.candidate
+        )
+        self.assertIn('m5Masked ? "NO CERT"', self.candidate)
+        self.assertIn(
+            'array.get(qaExtraBreak5BySlot,i), true)', self.candidate
+        )
+        self.assertIn(
+            'array.get(qaExtraBreak15BySlot,i), false)', self.candidate
+        )
+
     def test_status_describes_abstention_not_a_new_mss(self) -> None:
-        for label in ("SIN PRB", "SIN FEED", "SIN C1", "SIN SWP", "SIN PIV", "PEND MSS", "NO VALID", "SIN DIR"):
+        for label in ("SIN PRB", "SIN FEED", "SIN C1", "SIN SWP", "SIN PIV", "NO CERT", "NO CONF", "REV GATE", "SIN DIR"):
             self.assertIn(f'"{label}"', self.candidate)
         self.assertIn('bool ownExtraFamily = extra and (not true3c', self.candidate)
         self.assertIn('otherQA ? m5MissingReason : "—"', self.candidate)
