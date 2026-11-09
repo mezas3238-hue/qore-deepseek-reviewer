@@ -17,5 +17,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verify exact Pine scope and retained safety gates
+      - name: Verify exact Pine scope, MSS family gates and raw-candle forensics
         run: python -m unittest discover -s crt-radar-pro/qa-mss-reasons/tests -p 'test_*.py' -v
