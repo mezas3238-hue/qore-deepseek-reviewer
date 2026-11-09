@@ -1,0 +1,21 @@
+name: CRT 12X MSS N/V QA Exact-Diff
+
+on:
+  pull_request:
+    paths:
+      - "crt-radar-pro/qa-mss-reasons/**"
+      - ".github/workflows/crt-v34-12x-mss-nv-qa.yml"
+  push:
+    branches:
+      - "fix/crt-v34-12x-mss-nv-cause-qa-20261109"
+
+jobs:
+  exact-diff-no-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify exact Pine scope, MSS family gates and raw-candle forensics
+        run: python -m unittest discover -s crt-radar-pro/qa-mss-reasons/tests -p 'test_*.py' -v
