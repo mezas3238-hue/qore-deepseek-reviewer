@@ -107,3 +107,70 @@ No se cambia `right5/right15`, `maxPivotAge=720`, la fase M5 ni las ventanas H4 
 - M15 exige las tres M5 cerradas consecutivas del mismo feed y cierre cruzado comprobable; M5 exige un cierre M5 posterior a la barrida.
 - `SI/QA SI` solo aparece tras todos los gates originales, sin heredar MSS entre familias.
 - No se retira `QA NO CERT`, `NO LIVE` ni `NO PUSH`.
+
+## Forense offline R0 — contrastar MSS contra OHLC M5 cerrado
+
+Se añade herramienta **solo lectura**:
+`crt-radar-pro/qa-mss-reasons/tools/verify_mss_evidence_csv.py`.
+
+**Alcance real:** compara una reclamación de MSS (familia, C1, barrida,
+pivote congelado, dirección y plazo) contra un único flujo cronológico
+de velas M5 cerradas, con reconstrucción M15 únicamente de grupos completos.
+Revisa identidad del feed, ventanas completas, primer barrido compatible,
+pivote L2/R2 y cruce estricto por cierre. No extrae la familia CRT del OHLC,
+no autentica que el CSV proceda realmente del bróker y **no certifica Pine**.
+
+**CSV input** (tres M5 completas para cada M15):
+
+```csv
+symbol,feed_id,open_time_utc,open,high,low,close,closed
+```
+
+El JSON de caso exige exactamente:
+```json
+{
+  "symbol": "IC:XAGUSD",
+  "feed_id": "IC:DEMO:SERVER_IDENTIFICADO",
+  "family": "INSIDE QA",
+  "direction": "BULLISH",
+  "timeframe": "M5",
+  "phase_min": 0,
+  "c1_high": "34.50",
+  "c1_low": "33.50",
+  "sweep_window_start_utc": "2026-11-09T10:00:00+00:00",
+  "sweep_close_utc": "2026-11-09T10:30:00+00:00",
+  "frozen_pivot_open_utc": "2026-11-09T09:45:00+00:00",
+  "frozen_pivot": "34.10",
+  "observe_until_utc": "2026-11-09T12:00:00+00:00"
+}
+```
+Los precios y tiempos del JSON son **solo ilustración del esquema**, no un
+evento verdadero de XAGUSD. Nunca usar este ejemplo como señal.
+
+Uso con datos verificables y autorizado fuera de producción:
+```bash
+python crt-radar-pro/qa-mss-reasons/tools/verify_mss_evidence_csv.py \
+  --m5-csv ./caso_xagusd_m5.csv \
+  --claim-json ./caso_xagusd.json \
+  --out-json ./resultado_qa.json
+```
+
+Salida:
+- `RAW_CROSS`: se corroboró matemáticamente cruce M5/M15 por cierre, **sin
+  certificar** que el CRT y el pivote pertenecían a esa familia en TradingView.
+- `NO_CROSS_OBSERVED`: no hubo cruce bajo las condiciones en el intervalo
+  cerrado suministrado (no equivale a fallo del indicador).
+- `INVALID`: barrida / pivote / cronología no corresponden a la prueba
+  suministrada.
+- `INCOMPLETE`: velas ausentes, ventana insuficiente o discontinuidad;
+  abstenerse de concluir éxito o fracaso.
+
+Una etiqueta `IC:` y un CSV no certifican autenticidad. Exigir fuente y
+identificador real, registros OHLC confiables y reconciliación con el indicador.
+`operational_alert_authorized=false`, `live_trading_authorized=false`,
+`pine_parity_certified=false` y `crt_structure_certified=false` en toda salida.
+
+**Nota metodológica:** el modelo forense R0 fija pivote L2/R2 y rechaza
+swings no congelados antes de la barrida. No establece por sí solo
+equivalencia exacta con cada familia o con el `f_engine` original; esa paridad
+queda como gate independiente, pendiente de TradingView y del histórico real.
