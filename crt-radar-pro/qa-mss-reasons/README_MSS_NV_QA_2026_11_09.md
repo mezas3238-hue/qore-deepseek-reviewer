@@ -174,3 +174,24 @@ identificador real, registros OHLC confiables y reconciliación con el indicador
 swings no congelados antes de la barrida. No establece por sí solo
 equivalencia exacta con cada familia o con el `f_engine` original; esa paridad
 queda como gate independiente, pendiente de TradingView y del histórico real.
+
+### Cierre de seguridad del forense R0
+
+- Los datos M5 mantienen su **fase nativa** entre 0 y 4 minutos; el
+  agregador M15 usa esa misma fase, no corrige silenciosamente las velas.
+- Una barrida del **extremo opuesto** en la misma ventana de C1 invalida
+  toda la candidatura, incluso si ocurre en una vela distinta de la
+  primera barrida reclamanda. Una doble barrida tampoco vale.
+- Cada salida de CLI registra `m5_csv_sha256` y
+  `claim_json_sha256` para repetir exactamente el análisis.
+- `NO_CROSS_OBSERVED` significa únicamente **dentro de la ventana
+  cerrada examinada**, no ausencia de MSS histórico fuera de ella.
+- Una vela ausente produce `INCOMPLETE` (no se rellena ni sintetiza).
+- Los casos de prueba con datos inventados no representan señales en
+  XAGUSD, AUDCHF, EURGBP, EURNZD, BTCUSD ni los demás mercados.
+
+A fecha de desarrollo 2026-11-09: **25/25 pruebas de QA sintética y exact-diff
+aprobadas** (incluidos 34 slots y las cuatro familias auxiliares).
+No está comprobada la paridad real Pine ↔ IC, ni que todas las filas
+anteriormente N/V deban producir un MSS. Falta compilar el candidato
+en TradingView y recuperar las series M5 pertinentes.
