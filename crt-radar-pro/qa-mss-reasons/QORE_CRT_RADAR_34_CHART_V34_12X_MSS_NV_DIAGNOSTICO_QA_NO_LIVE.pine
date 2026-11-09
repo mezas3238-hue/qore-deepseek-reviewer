@@ -2628,8 +2628,11 @@ plot(checked, title="QORE QA fuentes respondidas", display=display.data_window)
 // timeframe or the previously saved MSS of a different model.
 // M5/M15 QA: no atribuir a una familia MSS ajeno. Etiqueta la causa
 // de abstencion para poder depurar sin promover ninguna senal.
-f_qaMssMissingReason(bool feedOK, bool ownedFamily, bool ownC1Ready, int ownSweepAt, int ownPivotAt, int ownMssAt) =>
-    not feedOK ? "SIN FEED" : not ownedFamily ? "SIN PRB" : not ownC1Ready ? "SIN C1" : na(ownSweepAt) ? "SIN SWP" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? "SIN PIV" : na(ownMssAt) ? "PEND MSS" : "NO VALID"
+// M5 extraFamilyM5PivotAt y extraFamilyM5At salen en Signal.new SOLO
+// si extraMss5Causal es verdadero: un NA no demuestra que falte pivote.
+// M15 conserva el pivote previo sin esa mascara, pero el MSS si va filtrado.
+f_qaMssMissingReason(bool feedOK, bool ownedFamily, bool ownC1Ready, int ownSweepAt, int ownPivotAt, int ownMssAt, bool m5Masked) =>
+    not feedOK ? "SIN FEED" : not ownedFamily ? "SIN PRB" : not ownC1Ready ? "SIN C1" : na(ownSweepAt) ? "SIN SWP" : m5Masked ? "NO CERT" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? "SIN PIV" : na(ownMssAt) ? "NO CONF" : "REV GATE"
 
 f_monitorOwnMss(int slot) =>
     bool coreOrQa = array.get(validCoreFlags,slot) or array.get(qaCoreObservedFlags,slot)
@@ -2999,8 +3002,8 @@ f_renderRadarDashboard() =>
                         // falta de prueba, C1, barrida, pivote o cruce sin tocar flags.
                         bool ownExtraFamily = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")
                         int ownExtraSweep = array.get(qaExtraSweepBySlot,i)
-                        string m5MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot5AtBySlot,i), array.get(qaExtraBreak5BySlot,i))
-                        string m15MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot15AtBySlot,i), array.get(qaExtraBreak15BySlot,i))
+                        string m5MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot5AtBySlot,i), array.get(qaExtraBreak5BySlot,i), true)
+                        string m15MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot15AtBySlot,i), array.get(qaExtraBreak15BySlot,i), false)
                         string m5Text = core ? (ownM5 ? "SI" : "NO") : qaCore ? (ownM5 ? "QA SI" : "QA --") : ownExtraM5 ? "QA SI" : otherQA ? m5MissingReason : "—"
                         string m15Text = core ? (ownM15 ? "SI" : "NO") : qaCore ? (ownM15 ? "QA SI" : "QA --") : ownExtraM15 ? "QA SI" : otherQA ? m15MissingReason : "—"
                         string dirText = core or qaCore or otherQA or true3c ? (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "SIN DIR") : "—"
