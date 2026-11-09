@@ -264,6 +264,12 @@ def audit(claim: Claim, m5: tuple[Candle, ...]) -> dict[str, Any]:
         if end <= claim.sweep_close_at:
             prior = bar
             continue
+        # An M15 containing the M5 sweep cannot establish a distinct
+        # post-sweep M15 close by itself. Abstain for that one candle.
+        # Start evaluating only full M15 bars OPENING after the sweep.
+        if bar.open_at < claim.sweep_close_at:
+            prior = bar
+            continue
         if prior is None or _close_at(prior, claim.timeframe) != bar.open_at:
             return _report("INCOMPLETE", "missing immediately previous closed timeframe", claim)
         if claim.direction == "BULLISH":
