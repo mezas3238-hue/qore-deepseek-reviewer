@@ -2629,7 +2629,7 @@ plot(checked, title="QORE QA fuentes respondidas", display=display.data_window)
 // M5/M15 QA: no atribuir a una familia MSS ajeno. Etiqueta la causa
 // de abstencion para poder depurar sin promover ninguna senal.
 f_qaMssMissingReason(bool feedOK, bool ownedFamily, bool ownC1Ready, int ownSweepAt, int ownPivotAt, int ownMssAt) =>
-    not feedOK ? "SIN FEED" : not ownedFamily ? "SIN PRB" : not ownC1Ready ? "SIN C1" : na(ownSweepAt) ? "SIN SWP" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? "SIN PIV" : na(ownMssAt) ? "PEND MSS" : ownMssAt <= ownSweepAt ? "NO VALID" : "NO VALID"
+    not feedOK ? "SIN FEED" : not ownedFamily ? "SIN PRB" : not ownC1Ready ? "SIN C1" : na(ownSweepAt) ? "SIN SWP" : na(ownPivotAt) or ownPivotAt >= ownSweepAt ? "SIN PIV" : na(ownMssAt) ? "PEND MSS" : "NO VALID"
 
 f_monitorOwnMss(int slot) =>
     bool coreOrQa = array.get(validCoreFlags,slot) or array.get(qaCoreObservedFlags,slot)
