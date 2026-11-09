@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -226,6 +227,12 @@ def audit(claim: Claim, m5: tuple[Candle, ...]) -> dict[str, Any]:
         return _report("INVALID", "claimed sweep did not break its C1 extreme", claim)
     if any(c.hi > claim.c1_high and c.lo < claim.c1_low for c in m5_sweep):
         return _report("INVALID", "dual-side sweep", claim)
+    if any(
+        c.hi > claim.c1_high if claim.direction == "BULLISH"
+        else c.lo < claim.c1_low
+        for c in m5_sweep
+    ):
+        return _report("INVALID", "opposing C1 boundary swept in same window", claim)
     if any(swept(c) for c in m5_sweep[:-1]):
         return _report("INVALID", "claimed sweep is not the first valid sweep", claim)
 
@@ -277,6 +284,10 @@ def main() -> None:
     args = parser.parse_args()
     claim = Claim.parse(json.loads(args.claim_json.read_text(encoding="utf-8")))
     report = audit(claim, load_m5_csv(args.m5_csv, claim))
+    # Binds the output to the exact files supplied, without certifying that
+    # the bytes genuinely came from IC Markets.
+    report["m5_csv_sha256"] = hashlib.sha256(args.m5_csv.read_bytes()).hexdigest()
+    report["claim_json_sha256"] = hashlib.sha256(args.claim_json.read_bytes()).hexdigest()
     args.out_json.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
