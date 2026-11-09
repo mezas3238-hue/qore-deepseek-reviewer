@@ -18,4 +18,4 @@ jobs:
         with:
           python-version: "3.12"
       - name: Verify exact Pine scope and retained safety gates
-        run: python crt-radar-pro/qa-mss-reasons/tests/test_mss_nv_diagnostics_exact_diff.py -v
+        run: python -m unittest discover -s crt-radar-pro/qa-mss-reasons/tests -p 'test_*.py' -v
