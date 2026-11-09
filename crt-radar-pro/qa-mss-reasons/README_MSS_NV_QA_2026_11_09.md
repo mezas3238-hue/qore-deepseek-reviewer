@@ -80,3 +80,30 @@ un MSS que no esté publicado.
 
 Los controles exact-diff garantizan que el motor CRT/MSS, fuentes, barreras
 de seguridad y funciones de alertas son idénticos al V34.12X base.
+
+## Registro reproducible de la siguiente prueba real en TradingView (sin LIVE)
+
+Para los pares señalados en la captura, la identidad QA es:
+
+| Instrumento | Slot fijo en el código | Fuente esperada |
+|---|---:|---|
+| BTCUSD | 8 | `IC:BTCUSD` |
+| XAGUSD | 17 | `IC:XAGUSD` |
+| AUDCHF | 19 | `IC:AUDCHF` |
+| EURGBP | 27 | `IC:EURGBP` |
+| EURNZD | 29 | `IC:EURNZD` |
+
+En `Entradas de datos`:
+1. Mantener `Alcance escaneo = 34 instrumentos`, `QA: fase M5 por feed 0..4m (SIN ALERTAS)` activado y filtro de proveedor IC intacto.
+2. Desactivar temporalmente `QA historial: seguir el símbolo del gráfico (mismo broker)` **solo si** se seleccionará manualmente otro número de instrumento.
+3. Establecer el slot deseado en `QA: número de instrumento` y activar `QA: ver tiempos CRT/MSS de 1 instrumento` y `QA: ver último evento histórico por categoría` **de uno en uno** para no superponer dos paneles.
+4. Capturar para la misma vela M15: dirección, familia, timestamp C1, barrida, pivote y cierre MSS, y anotación del servidor de datos (`IC:`).
+5. Contrastar la misma región en M5 y H4. Un estado `NO CERT` no se convierte en `QA SI` por interpretación visual.
+
+No se cambia `right5/right15`, `maxPivotAge=720`, la fase M5 ni las ventanas H4 para provocar un resultado deseado. Un resultado real de TradingView debe ser revisado por estructura y proveedor antes de modificar los algoritmos.
+
+### Criterios de aceptación (todavía abiertos)
+- Cada familia expone un registro C1/sweep/pivote/ruptura **propio y temporalmente causal**.
+- M15 exige las tres M5 cerradas consecutivas del mismo feed y cierre cruzado comprobable; M5 exige un cierre M5 posterior a la barrida.
+- `SI/QA SI` solo aparece tras todos los gates originales, sin heredar MSS entre familias.
+- No se retira `QA NO CERT`, `NO LIVE` ni `NO PUSH`.
