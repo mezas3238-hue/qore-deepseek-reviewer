@@ -26,9 +26,10 @@ Nuevos estados **QA** si no hay evidencia MSS propia en una familia auxiliar:
 | `SIN PRB` | Hay rol estructural visible, pero no candidato MSS perteneciente a esa misma familia/rol |
 | `SIN C1` | No está acreditada la C1 propia del rol seleccionado |
 | `SIN SWP` | No consta la hora de barrida para el candidato |
-| `SIN PIV` | No existe pivote del mismo modelo anterior a la barrida |
-| `PEND MSS` | Hay pivote y barrida registrados, pero no cierre MSS propio registrado |
-| `NO VALID` | Existe marca de MSS, pero falló al menos uno de los gates originales de certificación |
+| `NO CERT` | M5 sin evidencia completa certificada. El motor **oculta** el pivote M5 si falla la prueba causal; por tanto no se puede determinar si el pivote realmente faltó |
+| `SIN PIV` | Solo M15: no hay pivote previo disponible en los campos **sin máscara** de esa familia |
+| `NO CONF` | M15: hay pivote previo, pero no hay confirmación causal exportada; puede no haber cruzado o haber fallado otro gate |
+| `REV GATE` | Existen campos parciales, pero el validador no autorizó la confirmación; requiere auditoría de timestamps, C1, fase y dirección |
 | `SIN FEED` | No hay respuesta válida del proveedor para ese slot |
 | `SIN DIR` | No hay dirección coherente para el rol mostrado |
 
@@ -54,3 +55,28 @@ Añadimos dos campos de lectura diagnóstica M5 por slot de los ya existentes en
 4. Examinar primero `SIN PRB / SIN C1 / SIN PIV / NO VALID`, sin declarar éxito por la sustitución visual.
 
 El siguiente cambio de lógica, si realmente procede, se hará en otra rama y tras certificar la causa.
+
+## Hallazgo de auditoría 2 — payload M5 enmascarado
+
+Revisado el constructor `Signal.new` original: `extraFamilyM5Pivot`,
+`extraFamilyM5PivotAt`, `extraFamilyM5At` y `extraFamilyM5C1`
+se exportan como `na` si `extraMss5Causal=false`. Por tanto, en el
+PR inicial `SIN PIV` para M5 **no era una conclusión válida**: un pivote
+podía existir y quedar oculto por cualquier otro gate. Se corrigió la
+interfaz QA a `NO CERT` para M5, sin modificar ningún valor de Signal ni
+el detector. M15 sí exporta el timestamp del pivote separadamente y permite
+el estado `SIN PIV` cuando el campo es realmente NA.
+
+El mismo `Signal.new` enmascara `extraFamilyM15At` si
+`extraMssCausal=false`, así que `NO CONF` equivale a ausencia de una
+*confirmación verificable*, no demostración de que nunca hubo un cruce.
+
+Este hallazgo también determina la siguiente tarea de investigación: construir
+pruebas reproducibles de las familias TRUE3C/INSIDE/MULTI4/MULTI-N sobre
+OHLC M5 completos del mismo feed IC Markets, registrando C1, pivote congelado,
+primera barrida, cierre de ruptura y las causas reales de invalidación. Con solo
+esta captura de TradingView o el `Signal` ya filtrado no se puede certificar
+un MSS que no esté publicado.
+
+Los controles exact-diff garantizan que el motor CRT/MSS, fuentes, barreras
+de seguridad y funciones de alertas son idénticos al V34.12X base.
