@@ -189,6 +189,34 @@ class CsvProofVerifierTests(unittest.TestCase):
         )
         self.assertFalse(result["live_trading_authorized"])
 
+    def test_m15_candle_containing_m5_sweep_cannot_be_new_mss(self) -> None:
+        raw = dataset(after_cross=False)
+        # Sweep in 10:20-10:25; the 10:15-10:30 M15 candle ends
+        # at 10:30 with a cross, but its opening precedes the sweep.
+        raw[16]["low"] = "94"
+        raw[17]["low"] = "98"
+        raw[17]["close"] = "106"
+        raw[17]["high"] = "107"
+        obj = claim(timeframe="M15", pivot_open=45)
+        obj["sweep_close_utc"] = iso(85)
+        c, m5 = self.load(raw, obj)
+        # Conservative audit refuses to call this a full post-sweep M15.
+        result = verifier.audit(c, m5)
+        self.assertEqual(result["status"], "NO_CROSS_OBSERVED")
+
+    def test_m15_whole_post_sweep_bar_still_can_confirm(self) -> None:
+        raw = dataset(after_cross=False)
+        raw[16]["low"] = "94"
+        raw[17]["low"] = "98"
+        raw[20]["close"] = "106"
+        raw[20]["high"] = "107"
+        obj = claim(timeframe="M15", pivot_open=45)
+        obj["sweep_close_utc"] = iso(85)
+        c, m5 = self.load(raw, obj)
+        result = verifier.audit(c, m5)
+        self.assertEqual(result["status"], "RAW_CROSS")
+        self.assertEqual(result["first_cross_closed_at_utc"], iso(105))
+
     def test_output_explicitly_never_certifies_live_or_pine_parity(self) -> None:
         c, m5 = self.load(dataset(), claim(timeframe="M5", pivot_open=55))
         res = verifier.audit(c, m5)
