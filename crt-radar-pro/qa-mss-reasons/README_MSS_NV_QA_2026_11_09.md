@@ -195,3 +195,71 @@ aprobadas** (incluidos 34 slots y las cuatro familias auxiliares).
 No está comprobada la paridad real Pine ↔ IC, ni que todas las filas
 anteriormente N/V deban producir un MSS. Falta compilar el candidato
 en TradingView y recuperar las series M5 pertinentes.
+
+## R1 — Inventario y censo **34/34** de evidencias MSS por familia
+
+Nuevo auditor offline:
+`crt-radar-pro/qa-mss-reasons/tools/audit_mss_34_batch.py`.
+
+El registro `MARKETS` se fija a los **34 símbolos `s01..s34` exactos del
+Pine V34.12X** mediante un test automatizado; BTCUSD conserva el slot 8.
+Esto evita confundir el slot de XAGUSD (17), AUDCHF (19), EURGBP (27) o
+EURNZD (29) al contrastar sus evidencias.
+
+La entrada es un manifiesto JSON en un directorio con los CSV/JSON de cada
+caso, por ejemplo:
+
+```json
+{
+  "schema": "CRT_MSS_34_AUDIT_BATCH_R0",
+  "cases": [
+    {
+      "slot": 17,
+      "claim_json": "xagusd/claim_m5.json",
+      "m5_csv": "xagusd/candles_m5.csv"
+    }
+  ]
+}
+```
+
+El ejemplo solo describe rutas, **no declara que exista la prueba**.
+Ejecutar únicamente después de suministrar evidencias reales:
+
+```bash
+python crt-radar-pro/qa-mss-reasons/tools/audit_mss_34_batch.py \
+  --manifest /ruta/manifest.json \
+  --out-json /ruta/resultado_34.json
+```
+
+El reporte incluye 34 filas, con `NO_CASE_SUPPLIED` para todo instrumento
+sin evidencia. Eso **NO** significa MSS negativo, ni que se haya examinado
+ese feed. Cuando existe prueba, la fila dice `SUBMITTED_UNVERIFIED` y se
+adjunta el estado exacto del caso `RAW_CROSS`, `NO_CROSS_OBSERVED`,
+`INCOMPLETE` o `INVALID`, con SHA-256 por archivo.
+
+Controles: no permite un símbolo diferente del slot original, eventos
+duplicados, rutas que escapen del directorio de pruebas, archivos de
+feed mezclados ni más de 512 casos en un único manifiesto. La salida
+preserva `data_authenticity_verified=false`,
+`pine_parity_certified=false`, `all_seven_crt_families_certified=false`,
+`operational_alert_authorized=false` y `live_trading_authorized=false`.
+
+**Límite de certificación:** R1 prepara el inventario íntegro y la
+repetibilidad, pero sin M5 históricos reales, una C1 de cada familia
+y ejecución del indicador en TradingView, no demuestra la causa
+física de los `N/V`. Tampoco cambia `f_engine`, el gráfico instalado,
+el estado de alertas ni las reglas MSS.
+
+### Hallazgo temporal específico (R0 reforzado)
+El forense solo reconoce un MSS M15 de su modelo de auditoría cuando
+la M15 **comienza después o justo al cierre** de la barrida M5. Una
+M15 que contenía la barrida puede mostrar una ruptura visual a su
+cierre, pero ese mismo candle no certifica una barra enteramente
+posterior. Esta **regla conservadora no se afirma equivalente** a
+la política histórica del Pine; su equivalencia queda pendiente de
+la prueba de paridad real. No se ha aplicado ningún cambio de
+interpretación al detector Pine existente.
+
+En CI se han completado 35 pruebas sintéticas y de código fuente
+(34 registros, cuatro familias auxiliares, M5/M15, casos temporales
+y vetos). No es una compilación del Pine Editor.
