@@ -9,7 +9,7 @@ from pathlib import Path
 import unittest
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 BASE = ROOT / "crt-radar-pro/qa-34-feed-memory-probes/QORE_CRT_RADAR_34_CHART_V34_12X_COLORES_PERSONALIZABLES_QA_NO_LIVE.pine"
 CANDIDATE = ROOT / "crt-radar-pro/qa-mss-reasons/QORE_CRT_RADAR_34_CHART_V34_12X_MSS_NV_DIAGNOSTICO_QA_NO_LIVE.pine"
 BASE_BLOB_SHA = "470214fea377b05e537a18c0ce8097986da86fac"
