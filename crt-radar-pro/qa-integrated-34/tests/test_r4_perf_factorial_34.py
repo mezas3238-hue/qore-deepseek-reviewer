@@ -100,9 +100,12 @@ class PerformanceAB(unittest.TestCase):
         for s in self.text.values():
             self.assertEqual(s.count("calc_bars_count=10)"),2)
             self.assertEqual(s.count("calc_bars_count=60)"),1)
-    def test_22_not_runtime_certification(self):
-        # No benchmark or actual OHLC replay is embedded in this test suite.
-        self.assertTrue(all("QA" in k or True for k in self.text))
+    def test_22_engine_snapshot_unchanged(self):
+        for s in self.text.values():
+            self.assertIn("f_engine_snapshot() =>",s)
+            self.assertIn("    Signal state = f_engine()",s)
+            self.assertIn("    barstate.islast ? state : na",s)
+            self.assertIn('bool chartExternalQA = chartIsIC and chartStaticSlot < 0',s)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
