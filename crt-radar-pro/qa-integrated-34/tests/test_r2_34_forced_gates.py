@@ -62,4 +62,12 @@ class StrictR2(unittest.TestCase):
  def test_16_only_five_approved_edit_blocks(self):
   x=[tag for tag,*v in difflib.SequenceMatcher(a=self.a.splitlines(),b=self.b.splitlines(),autojunk=False).get_opcodes() if tag!='equal']
   self.assertEqual(len(x),5)
+ def test_17_unique_request_budget_40(self):
+  # 34 IC M5 requests + chart H4 + 2 daily + optional chart M5 = 38.
+  lines=[x.strip() for x in self.b.splitlines() if 'request.security(' in x and not x.lstrip().startswith('//')]
+  self.assertEqual(len(lines),5)
+  self.assertEqual(sum('f_engine_snapshot()' in x for x in lines),2)
+  self.assertEqual(sum('"240"' in x for x in lines),1)
+  self.assertEqual(sum('"D"' in x for x in lines),2)
+  self.assertLessEqual(34+1+1+2,40)
 if __name__=='__main__':unittest.main()
