@@ -28,7 +28,7 @@ class IntegratedCRT34(unittest.TestCase):
         cls.current = TARGET.read_text(encoding="utf-8")
     def test_01_pinned_github_blob(self):
         b = self.origin_bytes
-        sha = hashlib.sha1(b"blob " + str(len(b)).encode() + b"\\0" + b).hexdigest()
+        sha = hashlib.sha1(b"blob " + str(len(b)).encode() + b"\0" + b).hexdigest()
         self.assertEqual(sha, BLOB100)
     def test_02_exact_eight_patches_only(self):
         expected = self.origin
@@ -37,7 +37,7 @@ class IntegratedCRT34(unittest.TestCase):
             expected = expected.replace(old, new)
         self.assertEqual(self.current, expected)
     def test_03_34_symbol_slots_no_omissions(self):
-        found = re.findall(r'^s(\\d{2})\\s*=\\s*"(IC:[A-Z0-9]+)"$', self.current, re.M)
+        found = re.findall(r'^s(\d{2})\s*=\s*"(IC:[A-Z0-9]+)"$', self.current, re.M)
         self.assertEqual([int(a) for a,_ in found], list(range(1,35)))
         self.assertEqual(len(set(s for _,s in found)), 34)
         self.assertEqual(found[7], ("08", "IC:BTCUSD"))
@@ -57,7 +57,7 @@ class IntegratedCRT34(unittest.TestCase):
                      "calc_bars_count=600", "ignore_invalid_symbol=true"):
             self.assertIn(snip, self.current)
     def test_07_fifteen_colors(self):
-        self.assertEqual(len(re.findall(r"\\binput\\.color\\(",self.current)), 15)
+        self.assertEqual(len(re.findall(r"\binput\.color\(",self.current)), 15)
     def test_08_safety_gate_non_btc_not_promoted(self):
         self.assertIn("bool scanCrtValid = structuralCoreObserved and (not qaPhase1NonBtc or i == 7)",self.current)
     def test_09_mss_is_own_cycle_and_causal(self):
