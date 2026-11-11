@@ -1,0 +1,180 @@
+                    string cell3 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4EndMis,i)) : str.tostring(array.get(auditFeedH4Closed,i))
+                    string cell4 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4BarsMis,i)) : str.tostring(array.get(auditFeed2C,i))
+                    string cell5 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4Gap,i)) : str.tostring(array.get(auditFeedM15QA,i))
+                    string[] cells = array.from(array.get(scanNames,i),cell1,cell2,cell3,cell4,cell5)
+                    for col = 0 to 5
+                        table.cell(board,col,row,array.get(cells,col),bgcolor=bg,text_color=available ? color.white : color.orange,text_size=size.tiny)
+                ordinal += 1
+        string[] footer = array.from("QA 33 SIN BTC","P "+str.tostring(currentPage)+"/4","33 FUENTES","R:"+str.tostring(checked)+"/34","NO LIVE","NO PUSH")
+        for col = 0 to 5
+            table.cell(board,col,12,array.get(footer,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+
+// Ranking 0=both MSS, 1=M15 only, 2=M5 only, 3=2C no MSS,
+// 4=other structural QA, 5=inactive/rejected (expanded only).
+f_renderRadarDashboard() =>
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and not showSlotEventAudit and not showNonBtcCohortQA
+        table.clear(board,0,0,5,14)
+        table.cell(board,0,0,"MERCADO",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,1,0,"CRT H4",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,0,"DIR",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,3,0,"MSS M5",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,4,0,"MSS M15",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,5,0,"ETAPA",bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        var array<int> rankBySlot = array.new_int(34,5)
+        var array<bool> ownM5BySlot = array.new_bool(34,false)
+        var array<bool> ownM15BySlot = array.new_bool(34,false)
+        int nFeeds = scanAll ? 34 : 1
+        int coreCount = 0
+        int qaStructCount = 0
+        int coreM15Count = 0
+        int qaM5Count = 0
+        int qaM15Count = 0
+        int activeCount = 0
+        for i = 0 to 33
+            bool requested = scanAll or i == 7
+            bool core = requested and array.get(validCoreFlags,i)
+            bool qaCore = requested and array.get(qaCoreObservedFlags,i)
+            bool extra = requested and array.get(validCrtFlags,i) and not core and not qaCore
+            int mask = requested ? array.get(qaCatalogPerFeed,i) : 0
+            bool true3c = requested and not core and not qaCore and int(math.floor(mask / 1)) % 2 == 1 and not na(array.get(qaTrue3CSignedBySlot,i))
+            bool insideObserved = requested and not core and not qaCore and int(math.floor(mask / 8)) % 2 == 1
+            bool multiObserved = requested and not core and not qaCore and int(math.floor(mask / 32)) % 2 == 1
+            bool otherStructural = (true3c or extra or insideObserved or multiObserved) and not core and not qaCore
+            [m5,m15] = f_monitorOwnMss(i)
+            // TRUE 3C has priority in visible QA role. Its MSS5/15
+            // are N/V until owned by its distinct C1/sweep. Never
+            // borrow Inside/Multi-N MSS under a 3C TRUE label.
+            bool extraDisplayed = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")
+            bool extraM15 = extraDisplayed and array.get(extraM15Flags,i) == 1
+            bool extraM5 = extraDisplayed and array.get(extraM5Flags,i) == 1
+            int rank = not requested ? 5 : (core or qaCore) ? (m5 and m15 ? 0 : m15 ? 1 : m5 ? 2 : 3) : extraM5 and extraM15 ? 0 : extraM15 ? 1 : extraM5 ? 2 : otherStructural ? 4 : 5
+            array.set(rankBySlot,i,rank)
+            array.set(ownM5BySlot,i,m5)
+            array.set(ownM15BySlot,i,m15)
+            if requested
+                if core
+                    coreCount += 1
+                    if m15
+                        coreM15Count += 1
+                else if qaCore or otherStructural
+                    qaStructCount += 1
+                if qaCore and m5 or extraM5
+                    qaM5Count += 1
+                if qaCore and m15 or extraM15
+                    qaM15Count += 1
+                if rank < 5
+                    activeCount += 1
+        int onPage = expandFull34 ? 10 : compactPriorityRows
+        int visibleCount = expandFull34 ? nFeeds : activeCount
+        int totalPages = math.max(1,int(math.ceil(visibleCount * 1.0 / onPage)))
+        int pageNow = math.min(math.max(page,1),totalPages)
+        int visited = 0
+        int drawn = 0
+        // Prefer the current graph only for the exact scanned broker+symbol.
+        int chartSlot = -1
+        string chartBroker = ticker.standard(syminfo.tickerid)
+        for slot = 0 to 33
+            if (scanAll or slot == 7) and ticker.standard(array.get(scanSymbols,slot)) == chartBroker
+                chartSlot := slot
+                break
+        for priority = -1 to 5
+            for i = 0 to 33
+                bool requested = scanAll or i == 7
+                int rank = array.get(rankBySlot,i)
+                bool chartFirst = priority == -1 and i == chartSlot
+                bool rankedOther = priority >= 0 and priority == rank and i != chartSlot
+                bool visibleRow = requested and (chartFirst or rankedOther) and (expandFull34 or rank < 5)
+                if visibleRow
+                    if visited >= (pageNow-1)*onPage and drawn < onPage
+                        int rowIndex = drawn + 1
+                        bool core = array.get(validCoreFlags,i)
+                        bool qaCore = array.get(qaCoreObservedFlags,i)
+                        bool extra = array.get(validCrtFlags,i) and not core and not qaCore
+                        int mask = array.get(qaCatalogPerFeed,i)
+                        bool catTrue3 = int(math.floor(mask / 1)) % 2 == 1
+                        bool cat2 = int(math.floor(mask / 2)) % 2 == 1
+                        bool catExpansion = int(math.floor(mask / 4)) % 2 == 1
+                        bool catInsideReturn = int(math.floor(mask / 8)) % 2 == 1
+                        bool catInsideCont = int(math.floor(mask / 16)) % 2 == 1
+                        bool catMulti = int(math.floor(mask / 32)) % 2 == 1
+                        bool catRetest = int(math.floor(mask / 64)) % 2 == 1
+                        int signed3 = array.get(qaTrue3CSignedBySlot,i)
+                        bool true3c = catTrue3 and not core and not qaCore and not na(signed3)
+                        bool otherQA = rank == 4 or extra
+                        int dir = true3c ? (signed3 > 0 ? 1 : -1) : core or extra ? array.get(directions,i) : qaCore ? array.get(qaObservedDirectionBySlot,i) : 0
+                        bool feedOK = array.get(auditFeedAvailable,i) == 1
+                        bool ownM5 = array.get(ownM5BySlot,i)
+                        bool ownM15 = array.get(ownM15BySlot,i)
+                        // Match dashboard priority: do not show an
+                        // auxiliary-family MSS beside TRUE 3C.
+                        bool ownExtraM15 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM15Flags,i) == 1
+                        bool ownExtraM5 = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA") and array.get(extraM5Flags,i) == 1
+                        bool coreC1Ready = array.get(qaCoreC1ReadyBySlot,i)
+                        bool otherC1Ready = array.get(qaOtherC1ReadyBySlot,i)
+                        string otherC1Kind = array.get(qaOtherC1KindBySlot,i)
+                        string extraKind = array.get(familyLabels,i)
+                        bool c1Ready = (core or qaCore) ? coreC1Ready : true3c ? otherC1Ready and otherC1Kind == "3C TRUE QA" : extra ? otherC1Ready and otherC1Kind == extraKind : false
+                        bool qaDiagnostics = expandFull34 and showCatalog7
+                        string role = not feedOK ? "SIN FEED" : core ? "2C RAT" : qaCore ? "2C QA" : true3c ? "3C TRUE QA" : extra ? extraKind : catInsideReturn ? "INS RET QA" : catMulti ? "MULTI QA" : qaDiagnostics ? catExpansion ? "EXP RECH" : catInsideCont ? "INS RECH" : cat2 ? "2C*" : catRetest ? "RETEST QA" : "—" : "—"
+                        string stage = not feedOK ? "SIN FEED" : core ? "C3 ACT" : qaCore ? "C3 QA" : true3c ? "C3 CERR QA" : otherQA ? "QA H4" : qaDiagnostics ? catExpansion or catInsideCont ? "RECHAZO" : cat2 ? "PENDIENTE" : catRetest ? "QA MSS" : "ESPERA" : "ESPERA"
+                        bool lacksC1 = (core or qaCore or otherQA or true3c) and not c1Ready
+                        string visibleStage = lacksC1 ? "C1 N/D" : stage
+                        // Una familia observada no implica MSS verificado: distingamos
+                        // falta de prueba, C1, barrida, pivote o cruce sin tocar flags.
+                        bool ownExtraFamily = extra and (not true3c or array.get(qaExtraKindBySlot,i) == "3C TRUE QA")
+                        int ownExtraSweep = array.get(qaExtraSweepBySlot,i)
+                        string m5MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot5AtBySlot,i), array.get(qaExtraBreak5BySlot,i), true)
+                        string m15MissingReason = f_qaMssMissingReason(feedOK, ownExtraFamily, c1Ready, ownExtraSweep, array.get(qaExtraPivot15AtBySlot,i), array.get(qaExtraBreak15BySlot,i), false)
+                        string m5Text = core ? (ownM5 ? "SI" : "NO") : qaCore ? (ownM5 ? "QA SI" : "QA --") : ownExtraM5 ? "QA SI" : otherQA ? m5MissingReason : "—"
+                        string m15Text = core ? (ownM15 ? "SI" : "NO") : qaCore ? (ownM15 ? "QA SI" : "QA --") : ownExtraM15 ? "QA SI" : otherQA ? m15MissingReason : "—"
+                        string dirText = core or qaCore or otherQA or true3c ? (dir > 0 ? "ALC" : dir < 0 ? "BAJ" : "SIN DIR") : "—"
+                        color bg = rowIndex % 2 == 0 ? shade : navy
+                        color stateInk = core ? posInk : core or qaCore or otherQA or true3c ? color.orange : color.gray
+                        table.cell(board,0,rowIndex,(i == chartSlot ? "▶ " : "") + array.get(scanNames,i),bgcolor=bg,text_color=feedOK ? color.white : color.orange,text_size=size.tiny)
+                        table.cell(board,1,rowIndex,role,bgcolor=bg,text_color=stateInk,text_size=size.tiny)
+                        table.cell(board,2,rowIndex,dirText,bgcolor=bg,text_color=dir > 0 ? posInk : dir < 0 ? negInk : color.gray,text_size=size.tiny)
+                        table.cell(board,3,rowIndex,m5Text,bgcolor=bg,text_color=core and ownM5 ? posInk : qaCore and ownM5 or ownExtraM5 ? color.orange : color.gray,text_size=size.tiny)
+                        table.cell(board,4,rowIndex,m15Text,bgcolor=bg,text_color=core and ownM15 ? posInk : qaCore and ownM15 or ownExtraM15 ? color.orange : color.gray,text_size=size.tiny)
+                        table.cell(board,5,rowIndex,visibleStage,bgcolor=bg,text_color=lacksC1 ? color.orange : stateInk,text_size=size.tiny)
+                        drawn += 1
+                    visited += 1
+        if not expandFull34 and activeCount == 0
+            table.cell(board,0,1,"SIN CRT VIGENTE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+            table.cell(board,1,1,str.tostring(nFeeds)+" VIGILADOS",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        int footer = onPage + 1
+        table.cell(board,0,footer,expandFull34 ? "P "+str.tostring(pageNow)+"/"+str.tostring(totalPages) : "CRT:"+str.tostring(coreCount),bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,1,footer,"C:"+str.tostring(coreCount),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,footer,"QA:"+str.tostring(qaStructCount),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,footer,"M5q:"+str.tostring(qaM5Count),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,footer,"M15q:"+str.tostring(qaM15Count),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,footer,"R:"+str.tostring(checked)+"/"+str.tostring(nFeeds),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        int infoRow = onPage + 2
+        table.cell(board,0,infoRow,"M15c:"+str.tostring(coreM15Count),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,1,infoRow,"QA NO CERT",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,2,infoRow,showCatalog7 ? "7 ROLES QA" : "4 BASE + VAR",bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,infoRow,"H4 24H",bgcolor=shade,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,4,infoRow,"NO LIVE",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,5,infoRow,"NO PUSH",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+
+f_renderRadarDashboard()
+
+f_renderFamilyHistory()
+
+f_renderSlotEventAudit()
+
+f_renderNonBtcAudit()
+
+
+// V34.12X R3: detector FVG nativo del H4 del ticker ABIERTO.
+ // Se solicita con lookahead_off; crea FVG con H4 [1..N] cerradas:
+ // sin futuro, sin mezclar NY/M5 del escaner y sin depender de CRT.
+ // Formacion: tres H4 completas y consecutivas; vela #3 deja gap
+ // entre LOW 3 y HIGH 1 (alcista) o HIGH 3 y LOW 1 (bajista).
+ // Mitigacion: mecha posterior toca una zona; relleno total la retira.
+f_chartH4Fvgs(int depth) =>
+    // Las velas k>=1 forman FVG solo con H4 previas (confirmadas).
+    // La mitigacion incluye j=0: H4 abierta en realtime, cerrada
+    // en sus puntos de merge historicos con lookahead_off. Las mechas
+    // high/low observadas no conocen el futuro; el dibujo no es senal.
+    // El ranking previo a la salida puede perder la cuarta zona
+    // mas cercana al precio de grafico: no afirmar top3 global.
