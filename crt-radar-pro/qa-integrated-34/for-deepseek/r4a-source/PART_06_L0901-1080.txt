@@ -1,0 +1,180 @@
+    var int qaAuditMNNoTerminal = 0
+    var int qaAuditMNDouble = 0
+    var int qaAuditMNOutside = 0
+    // V34.11L historical markers, updated on CLOSED M5/H4 transitions.
+    var int qaLastCandidate2CAt = na
+    var int qaLastCandidate2CCycle = na
+    var int qaTrue3CSignedAt = na
+    var True3CMssCandidate qaTrue3CPending = na
+    var True3CMssCandidate qaTrue3CConfirmed = na
+    var int qaLastRatified2CAt = na
+    var int qaLastRejectedExpansionAt = na
+    var int qaLastConfirmed3CAt = na
+    var int qaLastInsideReturnAt = na
+    var int qaLastInsideContinuationAt = na
+    var int qaLastMulti4At = na
+    var int qaLastMultiNAt = na
+    var int qaLastRetest15At = na
+    var int qaAuditH4Incomplete = 0
+    // Una H4 no-48 NO implica siempre feed defectuoso. Disjuntas:
+    // DST NY, sesion/parcial, discontinuidad M5 INTERNA.
+    var int qaAuditH4DST = 0
+    var int qaAuditH4Session = 0
+    var int qaAuditH4Internal = 0
+    var int qaAuditC1H4Closed = 0
+    var int qaAuditC1HourCandidates = 0
+    var int qaAuditC1BadClock = 0
+    var int qaAuditC1BadData = 0
+    var int qaAuditC1BadRange = 0
+    // H4 evidence: these count violated boundary/count predicates, not
+    // necessarily broken market data. Any one H4 may fail several.
+    var int qaH4BadStart = 0
+    var int qaH4BadEnd = 0
+    var int qaH4BadBars = 0
+    var int qaH4LastBars = na
+    var int qaH4LastStartOffsetMin = na
+    var int qaH4LastEndOffsetMin = na
+
+    // Procesamos la ULTIMA M5 cerrada, no la M5 en formacion.
+    // f_engine() debe evaluarse incondicionalmente en cada barra M5.
+    // V34.11j: measure each 33 feed independently on its LAST CLOSED M5.
+    // A phase +2 on metals cannot be normalized to +1 from NZDCAD.
+    // Reject nonzero seconds; BTC clock and model remain untouched.
+    int qaLastM5PhaseMin = not na(barT) ? minute(barT, TZ) % 5 : na
+    int qaNativeSourcePhaseMin = qaPhase1NonBtc and not isBTC and not na(barT) and second(barT, TZ) == 0 ? qaLastM5PhaseMin : 0
+    // A native +p M15 is :p/:15+p/:30+p/:45+p; H1 is at hh:p.
+    // Native-source QA is NOT a validated NY :00 entry setup.
+    int bucketH1 = qaNativeSourcePhaseMin > 0 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), qaNativeSourcePhaseMin, 0) : time("60")[1]
+    int nativeM15Minute = int(math.floor(minute(barT, TZ) / 15)) * 15 + qaNativeSourcePhaseMin
+    int bucket15 = qaNativeSourcePhaseMin > 0 ? timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), hour(barT, TZ), nativeM15Minute, 0) : time("15")[1]
+    int bucketH4NY = isBTC ? f_btc_crt_h4_ny(barT) : isIndex ? f_index_crt_h4_ny(barT) : f_forex_metal_crt_h4_ny(barT)
+    int bucketH4 = bucketH4NY + qaNativeSourcePhaseMin * 60000
+
+    // QA: al aparecer una nueva M5 despues de un hueco, descartar
+    // acumuladores y swings M15 de la cadena anterior. No permitir que
+    // pivotes confirmados con barras discontinuas crucen a un nuevo CRT.
+    // Explicitly initialize on the first usable CLOSED M5 bar.
+    // On subsequent disconnections, a stale pre-gap pivot is forbidden.
+    // Pine v6 bool never na; this guard documents first-segment intent.
+    if (na(qaExtraM5SegmentStart) or not previousM5Continuous) and not na(barT)
+        qaExtraM5SegmentStart := barT
+        lastCompleteM15CloseAt := na
+        m15Bucket := na
+        m15Count := 0
+        m15LastEnd := na
+        m15Start := na
+        prev15Close := na
+        prev15End := na
+        array.clear(highs15)
+        array.clear(lows15)
+        array.clear(times15)
+        lastHigh15 := na
+        lastLow15 := na
+        lastHigh15At := na
+        lastLow15At := na
+        // Un hueco M5 invalida los pivotes/MSS auxiliares pendientes.
+        array.clear(qaMultiNMssCandidates)
+        qaMultiNMss15At := na
+        qaMultiNMss5At := na
+        qaMultiNPivot5 := na
+        qaMultiNPivot5At := na
+        qaMultiNPivot15 := na
+        qaMultiNPivot15At := na
+        qaMultiNSweepAt := na
+        // La barrida 3C nunca puede cruzar una discontinuidad M5.
+        qaTrue3CPending := na
+        array.clear(qaMulti4MssCandidates)
+        if array.size(insideCandidates) > 0
+            for z = 0 to array.size(insideCandidates) - 1
+                InsideCandidate stale = array.get(insideCandidates, z)
+                stale.mss15At := na
+                stale.pivot15 := na
+                stale.pivot15At := na
+                stale.mss5At := na
+                stale.pivot5 := na
+                stale.pivot5At := na
+
+    // ---- CERRAR M15 ANTERIOR ----
+    if not na(barT) and not na(bucket15)
+        bool next15 = not na(m15Bucket) and bucket15 != m15Bucket
+        if next15
+            bool fullM15 = m15Count == 3 and m15LastEnd == bucket15 and m15Start + MIN15 == m15LastEnd
+            if fullM15
+                // Solo tras TRES M5 consecutivas: la M15 esta cerrada.
+                // Un MSS M5 previo nunca actualiza este timestamp.
+                lastCompleteM15CloseAt := m15LastEnd
+                array.push(highs15, m15High)
+                array.push(lows15, m15Low)
+                array.push(times15, m15Start)
+                if array.size(highs15) > 48
+                    array.shift(highs15)
+                    array.shift(lows15)
+                    array.shift(times15)
+                int n = array.size(highs15)
+                int pivot = n - 1 - right15
+                if pivot >= left15 and pivot >= 0
+                    float candH = array.get(highs15, pivot)
+                    float candL = array.get(lows15, pivot)
+                    bool okHi = true
+                    bool okLo = true
+                    for j = -left15 to right15
+                        if j != 0
+                            okHi := okHi and candH > array.get(highs15, pivot + j)
+                            okLo := okLo and candL < array.get(lows15, pivot + j)
+                    if okHi
+                        lastHigh15 := candH
+                        lastHigh15At := array.get(times15, pivot)
+                    if okLo
+                        lastLow15 := candL
+                        lastLow15At := array.get(times15, pivot)
+
+                // QA: MSS M15 requiere cierre anterior INMEDIATO y completo.
+                // Tras huecos, inicios de feed o pausas no se inventa cross.
+                bool prev15Continuous = not na(prev15End) and prev15End == m15Start and not na(prev15Close)
+                // Comprobar rompimientos M15 correspondientes al MISMO CRT.
+                // Se ejecuta ANTES del cierre H4: incluye el ultimo M15 de C2.
+                int closed15At = m15LastEnd
+                if c2Active and c2Dir != 0 and c2StrictSweep and not c2Double and not na(c2SweepEnd) and closed15At > c2SweepEnd
+                    // El pivote debe ser M15 confirmado y ANTERIOR
+                    // a la barrida C2; ruptura por CIERRE de M15, no M5.
+                    bool frozenPivot15 = not na(c2Pivot15) and not na(c2Pivot15At) and c2Pivot15At < c2SweepEnd
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c2Dir == 1 ? (m15Close > c2Pivot15 and prev15Close <= c2Pivot15) : (m15Close < c2Pivot15 and prev15Close >= c2Pivot15))
+                    if eligible15 and na(c2M15At)
+                        c2M15At := closed15At
+                if c3Active and not na(c3SweepEnd) and closed15At > c3Start and closed15At > c3SweepEnd
+                    bool frozenPivot15 = not na(c3Pivot15) and not na(c3Pivot15At) and c3Pivot15At < c3SweepEnd
+                    bool exact15Close = closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool eligible15 = exact15Close and frozenPivot15 and prev15Continuous and (c3Dir == 1 ? (m15Close > c3Pivot15 and prev15Close <= c3Pivot15) : (m15Close < c3Pivot15 and prev15Close >= c3Pivot15))
+                    if eligible15 and na(c3M15At)
+                        c3M15At := closed15At
+                        if lastC1 == c1Start3
+                            lastM15 := closed15At
+                // MSS M15 independientes: solo CIERRE real de 3 M5 del mismo feed.
+                // Al ratificar H4 podremos publicar la prueba propia, no antes.
+                if array.size(insideCandidates) > 0
+                    for ix = 0 to array.size(insideCandidates) - 1
+                        InsideCandidate q = array.get(insideCandidates, ix)
+                        bool eligibleInsideM15 = (q.state == "SWEPT" or q.state == "RATIFIED") and q.sweepDir != 0 and q.sweptLow != q.sweptHigh and not na(q.sweepAt) and not na(q.pivot15) and not na(q.pivot15At) and q.pivot15At < q.sweepAt and closed15At > q.sweepAt and closed15At <= q.sweepH4Start + 2 * H4MS and na(q.mss15At) and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                        bool crossedInside = q.sweepDir == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
+                        if eligibleInsideM15 and crossedInside
+                            q.mss15At := closed15At
+                // Multi4 M15 es independiente del M5 y de 2C/Inside/Multi-N.
+                // Solo pivot L2/R2 confirmado ANTES de la primera barrida C2a.
+                // Se cuenta cierre M15 de 3 M5 completas, continuo y posterior
+                // a sweep; el cuarto H4 (C3) es el limite causal superior.
+                if array.size(qaMulti4MssCandidates) > 0
+                    for q4i = 0 to array.size(qaMulti4MssCandidates) - 1
+                        Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, q4i)
+                        bool eligible4M15 = not q4.doubleSweep and q4.direction != 0 and not na(q4.sweepAt) and q4.sweepAt > q4.c2aStart and q4.sweepAt <= q4.c2aStart + H4MS and not na(q4.pivot15) and not na(q4.pivot15At) and q4.pivot15At < q4.sweepAt and na(q4.mss15At) and closed15At > q4.sweepAt and closed15At <= q4.c2aStart + 3 * H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                        bool crossed4M15 = q4.direction == 1 ? m15Close > q4.pivot15 and prev15Close <= q4.pivot15 : q4.direction == -1 ? m15Close < q4.pivot15 and prev15Close >= q4.pivot15 : false
+                        if eligible4M15 and crossed4M15
+                            q4.mss15At := closed15At
+                if array.size(qaMultiNMssCandidates) > 0
+                    for mi = 0 to array.size(qaMultiNMssCandidates) - 1
+                        MultiNMssCandidate q = array.get(qaMultiNMssCandidates, mi)
+                        bool eligibleMultiM15 = not q.doubleSweep and q.direction != 0 and not na(q.pivot15) and not na(q.pivot15At) and not na(q.sweepAt) and q.pivot15At < q.sweepAt and na(q.mss15At) and closed15At > q.sweepAt and closed15At <= q.terminalH4Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                        bool crossedMulti = q.direction == 1 ? m15Close > q.pivot15 and prev15Close <= q.pivot15 : m15Close < q.pivot15 and prev15Close >= q.pivot15
+                        if eligibleMultiM15 and crossedMulti
+                            q.mss15At := closed15At
+                // Extender Multi-N ya ratificado hasta max. una H4 adicional.
