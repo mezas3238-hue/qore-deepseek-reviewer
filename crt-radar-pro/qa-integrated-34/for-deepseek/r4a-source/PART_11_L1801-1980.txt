@@ -1,0 +1,180 @@
+                    cand.pivot15At := na
+                    cand.mss5At := na
+                    cand.pivot5 := na
+                    cand.pivot5At := na
+
+    // Barrida inicial de TRUE 3C en la C3 propia: solo M5 cerradas,
+    // niveles de C1 propia, doble barrida bloqueante y pivotes congelados.
+    if not na(qaTrue3CPending) and not na(barT) and bucketH4 == qaTrue3CPending.c3Start
+        True3CMssCandidate q3 = qaTrue3CPending
+        bool low3 = bL < q3.c1Low
+        bool high3 = bH > q3.c1High
+        if q3.direction == 0 and not q3.doubleSweep and (low3 or high3)
+            if low3 and high3
+                q3.doubleSweep := true
+            else
+                q3.direction := low3 ? 1 : -1
+                q3.sweepAt := barEnd
+                bool fresh3M5 = q3.direction == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000
+                q3.pivot5 := fresh3M5 ? (q3.direction == 1 ? lastHigh5 : lastLow5) : na
+                q3.pivot5At := fresh3M5 ? (q3.direction == 1 ? lastHigh5At : lastLow5At) : na
+                bool fresh3M15 = q3.direction == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000
+                q3.pivot15 := fresh3M15 ? (q3.direction == 1 ? lastHigh15 : lastLow15) : na
+                q3.pivot15At := fresh3M15 ? (q3.direction == 1 ? lastHigh15At : lastLow15At) : na
+        else if q3.direction != 0 and (low3 and high3 or q3.direction == 1 and high3 or q3.direction == -1 and low3)
+            q3.doubleSweep := true
+            q3.mss5At := na
+            q3.mss15At := na
+            q3.pivot5 := na
+            q3.pivot5At := na
+            q3.pivot15 := na
+            q3.pivot15At := na
+
+    // Multi4: la primera barrida debe ocurrir en C2a, no en C2b/C3.
+    // Hasta cerrar CUATRO H4 completas, esta evidencia es solo candidata.
+    if not na(barT) and array.size(qaMulti4MssCandidates) > 0
+        for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+            Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+            bool inMulti4Window = bucketH4 >= q4.c2aStart and bucketH4 < q4.c2aStart + 3 * H4MS
+            if inMulti4Window and not q4.doubleSweep
+                bool low4 = bL < q4.c1Low
+                bool high4 = bH > q4.c1High
+                if bucketH4 == q4.c2aStart and q4.direction == 0 and (low4 or high4)
+                    if low4 and high4
+                        q4.doubleSweep := true
+                    else
+                        q4.direction := low4 ? 1 : -1
+                        q4.sweepAt := barEnd
+                        bool fresh4M5 = q4.direction == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000
+                        q4.pivot5 := fresh4M5 ? (q4.direction == 1 ? lastHigh5 : lastLow5) : na
+                        q4.pivot5At := fresh4M5 ? (q4.direction == 1 ? lastHigh5At : lastLow5At) : na
+                        bool fresh4M15 = q4.direction == 1 ? not na(lastHigh15At) and not na(qaExtraM5SegmentStart) and lastHigh15At >= qaExtraM5SegmentStart and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : not na(lastLow15At) and not na(qaExtraM5SegmentStart) and lastLow15At >= qaExtraM5SegmentStart and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000
+                        q4.pivot15 := fresh4M15 ? (q4.direction == 1 ? lastHigh15 : lastLow15) : na
+                        q4.pivot15At := fresh4M15 ? (q4.direction == 1 ? lastHigh15At : lastLow15At) : na
+                else if q4.direction != 0 and (low4 and high4 or q4.direction == 1 and high4 or q4.direction == -1 and low4)
+                    // Cualquier segunda barrida del extremo contrario
+                    // en C2a/C2b/C3 invalida ambos MSS propios (M5/M15).
+                    q4.doubleSweep := true
+                    q4.mss5At := na
+                    q4.mss15At := na
+                    q4.pivot5 := na
+                    q4.pivot5At := na
+                    q4.pivot15 := na
+                    q4.pivot15At := na
+
+    // Multi-N propio: antes de cerrar H4 terminal, cada C1 viable
+    // tiene un candidato diferente (max. 4). No usar el MSS del CRT 3C.
+    // La validacion ESTRUCTURAL sigue ocurriendo al cierre H4.
+    if not na(barT) and not na(bucketH4) and array.size(qaMultiNHistory) >= 3
+        int nHistoryMss = array.size(qaMultiNHistory)
+        MultiH4 latestClosed = array.get(qaMultiNHistory, nHistoryMss - 1)
+        if latestClosed.endAt == bucketH4
+            for consolidationCount = 2 to 5
+                int needed = consolidationCount + 1
+                if needed <= nHistoryMss
+                    int beginIndex = nHistoryMss - needed
+                    MultiH4 firstClosed = array.get(qaMultiNHistory, beginIndex)
+                    MultiH4 priorClosed = firstClosed
+                    bool chainOk = true
+                    bool insideOk = true
+                    for j = beginIndex + 1 to nHistoryMss - 1
+                        MultiH4 currentClosed = array.get(qaMultiNHistory, j)
+                        chainOk := chainOk and currentClosed.startAt == priorClosed.endAt
+                        insideOk := insideOk and currentClosed.hi < firstClosed.hi and currentClosed.lo > firstClosed.lo
+                        priorClosed := currentClosed
+                    bool validMN = chainOk and insideOk and f_allowed(hour(firstClosed.startAt, TZ), isIndex)
+                    if validMN
+                        bool lowSweep = bL < firstClosed.lo
+                        bool highSweep = bH > firstClosed.hi
+                        if lowSweep or highSweep
+                            int candidateIndex = na
+                            if array.size(qaMultiNMssCandidates) > 0
+                                for k = 0 to array.size(qaMultiNMssCandidates) - 1
+                                    MultiNMssCandidate existing = array.get(qaMultiNMssCandidates, k)
+                                    if existing.c1Start == firstClosed.startAt and existing.terminalH4Start == bucketH4
+                                        candidateIndex := k
+                                        break
+                            if na(candidateIndex)
+                                int candidateDir = lowSweep and not highSweep ? 1 : highSweep and not lowSweep ? -1 : 0
+                                bool freshMN15 = candidateDir == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000 : false
+                                float frozenLevel = freshMN15 ? (candidateDir == 1 ? lastHigh15 : lastLow15) : na
+                                int frozenAt = freshMN15 ? (candidateDir == 1 ? lastHigh15At : lastLow15At) : na
+                                bool freshMN5 = candidateDir == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : candidateDir == -1 ? not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
+                                float frozenLevel5 = freshMN5 ? (candidateDir == 1 ? lastHigh5 : lastLow5) : na
+                                int frozenAt5 = freshMN5 ? (candidateDir == 1 ? lastHigh5At : lastLow5At) : na
+                                array.push(qaMultiNMssCandidates, MultiNMssCandidate.new(firstClosed.startAt, bucketH4, candidateDir, barEnd, frozenLevel, frozenAt, na, lowSweep and highSweep, frozenLevel5, frozenAt5, na))
+                            else
+                                MultiNMssCandidate existing = array.get(qaMultiNMssCandidates, candidateIndex)
+                                bool bothSides = lowSweep and highSweep or existing.direction == 1 and highSweep or existing.direction == -1 and lowSweep
+                                if bothSides
+                                    existing.doubleSweep := true
+                                    existing.mss15At := na
+                                    existing.pivot15 := na
+                                    existing.pivot15At := na
+                                    existing.mss5At := na
+                                    existing.pivot5 := na
+                                    existing.pivot5At := na
+    // ---- M5B CANDIDATO: SEGUIMIENTO FVG H1/H4 EN ESTA M5 CERRADA ----
+    // Va despues de crear FVG nuevos en el cambio de H1/H4: permite que
+    // la primera M5 de la siguiente ventana toque el FVG recien confirmado.
+    if not na(barT) and not na(barEnd)
+        if array.size(fvgsH1) > 0
+            for fi = 0 to array.size(fvgsH1) - 1
+                FvgContext zoneH1 = array.get(fvgsH1, fi)
+                f_update_context_fvg(zoneH1, barT, barEnd, bL, bH, bC, firstSession5, lastSession5)
+        if array.size(fvgsH4) > 0
+            for fi = 0 to array.size(fvgsH4) - 1
+                FvgContext zoneH4 = array.get(fvgsH4, fi)
+                f_update_context_fvg(zoneH4, barT, barEnd, bL, bH, bC, firstSession5, lastSession5)
+
+    // ---- BARRIDA Y RETORNO C2 (velas M5 cerradas) ----
+    // QA: tocar CRH/CRL (igualdad) solo puede crear un C2 PROVISIONAL.
+    // Direccion y c2Double definitivos dependen EXCLUSIVAMENTE de barridas estrictas.
+    if c2Active and not na(barT) and bucketH4 == c2Start
+        bool strictLow = bL < c1Low2
+        bool strictHigh = bH > c1High2
+        bool touchLow = bL <= c1Low2
+        bool touchHigh = bH >= c1High2
+        // Dos extremos estrictamente barridos, incluso en una unica M5.
+        if strictLow and strictHigh
+            c2Double := true
+        if c2Dir == 0 and not c2Double
+            if strictLow != strictHigh
+                c2Dir := strictLow ? 1 : -1
+            else if allowTouches and touchLow != touchHigh
+                // Toque exacto unilateral: provisional, sin MSS confirmado.
+                c2Dir := touchLow ? 1 : -1
+        if c2Dir != 0 and not c2Double
+            bool chosenStrict = c2Dir == 1 ? strictLow : strictHigh
+            bool oppositeStrict = c2Dir == 1 ? strictHigh : strictLow
+            // Si solo hubo toque preliminar, la PRIMERA barrida REAL elige
+            // la direccion, aun si ocurre en el lado opuesto al toque.
+            if not c2StrictSweep and oppositeStrict and not chosenStrict
+                c2Dir := -c2Dir
+                chosenStrict := true
+                oppositeStrict := false
+                c2Returned := false
+            // Descartar UNICAMENTE cuando se han barrido estrictamente
+            // ambos limites; un toque exacto del otro lado NO basta.
+            if c2StrictSweep and oppositeStrict
+                c2Double := true
+            if not c2Double
+                bool firstStrictSweep = not c2StrictSweep and chosenStrict
+                if firstStrictSweep
+                    c2StrictSweep := true
+                    c2SweepEnd := barEnd
+                    c2Returned := false
+                    bool lowSide = c2Dir == 1
+                    bool fresh5 = lowSide ? (not na(lastHigh5At) and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000) : (not na(lastLow5At) and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000)
+                    bool fresh15 = lowSide ? (not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000) : (not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000)
+                    c2Pivot5 := fresh5 ? (lowSide ? lastHigh5 : lastLow5) : na
+                    c2Pivot15 := fresh15 ? (lowSide ? lastHigh15 : lastLow15) : na
+                    c2Pivot5At := fresh5 ? (lowSide ? lastHigh5At : lastLow5At) : na
+                    c2Pivot15At := fresh15 ? (lowSide ? lastHigh15At : lastLow15At) : na
+                c2Returned := c2Returned or (bC >= c1Low2 and bC <= c1High2)
+                // MSS M5 no puede ocurrir ANTES NI DURANTE la vela de barrida.
+                bool cross5 = c2Dir == 1 ? (not na(c2Pivot5) and bC > c2Pivot5 and prevClose <= c2Pivot5) : (not na(c2Pivot5) and bC < c2Pivot5 and prevClose >= c2Pivot5)
+                if c2StrictSweep and previousM5Continuous and barT >= c2SweepEnd and cross5 and na(c2M5At)
+                    c2M5At := barEnd
+
+    // ---- MSS en C3 ratificada (misma direccion, mismo swing congelado) ----
