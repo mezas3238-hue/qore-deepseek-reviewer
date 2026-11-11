@@ -1,0 +1,180 @@
+    float extraFamilyM5Pivot
+    int extraFamilyM5PivotAt
+    int extraFamilyM5At
+    int extraFamilyM5C1
+
+// M3B.2 INTEGRADO (AUTORIZADO): barridas Inside M5 y clasificacion H4 aislada.
+// M3B.1: registro pasivo de Inside Bar H4, no genera senales ni entradas.
+type InsideCandidate
+    string id
+    int c1Start
+    float c1High
+    float c1Low
+    float c2High
+    float c2Low
+    int c2End
+    int sweepAt          // Cierre de la primera M5 que observo la barrida
+    int sweepH4Start     // H4 que contiene la primera barrida observada
+    int sweepDir         // +1: minimo C2, -1: maximo C2; 0: doble
+    bool sweptLow        // Conserva barridas ocurridas en distintas M5 de la misma H4
+    bool sweptHigh
+    string state        // SEEKING/SWEPT/AMBIGUOUS/RATIFIED/CONTINUATION/UNRESOLVED/DATA_GAP
+    string modelKind    // Modelo diagnostico: Inside Return/Continuation
+    bool isPatternValid // Solo RATIFIED representa retorno estructuralmente valido
+    int h4Life          // H4 validas cerradas DESPUES de C2; no horas de reloj.
+    // Congelacion causal en la PRIMERA M5 de barrida propia.
+    float pivot15
+    int pivot15At
+    int mss15At
+    float pivot5
+    int pivot5At
+    int mss5At
+
+// Candidato Multi-N por C1/H4 terminal. Maximo 4 (N=2..5).
+type MultiNMssCandidate
+    int c1Start
+    int terminalH4Start
+    int direction
+    int sweepAt
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+    float pivot5
+    int pivot5At
+    int mss5At
+
+// 3C TRUE QA: solo esta C1 y esta C3 son dueñas de sus pivotes.
+// La observacion solo se publicara si C3 completa ratifica su geometria.
+type True3CMssCandidate
+    int c1Start
+    int c3Start
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+
+// MULTI4 QA MSS M5/M15: C1 y C2a propios, vigencia hasta C3 (cuarta H4).
+type Multi4MssCandidate
+    int c1Start
+    int c2aStart
+    float c1High
+    float c1Low
+    int direction
+    int sweepAt
+    float pivot5
+    int pivot5At
+    int mss5At
+    float pivot15
+    int pivot15At
+    int mss15At
+    bool doubleSweep
+
+// M5A INTEGRADO: FVG H4/H1 de contexto, sin salidas ni dibujos.
+// Barras TF completas guardadas con tiempo y validez para no cruzar sesiones.
+// QA multi-candle: solo OHLC de 4 velas H4 CERRADAS.
+// No altera la validacion obligatoria del CRT principal de 3 velas.
+type MultiH4
+    int startAt
+    int endAt
+    float hi
+    float lo
+    float cl
+    bool valid
+
+type FvgBar
+    int startAt
+    int endAt
+    float hi
+    float lo
+    bool valid
+
+type FvgContext
+    string id
+    string tf
+    int dir
+    float top
+    float bottom
+    int formedAt
+    string state
+    int linkedCrt
+    // M5B candidato: seguimiento solo sobre M5 cerradas posteriores a formedAt.
+    int firstTouchAt
+    float maxPenetration  // Proporcion [0.0, 1.0], no porcentaje sin convertir.
+    bool dataGap         // Se interrumpio continuidad observada; estado conservador.
+    int lastEvaluatedEnd // Cierre de la ultima M5 procesada; evita duplicados.
+    int gapObservedAt    // Primera M5 de discontinuidad no explicada.
+    bool lastSessionBar // El cierre ultimo M5 evaluado fue fin de sesion segun proveedor.
+
+// Funciones Pine deben definirse en el ambito global.
+f_add_context_fvg(array<FvgContext> store, string tf, int dir, float top, float bottom, int formedAt, bool endSessionOnFormation) =>
+    string k = syminfo.tickerid + "|" + tf + "|" + str.tostring(formedAt) + "|" + str.tostring(dir)
+    bool exists = false
+    if array.size(store) > 0
+        for z = 0 to array.size(store) - 1
+            if array.get(store, z).id == k
+                exists := true
+                break
+    if not exists
+        array.push(store, FvgContext.new(k, tf, dir, top, bottom, formedAt, "INTACTO", na, na, 0.0, false, formedAt, na, endSessionOnFormation))
+        if array.size(store) > 10
+            array.shift(store)
+    not exists
+
+// M5B CANDIDATO NO INTEGRADO: actualizar un FVG con la M5 cerrada.
+// Un corte de observabilidad (incluidos cierres de mercado no clasificados)
+// congela el estado, NO inventa mitigacion en barras que faltan.
+f_update_context_fvg(FvgContext f, int start5, int end5, float lo5, float hi5, float close5, bool firstSession5, bool lastSession5) =>
+    bool eligible = not na(start5) and not na(end5) and start5 >= f.formedAt and not na(f.lastEvaluatedEnd) and end5 > f.lastEvaluatedEnd
+    if eligible and f.state != "INVALIDADO" and f.state != "DATOS_INCOMPLETOS"
+        // Solo el par ultimo-barra-sesion / primer-barra-sesion justifica
+        // tratar la pausa como no-trading. NO saltar huecos por dayofweek.
+        bool knownClosedSession = start5 > f.lastEvaluatedEnd and f.lastSessionBar and firstSession5
+        bool discontinuity = (start5 != f.lastEvaluatedEnd and not knownClosedSession) or end5 - start5 != MIN5 or na(lo5) or na(hi5) or na(close5)
+        if discontinuity
+            f.dataGap := true
+            f.gapObservedAt := start5
+            f.state := "DATOS_INCOMPLETOS"
+        else
+            float width = f.top - f.bottom
+            if width > 0.0 and (f.dir == 1 or f.dir == -1)
+                bool touched = f.dir == 1 ? lo5 <= f.top : hi5 >= f.bottom
+                if touched and na(f.firstTouchAt)
+                    f.firstTouchAt := end5
+                if touched
+                    float rawPen = f.dir == 1 ? (f.top - lo5) / width : (hi5 - f.bottom) / width
+                    f.maxPenetration := math.max(f.maxPenetration, math.min(1.0, math.max(0.0, rawPen)))
+                bool broken = f.dir == 1 ? close5 < f.bottom : close5 > f.top
+                if broken
+                    f.state := "INVALIDADO"
+                else if f.maxPenetration >= 1.0
+                    f.state := "LLENADO_TOTAL"
+                else if not na(f.firstTouchAt)
+                    // Contacto justo en el borde conserva penetracion 0%.
+                    f.state := "PARCIAL"
+                else
+                    f.state := "INTACTO"
+            else
+                f.dataGap := true
+                f.gapObservedAt := start5
+                f.state := "DATOS_INCOMPLETOS"
+        f.lastEvaluatedEnd := end5
+        f.lastSessionBar := lastSession5
+    // Modifica los campos del UDT por referencia; sin reasignar f.
+    f.state
+
+// QA: -1=no existe, 0 intacto, 1 parcial, 2 lleno, 3 invalidado, 4 datos incompletos.
+f_fvg_code(string st) =>
+    st == "INTACTO" ? 0 : st == "PARCIAL" ? 1 : st == "LLENADO_TOTAL" ? 2 : st == "INVALIDADO" ? 3 : st == "DATOS_INCOMPLETOS" ? 4 : -2
+
+// Every M15 candidate must close on this provider's own native phase.
+// 0..4 are exact minute offsets, not M5->M15 substitutions.
+f_m15_phase_ok(int closedAt, int sourcePhaseMin) =>
+    not na(closedAt) and sourcePhaseMin >= 0 and sourcePhaseMin <= 4 and closedAt % MIN15 == sourcePhaseMin * 60000
