@@ -1,0 +1,180 @@
+
+// En M5 reconstruimos tambien las velas M15 completas, de modo que se usa
+// UNA peticion request.security por activo en vez de tres peticiones.
+f_engine() =>
+    var bool isIndex = f_index()
+    var bool isBTC = str.upper(syminfo.ticker) == "BTCUSD"
+    int barT = time[1]
+    int barEnd = time_close[1]
+    float bH = high[1]
+    float bL = low[1]
+    float bC = close[1]
+    float prevClose = close[2]
+    // Datos de sesiones del MISMO ticker M5 dentro del request.security.
+    bool firstSession5 = session.isfirstbar[1]
+    bool lastSession5 = session.islastbar[1]
+    bool previousSessionLast5 = session.islastbar[2]
+    int previousBarEnd = time_close[2]
+    // QA: la M5 previa debe finalizar exactamente donde inicia la actual.
+    // Pine [2] recorre barras, no garantiza ausencia de huecos temporales.
+    bool previousM5Continuous = not na(barT) and not na(previousBarEnd) and barT == previousBarEnd
+
+    // La frontera diaria del proveedor se obtiene en el MISMO ticker M5.
+    // time("D")[1] identifica la vela diaria a la que pertenece M5[1].
+    // Nunca se acepta una sesión cuyo comienzo se perdió en el historial.
+    var int currentChartDay = na
+    var float currentChartHigh = na
+    var float currentChartLow = na
+    var bool currentChartContinuous = false
+    int chartDayId = time("D")[1]
+    if isBTC and not na(barT) and not na(barEnd) and not na(chartDayId)
+        if na(currentChartDay) or chartDayId != currentChartDay
+            currentChartDay := chartDayId
+            currentChartHigh := bH
+            currentChartLow := bL
+            currentChartContinuous := barT == chartDayId
+        else
+            currentChartContinuous := currentChartContinuous and previousM5Continuous
+            currentChartHigh := math.max(currentChartHigh, bH)
+            currentChartLow := math.min(currentChartLow, bL)
+
+    // M4A: PDH/PDL calculados en la misma secuencia M5 cerrada.
+    // prev_valid solo significa que la ULTIMA sesion finalizada paso control
+    // de calidad; no se reutiliza silenciosamente un nivel de hace dias.
+    var float curr_H = na
+    var float curr_L = na
+    var int curr_sess_id = na
+    var int curr_m5_count = 0
+    var int curr_firstT = na
+    var int curr_lastEnd = na
+    var bool curr_continuous = true
+    var float prev_PDH = na
+    var float prev_PDL = na
+    var bool prev_valid = false
+    var int prev_timestamp = na
+    var int prev_sess_id = na
+    // M4B: el ID del nivel es su fecha de confirmacion 4A.
+    // No se consulta curr_sess_id[1] ni se reevalua una vela incompleta.
+    var int liquidityRefAt = na
+    var bool pdhTaken = false
+    var bool pdlTaken = false
+    var int pdhSweepAt = na
+    var int pdlSweepAt = na
+    var int pdhSweepStage = 0
+    var int pdlSweepStage = 0
+    var int pdhSweepC1 = na
+    var int pdlSweepC1 = na
+
+    // BTCUSD no hereda sesiones de Forex: PDH/PDL del dia civil NY
+    // completo (00:00-00:00), 7 dias. Cierre M5 [1] confirmado.
+    // En DST NY el dia completo tiene 23, 24 o 25 horas.
+    var bool pdhRth = isIndex and not useExtIdx
+    var string pdhSession = isBTC ? "0000-0000:1234567" : pdhRth ? "0930-1600:23456" : "1700-1700:23456"
+    bool pdhInSession = not na(time("5", pdhSession, TZ)[1])
+    if isBTC
+        if pdhInSession and not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+            int startNY = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 0, 0)
+            int endNY = timestamp(TZ, year(barEnd, TZ), month(barEnd, TZ), dayofmonth(barEnd, TZ), 0, 0)
+            int dayKey = year(barT, TZ) * 10000 + month(barT, TZ) * 100 + dayofmonth(barT, TZ)
+            // Si faltó un día completo de mercado, no comparar contra
+            // un PDH viejo (debe ser EXACTAMENTE el día NY anterior).
+            if prev_valid and not na(prev_timestamp)
+                int refDayKey = year(prev_timestamp, TZ) * 10000 + month(prev_timestamp, TZ) * 100 + dayofmonth(prev_timestamp, TZ)
+                if refDayKey != dayKey
+                    prev_valid := false
+            if na(curr_sess_id) or curr_sess_id != dayKey
+                if not na(curr_sess_id)
+                    prev_valid := false
+                curr_sess_id := dayKey
+                curr_H := bH
+                curr_L := bL
+                curr_m5_count := 1
+                curr_firstT := barT
+                curr_lastEnd := barEnd
+                curr_continuous := true
+            else
+                curr_continuous := curr_continuous and barT == curr_lastEnd
+                curr_H := math.max(curr_H, bH)
+                curr_L := math.min(curr_L, bL)
+                curr_m5_count += 1
+                curr_lastEnd := barEnd
+            bool closedNYDay = endNY > startNY and barEnd == endNY
+            if closedNYDay
+                int expectedM5 = int((endNY - startNY) / MIN5)
+                bool fullNYDay = curr_continuous and curr_firstT == startNY and curr_lastEnd == endNY and curr_m5_count == expectedM5 and (expectedM5 == 276 or expectedM5 == 288 or expectedM5 == 300)
+                prev_valid := fullNYDay
+                if fullNYDay
+                    prev_PDH := curr_H
+                    prev_PDL := curr_L
+                    prev_timestamp := endNY
+                    prev_sess_id := curr_sess_id
+                curr_sess_id := na
+                curr_H := na
+                curr_L := na
+                curr_m5_count := 0
+                curr_firstT := na
+                curr_lastEnd := na
+                curr_continuous := true
+    else
+        // Sesiones originales de Forex e indices: no alterarlas.
+        if not na(barT) and not na(barEnd) and not na(bH) and not na(bL)
+            // Identidad calendario local del INICIO de sesion; segura en DST.
+            // Mediodia menos 24h identifica el DIA ANTERIOR incluso si DST
+            // cambio el desfase UTC una hora durante la madrugada.
+            int pdhNoon = timestamp(TZ, year(barT, TZ), month(barT, TZ), dayofmonth(barT, TZ), 12, 0)
+            int pdhAnchor = pdhRth or hour(barT, TZ) >= 17 ? pdhNoon : pdhNoon - 86400000
+            int pdhKey = year(pdhAnchor, TZ) * 10000 + month(pdhAnchor, TZ) * 100 + dayofmonth(pdhAnchor, TZ)
+            if pdhInSession
+                if na(curr_sess_id) or pdhKey != curr_sess_id
+                    // Si un dia termino sin vela de cierre, NO publicar parcial.
+                    if not na(curr_sess_id)
+                        prev_valid := false
+                    curr_sess_id := pdhKey
+                    curr_H := bH
+                    curr_L := bL
+                    curr_m5_count := 1
+                    curr_firstT := barT
+                    curr_lastEnd := barEnd
+                    curr_continuous := true
+                else
+                    curr_continuous := curr_continuous and barT == curr_lastEnd
+                    curr_H := math.max(curr_H, bH)
+                    curr_L := math.min(curr_L, bL)
+                    curr_m5_count += 1
+                    curr_lastEnd := barEnd
+                // Con la ultima M5 (15:55-16 o 16:55-17) se cierra
+                // la sesion, aunque el proveedor no tenga velas posteriores.
+                int endHour = pdhRth ? 16 : 17
+                bool sessClosed = hour(barEnd, TZ) == endHour and minute(barEnd, TZ) == 0
+                if sessClosed
+                    int firstHour = pdhRth ? 9 : 17
+                    int firstMinute = minute(curr_firstT, TZ)
+                    bool startedOnTime = hour(curr_firstT, TZ) == firstHour and (pdhRth ? firstMinute == 30 : firstMinute <= 5)
+                    bool complete = curr_continuous and startedOnTime and curr_m5_count >= (pdhRth ? 78 : 280)
+                    prev_valid := complete
+                    if complete
+                        prev_PDH := curr_H
+                        prev_PDL := curr_L
+                        prev_timestamp := barEnd
+                        prev_sess_id := curr_sess_id
+                    // Valores historicos se conservan con prev_valid=false.
+                    curr_sess_id := na
+                    curr_H := na
+                    curr_L := na
+                    curr_m5_count := 0
+                    curr_firstT := na
+                    curr_lastEnd := na
+                    curr_continuous := true
+            else if not na(curr_sess_id)
+                // Fin de sesion sin M5 de cierre: no falsificar PDH/PDL.
+                prev_valid := false
+                curr_sess_id := na
+                curr_m5_count := 0
+                curr_H := na
+                curr_L := na
+                curr_firstT := na
+                curr_lastEnd := na
+                curr_continuous := true
+    // Pivot M5: calculo en la barra cerrada [1]; nunca es una barra futura.
+    float pH5 = ta.pivothigh(high, left5, right5)[1]
+    float pL5 = ta.pivotlow(low, left5, right5)[1]
