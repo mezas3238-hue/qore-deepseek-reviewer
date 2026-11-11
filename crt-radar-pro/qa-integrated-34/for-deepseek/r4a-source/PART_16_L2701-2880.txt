@@ -1,0 +1,180 @@
+                    countTrue3C += 1
+                if not na(inside) and inside > 0
+                    countInside += 1
+                if not na(multi4) and multi4 > 0
+                    countM4 += 1
+                if not na(multin) and multin > 0
+                    countMN += 1
+                int ordinal = scanAll ? i : 0
+                int rowIndex = ordinal - (pageNow - 1) * onPage + 1
+                if rowIndex >= 1 and rowIndex <= onPage
+                    color bg = rowIndex % 2 == 0 ? shade : navy
+                    // The * is an overlap of LAST closed-event times, not
+                    // a second CRT, MSS proof, or verified common C1.
+                    string collisionTag = closeOverlap ? "*" : ""
+                    table.cell(board,0,rowIndex,array.get(scanNames,i) + collisionTag,bgcolor=bg,text_color=closeOverlap ? color.orange : color.white,text_size=size.tiny)
+                    table.cell(board,1,rowIndex,f_qaHistoryDate(c2),bgcolor=bg,text_color=color.gray,text_size=size.tiny)
+                    table.cell(board,2,rowIndex,f_qaHistoryDate(true3c) + collisionTag,bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,3,rowIndex,f_qaHistoryDate(inside) + collisionTag,bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,4,rowIndex,f_qaHistoryDate(multi4),bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+                    table.cell(board,5,rowIndex,f_qaHistoryDate(multin),bgcolor=bg,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,11,"P "+str.tostring(pageNow)+"/"+str.tostring(totalPages),bgcolor=navy,text_color=color.aqua,text_size=size.tiny)
+        table.cell(board,1,11,"2C:"+str.tostring(count2C),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,11,"3C:"+str.tostring(countTrue3C),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,11,"INS:"+str.tostring(countInside),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,11,"M4:"+str.tostring(countM4),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,11,"MN:"+str.tostring(countMN),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        int selected = math.min(math.max(qaEventSlot - 1,0),33)
+        if not scanAll
+            selected := 7
+        else if qaHistoryFollowChart
+            selected := -1
+            string selectedBrokerSymbol = ticker.standard(syminfo.tickerid)
+            for slot = 0 to 33
+                if ticker.standard(array.get(scanSymbols,slot)) == selectedBrokerSymbol
+                    selected := slot
+                    break
+        // No fallback to AUDJPY/S1 when GBP/AUD is opened in a
+        // different broker. Last-event timestamps must NEVER cross feeds.
+        bool selectedReady = selected >= 0
+        int selected3cs = selectedReady ? array.get(qaTrue3CSignedBySlot,selected) : na
+        int selected3c = na(selected3cs) ? na : int(math.abs(selected3cs))
+        int selectedInside = selectedReady ? array.get(qaHistInsideReturnBySlot,selected) : na
+        bool same3cInsideClose = not na(selected3c) and not na(selectedInside) and selected3c == selectedInside
+        bool sameDayOnly = not same3cInsideClose and not na(selected3c) and not na(selectedInside) and str.format_time(selected3c,"yyyy-MM-dd","Etc/UTC") == str.format_time(selectedInside,"yyyy-MM-dd","Etc/UTC")
+        string overlapLabel = same3cInsideClose ? "MISMO CIERRE" : sameDayOnly ? "MISMO DIA" : na(selected3c) or na(selectedInside) ? "N/D" : "CIERRE DIST"
+        string selectedLabel = selectedReady ? "S"+str.tostring(selected+1)+" "+array.get(scanNames,selected) : "SIN SLOT / BROKER"
+        table.cell(board,0,12,selectedLabel,bgcolor=shade,text_color=selectedReady ? color.aqua : color.orange,text_size=size.tiny)
+        table.cell(board,1,12,"2C UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,2,12,"3C UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,3,12,"INS UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,4,12,"M4 UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,5,12,"MN UTCmin",bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        table.cell(board,0,13,"HIST NO PUSH",bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,1,13,f_qaHistoryMin(selectedReady ? array.get(qaHistRatified2CBySlot,selected) : na),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        table.cell(board,2,13,f_qaHistoryMin(selected3c),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,3,13,f_qaHistoryMin(selectedInside),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,4,13,f_qaHistoryMin(selectedReady ? array.get(qaHistMulti4BySlot,selected) : na),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,5,13,f_qaHistoryMin(selectedReady ? array.get(qaHistMultiNBySlot,selected) : na),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,14,overlapLabel,bgcolor=shade,text_color=same3cInsideClose ? color.orange : color.gray,text_size=size.tiny)
+        table.cell(board,1,14,"*3C=INS:"+str.tostring(exact3cInsideCloses),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        // Measured source responses, not a hardcoded "34 FEEDS".
+        // When history is empty, these distinguish no source response
+        // from a responding source that did not form an eligible C1.
+        bool selectedFeedOK = selectedReady and array.get(auditFeedAvailable,selected) == 1
+        int selectedC1Count = selectedFeedOK ? array.get(auditFeedC1,selected) : 0
+        int selectedH4Closed = selectedFeedOK ? array.get(auditFeedH4Closed,selected) : 0
+        int selectedH4LastBars = selectedFeedOK ? array.get(auditFeedH4LastBars,selected) : na
+        table.cell(board,2,14,"R:"+str.tostring(checked)+"/"+str.tostring(nFeeds),bgcolor=shade,text_color=checked == nFeeds ? color.gray : color.orange,text_size=size.tiny)
+        table.cell(board,3,14,not selectedReady ? "S:NO BROKER" : selectedFeedOK ? "S:FEED OK" : "S:SIN FEED",bgcolor=shade,text_color=selectedFeedOK ? color.gray : color.orange,text_size=size.tiny)
+        table.cell(board,4,14,selectedFeedOK ? "C1:"+str.tostring(selectedC1Count) : "C1:N/D",bgcolor=shade,text_color=selectedC1Count == 0 ? color.orange : color.gray,text_size=size.tiny)
+        table.cell(board,5,14,selectedFeedOK ? "H4:"+str.tostring(selectedH4Closed)+"/"+(na(selectedH4LastBars) ? "N/D" : str.tostring(selectedH4LastBars)) : "H4:N/D",bgcolor=shade,text_color=selectedH4Closed == 0 ? color.orange : color.gray,text_size=size.tiny)
+
+
+f_qaAuditTime(int t) =>
+    qaReadableUtc ? (na(t) or t <= 0 ? "N/D" : str.format_time(t,"dd/MM HH:mm","Etc/UTC")) : f_qaHistoryMin(t)
+
+// Read-only per-source event audit. Same Signal data, no extra requests.
+f_renderSlotEventAudit() =>
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and showSlotEventAudit
+        table.clear(board,0,0,5,14)
+        int slot = math.min(math.max(qaEventSlot - 1,0),33)
+        if not scanAll
+            slot := 7
+        else if qaFollowChart
+            slot := -1
+            string exactTicker = ticker.standard(syminfo.tickerid)
+            for i = 0 to 33
+                if ticker.standard(array.get(scanSymbols,i)) == exactTicker
+                    slot := i
+                    break
+        bool known = slot >= 0
+        bool good = known and array.get(auditFeedAvailable,slot) == 1
+        string name = known ? "S"+str.tostring(slot+1)+" "+array.get(scanNames,slot) : "SIN SLOT / BROKER"
+        string[] headers = array.from("SLOT","FEED","C1","SWEEP","RAT","MSS15")
+        string[] values = array.from(name,good ? "OK" : "N/D",
+             f_qaAuditTime(known ? array.get(qaC1BySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaSweepBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaRatBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaBreak15BySlot,slot) : na))
+        string[] h2 = array.from("MSS5","PIV5","PIV15","FASE","H4 BARRAS","C1 VALID")
+        string[] v2 = array.from(
+             f_qaAuditTime(known ? array.get(m5Times,slot) : na),
+             f_qaAuditTime(known ? array.get(m5PivotTimes,slot) : na),
+             f_qaAuditTime(known ? array.get(qaPivot15AtBySlot,slot) : na),
+             good ? str.tostring(array.get(auditFeedPhaseMin,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedH4LastBars,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1,slot)) : "N/D")
+        string[] h3 = array.from("EXTRA","C1 EX","SWEEP EX","RAT EX","M15 EX","QA")
+        string[] v3 = array.from(known ? array.get(qaExtraKindBySlot,slot) : "N/D",
+             f_qaAuditTime(known ? array.get(qaExtraC1BySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraSweepBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraRatBySlot,slot) : na),
+             f_qaAuditTime(known ? array.get(qaExtraBreak15BySlot,slot) : na),"NO PUSH")
+        string[] h4 = array.from("H4 VALID","C1 CLOCK","C1 DATA","C1 RANGO","C2 RECH","H4 GAP")
+        string[] v4 = array.from(
+             good ? str.tostring(array.get(auditFeedH4Closed,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Clock,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Data,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC1Range,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedC2Rejected,slot)) : "N/D",
+             good ? str.tostring(array.get(auditFeedH4Gap,slot)) : "N/D")
+        for col = 0 to 5
+            table.cell(board,col,0,array.get(headers,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,1,array.get(values,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+            table.cell(board,col,3,array.get(h2,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,4,array.get(v2,col),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+            table.cell(board,col,6,array.get(h3,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,7,array.get(v3,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+            table.cell(board,col,9,array.get(h4,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+            table.cell(board,col,10,array.get(v4,col),bgcolor=shade,text_color=color.gray,text_size=size.tiny)
+        if qaHistoricLast
+            string[] hh = array.from("HIST 2C","HIST 3C","HIST INS","HIST M4","HIST MN","CERRADOS")
+            int signed3 = known ? array.get(qaTrue3CSignedBySlot,slot) : na
+            string[] vv = array.from(
+                f_qaAuditTime(known ? array.get(qaHistRatified2CBySlot,slot) : na),
+                f_qaAuditTime(na(signed3) ? na : int(math.abs(signed3))),
+                f_qaAuditTime(known ? array.get(qaHistInsideReturnBySlot,slot) : na),
+                f_qaAuditTime(known ? array.get(qaHistMulti4BySlot,slot) : na),
+                f_qaAuditTime(known ? array.get(qaHistMultiNBySlot,slot) : na),"NO LIVE")
+            for col = 0 to 5
+                table.cell(board,col,12,array.get(hh,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+                table.cell(board,col,13,array.get(vv,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        else
+            // QA 12M: diagnostico Multi4 del mismo slot, SOLO usando la
+            // UDT del scan actual. No inventa pivotes ni agrega security().
+            bool selectedMulti4 = good and array.get(qaExtraKindBySlot,slot) == "MULTI4 QA"
+            int m4Sweep = selectedMulti4 ? array.get(qaExtraSweepBySlot,slot) : na
+            int m4Pivot15At = selectedMulti4 ? array.get(qaExtraPivot15AtBySlot,slot) : na
+            float m4Pivot15 = selectedMulti4 ? array.get(qaExtraPivot15PriceBySlot,slot) : na
+            int m4Mss15 = selectedMulti4 ? array.get(qaExtraBreak15BySlot,slot) : na
+            bool m4Mss5OK = selectedMulti4 and array.get(extraM5Flags,slot) == 1
+            bool m4Mss15OK = selectedMulti4 and array.get(extraM15Flags,slot) == 1
+            bool pivot15BeforeSweep = not na(m4Pivot15At) and not na(m4Sweep) and m4Pivot15At < m4Sweep and not na(m4Pivot15)
+            string m4Status = not selectedMulti4 ? "NO MULTI4" : na(m4Sweep) ? "SIN SWEEP" : not pivot15BeforeSweep ? "SIN PIV15" : m4Mss15OK ? "M15 QA SI" : na(m4Mss15) ? "SIN MSS15" : "GATE M15"
+            string[] m4Labels = array.from("M4 SWEEP","PIV15 PRE","PIV15 PR","MSS15 EX","MSS5 EX","M4 CAUSA")
+            string[] m4Values = array.from(f_qaAuditTime(m4Sweep), f_qaAuditTime(m4Pivot15At),
+                 na(m4Pivot15) ? "N/D" : str.tostring(m4Pivot15,format.mintick),
+                 f_qaAuditTime(m4Mss15), m4Mss5OK ? "QA SI" : "NO VALID", m4Status)
+            for col = 0 to 5
+                table.cell(board,col,12,array.get(m4Labels,col),bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+                table.cell(board,col,13,array.get(m4Values,col),bgcolor=shade,text_color=color.orange,text_size=size.tiny)
+        table.cell(board,0,14,"QA NO LIVE",bgcolor=navy,text_color=color.orange,text_size=size.tiny)
+
+// Explicit 33 non-BTC evidence, paginated; never silently blanks the board.
+f_renderNonBtcAudit() =>
+    if barstate.islast and showDashboard and not qaFamilyHistoryView and not showSlotEventAudit and showNonBtcCohortQA
+        table.clear(board,0,0,5,14)
+        string[] header = qa33RootView ? array.from("MERCADO","FASE","INI ERR","FIN ERR","48 ERR","GAPS") : array.from("MERCADO","FEED","C1","H4","2C","M15 QA")
+        for col = 0 to 5
+            table.cell(board,col,0,array.get(header,col),bgcolor=navy,text_color=color.white,text_size=size.tiny)
+        int currentPage = math.min(math.max(page,1),4)
+        int ordinal = 0
+        for i = 0 to 33
+            if i != 7
+                int row = ordinal - (currentPage-1)*10 + 1
+                if row >= 1 and row <= 10
+                    bool available = scanAll and array.get(auditFeedAvailable,i) == 1
+                    color bg = row % 2 == 0 ? shade : navy
+                    string cell1 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedPhaseMin,i)) : "OK"
+                    string cell2 = not available ? "N/D" : qa33RootView ? str.tostring(array.get(auditFeedH4StartMis,i)) : str.tostring(array.get(auditFeedC1,i))
