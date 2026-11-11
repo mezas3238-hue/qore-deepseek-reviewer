@@ -1,0 +1,180 @@
+    var float lastHigh5 = na
+    var float lastLow5 = na
+    var int lastHigh5At = na
+    var int lastLow5At = na
+    // M5 continuity barrier for auxiliary-family frozen pivots.
+    var int qaExtraM5SegmentStart = na
+
+    // Acumulador M15 sobre barras M5 completas.
+    var int m15Bucket = na
+    var float m15High = na
+    var float m15Low = na
+    var float m15Close = na
+    var int m15Count = 0
+    var int m15LastEnd = na
+    var int m15Start = na
+    var array<float> highs15 = array.new_float()
+    var array<float> lows15 = array.new_float()
+    var array<int> times15 = array.new_int()
+    var float lastHigh15 = na
+    var float lastLow15 = na
+    var int lastHigh15At = na
+    var int lastLow15At = na
+    var float prev15Close = na
+    // QA: solo comparar cierres M15 consecutivos completos (no saltar sesiones).
+    var int prev15End = na
+    var int lastCompleteM15CloseAt = na
+
+    // H4 reconstruida desde datos de M5 del mismo proveedor.
+    var int h4Bucket = na
+    var float h4High = na
+    var float h4Low = na
+    var float h4Close = na
+    var int h4Count = 0
+    var int h4FirstT = na
+    var int h4LastEnd = na
+    // Modulo 1 aprobado: rechaza H4 con huecos M5 internos.
+    var bool h4Continuous = true
+
+    // M5A: Reconstruccion H1 desde M5 cerradas y memoria de 3 barras TF.
+    var int h1Bucket = na
+    var int h1FirstT = na
+    var int h1LastEnd = na
+    var float h1High = na
+    var float h1Low = na
+    var int h1Count = 0
+    var bool h1Continuous = true
+    var FvgBar h1Prev = na
+    var FvgBar h1Prev2 = na
+    var FvgBar h4Prev = na
+    var FvgBar h4Prev2 = na
+    // Maximo cuatro H4 completas en el mismo feed, memoria O(4).
+    var array<MultiH4> qaFourH4 = array.new<MultiH4>()
+    var string qaMulti4Kind = "SIN 4H4"
+    var int qaMulti4At = na
+    var int qaMulti4C1 = na
+    var array<Multi4MssCandidate> qaMulti4MssCandidates = array.new<Multi4MssCandidate>()
+    var int qaMulti4SweepAt = na
+    var float qaMulti4Pivot5 = na
+    var int qaMulti4Pivot5At = na
+    var int qaMulti4Mss5At = na
+    var float qaMulti4Pivot15 = na
+    var int qaMulti4Pivot15At = na
+    var int qaMulti4Mss15At = na
+    // QA Multi-N: C1 + 2..5 H4 de consolidacion estricta + H4
+    // final que barre un solo extremo y cierra DENTRO de la C1.
+    // HIPOTESIS DEEPSEEK, independiente del MULTI4 distribuido.
+    // Hasta 7 H4 cerradas del mismo proveedor (O(7) por símbolo).
+    var array<MultiH4> qaMultiNHistory = array.new<MultiH4>()
+    var string qaMultiNKind = "MULTI-N ESP"
+    var int qaMultiNAt = na
+    var int qaMultiNC1 = na
+    var int qaMultiNDir = 0
+    var array<MultiNMssCandidate> qaMultiNMssCandidates = array.new<MultiNMssCandidate>()
+    var int qaMultiNSweepAt = na
+    var float qaMultiNPivot15 = na
+    var int qaMultiNPivot15At = na
+    var int qaMultiNMss15At = na
+    var float qaMultiNPivot5 = na
+    var int qaMultiNPivot5At = na
+    var int qaMultiNMss5At = na
+    // Retest: cierre M15 propio POSTERIOR al MSS15 del mismo C1.
+    var string qaRetest15State = "SIN MSS15"
+    var int qaRetest15At = na
+    // OHLC cerrado de LA vela M15 del retest; no del último M15 visible.
+    var float qaRetest15High = na
+    var float qaRetest15Low = na
+    var float qaRetest15Close = na
+    var float qaRetest15Pivot = na
+    var int qaRetestCycleC1 = na
+    var int qaRetestSourceMssAt = na
+    var array<FvgContext> fvgsH1 = array.new<FvgContext>()
+    var array<FvgContext> fvgsH4 = array.new<FvgContext>()
+
+    // C2 actual: puede coexistir con la C3 del CRT anterior.
+    // M3B.1: memoria independiente por contexto de simbolo (maximo 10).
+    var array<InsideCandidate> insideCandidates = array.new<InsideCandidate>()
+
+    var bool c2Active = false
+    var int c2Start = na
+    var int c1Start2 = na
+    var float c1High2 = na
+    var float c1Low2 = na
+    var int c2Dir = 0
+    var bool c2StrictSweep = false
+    var bool c2Double = false
+    var bool c2Returned = false
+    var int c2SweepEnd = na
+    var float c2Pivot5 = na
+    var float c2Pivot15 = na
+    var int c2Pivot5At = na
+    var int c2Pivot15At = na
+    var int c2M5At = na
+    var int c2M15At = na
+
+    // C3 ratificada: los MSS de C2 se heredan, los faltantes se esperan en C3.
+    var bool c3Active = false
+    var int c3Start = na
+    var int c1Start3 = na
+    var float c1High3 = na
+    var float c1Low3 = na
+    var int c3Dir = 0
+    var int c3SweepEnd = na
+    var float c3Pivot5 = na
+    var float c3Pivot15 = na
+    var int c3Pivot5At = na
+    var int c3Pivot15At = na
+    var int c3M5At = na
+    var int c3M15At = na
+    var float c3Invalidation = na
+    // Metadatos del CRT ratificado que se encuentra en C3.
+    var string c3ModelKind = "NONE"
+    var bool c3PatternValid = false
+    var int c3ModelC1 = na
+    var int c3C2Start = na // Solo metadato para asociar PDH/PDL, sin alterar MSS.
+
+    // Clasificacion diagnostica del ultimo cierre C2, aun si no es operativo.
+    var string last2CClassification = "NONE"
+    var int last2CClassificationAt = na
+
+    // Memoria controlada del ULTIMO CRT realmente ratificado, NO de
+    // cualquier MSS aislado. Los flags se copian desde C2/C3 y no se
+    // inventan desde eventos antiguos no vinculados al ciclo.
+    var int lastC1 = na
+    var int lastDir = 0
+    var int lastConfirmedAt = na
+    var float lastHi = na
+    var float lastLo = na
+    var int lastSweepAt = na
+    var int lastM5 = na
+    var int lastM15 = na
+    var float lastM5Level = na
+    var float lastM15Level = na
+    var int lastM5PivotAt = na
+    var int lastM15PivotAt = na
+    var string lastModelKind = "NONE"
+    var bool lastPatternValid = false
+    var int lastModelC1 = na
+    var int lastC2Start = na // Memoria del mismo CRT ratificado.
+    // Conteos solo del historial M5 efectivamente cargado. No
+    // certifican que existan alertas ni muestran CRT antiguos.
+    var int qaC1Ready = 0
+    var int qaC2Ratified = 0
+    var string qaLastC2Gate = "ESPERA C1"
+    // Auditoria acumulada en M5 cargadas; cada contador cambia SOLO
+    // en un cierre H4 o transicion terminal de candidato Inside.
+    var int qaAudit2C = 0
+    var int qaAudit3C = 0
+    var int qaAuditInside = 0
+    var int qaAuditM4 = 0
+    var int qaAuditMN = 0
+    var int qaAuditC2Data = 0
+    var int qaAuditC2Double = 0
+    var int qaAuditC2NoSweep = 0
+    var int qaAuditC2Outside = 0
+    var int qaAuditC2Hour = 0
+    var int qaAuditC3Invalid = 0
+    var int qaAuditInsideData = 0
+    var int qaAuditInsideDouble = 0
+    var int qaAuditInsideOther = 0
+    var int qaAuditInsideExpire = 0
