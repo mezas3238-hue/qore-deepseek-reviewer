@@ -8,7 +8,7 @@ Este directorio es una **copia de lectura, no un indicador instalable**. Cada `P
 - Git blob SHA-1 esperado: `693e3f49719e86e2ea0702f7b355af33bd0c4c7c`
 - Longitud: 3.546 líneas físicas terminadas en LF (el `split("\n")` contiene 3.547 elementos, último vacío por newline terminal).
 - Objetivo: leer el motor `f_engine()` completo y las siete categorías sin truncado.
-- Validación automática: `../tests/test_r4a_deepseek_20parts_exact.py`; GitHub Actions ejecuta coincidencia **byte por byte** contra la fuente.
+- Validación automática: `../../tests/test_r4a_deepseek_20parts_exact.py`; GitHub Actions ejecuta coincidencia **byte por byte** contra la fuente.
 
 ## Índice de fragmentos
 
@@ -57,7 +57,7 @@ part_dir = Path("crt-radar-pro/qa-integrated-34/for-deepseek/r4a-source")
 chunks = sorted(part_dir.glob("PART_*.txt"))
 assert len(chunks) == 20
 src = b"".join(p.read_bytes() for p in chunks)
-blob = hashlib.sha1(b"blob " + str(len(src)).encode() + b"\\0" + src).hexdigest()
+blob = hashlib.sha1(b"blob " + str(len(src)).encode() + b"\0" + src).hexdigest()
 print(blob)
 assert blob == "693e3f49719e86e2ea0702f7b355af33bd0c4c7c"
 ```
