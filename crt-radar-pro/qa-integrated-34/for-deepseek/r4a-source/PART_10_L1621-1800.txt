@@ -1,0 +1,180 @@
+                    lastC1 := c1Start2
+                    lastDir := c2Dir
+                    lastConfirmedAt := bucketH4
+                    lastHi := c1High2
+                    lastLo := c1Low2
+                    lastSweepAt := c2SweepEnd
+                    lastM5 := c2M5At
+                    lastM15 := c2M15At
+                    lastM5Level := c2Pivot5
+                    lastM15Level := c2Pivot15
+                    lastM5PivotAt := c2Pivot5At
+                    lastM15PivotAt := c2Pivot15At
+                    lastModelKind := classified2C
+                    lastPatternValid := true
+                    lastModelC1 := c1Start2
+                    lastC2Start := c2Start
+                    c3ModelKind := classified2C
+                    c3PatternValid := true
+                    c3ModelC1 := c1Start2
+                    c3C2Start := c2Start
+                    c3Active := true
+                    c3Start := bucketH4
+                    c1Start3 := c1Start2
+                    c1High3 := c1High2
+                    c1Low3 := c1Low2
+                    c3Dir := c2Dir
+                    c3SweepEnd := c2SweepEnd
+                    c3Pivot5 := c2Pivot5
+                    c3Pivot15 := c2Pivot15
+                    c3Pivot5At := c2Pivot5At
+                    c3Pivot15At := c2Pivot15At
+                    c3M5At := c2M5At
+                    c3M15At := c2M15At
+                    c3Invalidation := c2Dir == 1 ? h4Low : h4High
+                c2Active := false
+
+            // La H4 que acaba de cerrar puede ser C1 del SIGUIENTE ciclo,
+            // incluso si la H4 nueva ya es C3 de un ciclo anterior.
+            c2Active := false
+            c2Dir := 0
+            c2StrictSweep := false
+            c2Double := false
+            c2Returned := false
+            c2SweepEnd := na
+            c2M5At := na
+            c2M15At := na
+            c2Pivot5 := na
+            c2Pivot15 := na
+            c2Pivot5At := na
+            c2Pivot15At := na
+            int lastC1Hour = hour(h4Bucket, TZ)
+            int expectedC2 = (lastC1Hour + 4) % 24
+            bool c1AllowedHour = f_allowed(lastC1Hour, isIndex)
+            bool c1AlignedNext = hour(bucketH4, TZ) == expectedC2
+            bool c1CompleteData = fullH4
+            bool c1HasRange = h4High > h4Low
+            // Cada cierre elegible por HORA aporta exactamente una
+            // clasificación: mala ancla, datos, rango o C1 apta.
+            if c1AllowedHour
+                qaAuditC1HourCandidates += 1
+                if not c1AlignedNext
+                    qaAuditC1BadClock += 1
+                else if not c1CompleteData
+                    qaAuditC1BadData += 1
+                else if not c1HasRange
+                    qaAuditC1BadRange += 1
+            if c1AllowedHour and c1AlignedNext and c1CompleteData and c1HasRange
+                c2Active := true
+                // BUG corregido V34.10v: este contador ES por feed.
+                // Antes solo incrementaba en BTC pero audit2C sí
+                // sumaba Forex/índices, generando el imposible 5/0.
+                qaC1Ready += 1
+                if isBTC
+                    qaLastC2Gate := "C1 VALIDA ESPERA C2"
+                c2Start := bucketH4
+                c1Start2 := h4Bucket
+                c1High2 := h4High
+                c1Low2 := h4Low
+
+            h4Bucket := bucketH4
+            h4High := bH
+            h4Low := bL
+            h4Close := bC
+            h4Count := 1
+            h4FirstT := barT
+            h4LastEnd := barEnd
+            h4Continuous := true
+        else if na(h4Bucket)
+            h4Bucket := bucketH4
+            h4High := bH
+            h4Low := bL
+            h4Close := bC
+            h4Count := 1
+            h4FirstT := barT
+            h4LastEnd := barEnd
+            h4Continuous := true
+        else
+            h4Continuous := h4Continuous and barT == h4LastEnd
+            h4High := math.max(h4High, bH)
+            h4Low := math.min(h4Low, bL)
+            h4Close := bC
+            h4Count += 1
+            h4LastEnd := barEnd
+
+    // ---- M4B: ESTADO DE LIQUIDEZ DE LA SESION DE REFERENCIA ----
+    // M4A ya procesó esta M5 cerrada. Después del cambio H4,
+    // c2Active/c3Active corresponden al H4 actual, incluso en su primera M5.
+    bool hasLiquidityRef = prev_valid and not na(prev_timestamp) and not na(prev_PDH) and not na(prev_PDL)
+    if not hasLiquidityRef
+        liquidityRefAt := na
+        pdhTaken := false
+        pdlTaken := false
+        pdhSweepAt := na
+        pdlSweepAt := na
+        pdhSweepStage := 0
+        pdlSweepStage := 0
+        pdhSweepC1 := na
+        pdlSweepC1 := na
+    else
+        if na(liquidityRefAt) or liquidityRefAt != prev_timestamp
+            liquidityRefAt := prev_timestamp
+            pdhTaken := false
+            pdlTaken := false
+            pdhSweepAt := na
+            pdlSweepAt := na
+            pdhSweepStage := 0
+            pdlSweepStage := 0
+            pdhSweepC1 := na
+            pdlSweepC1 := na
+        // No comparar velas del dia anterior con el nuevo PDH/PDL,
+        // ni after-hours con niveles RTH. Solo M5 cerrada elegible.
+        bool eligibleLiquidityBar = pdhInSession and not na(barT) and not na(barEnd) and barT >= liquidityRefAt
+        if eligibleLiquidityBar
+            int eventStage = c3Active and bucketH4 == c3Start ? 3 : c2Active and bucketH4 == c2Start ? 2 : 0
+            int eventC1 = eventStage == 3 ? c1Start3 : eventStage == 2 ? c1Start2 : na
+            if not pdhTaken and bH > prev_PDH
+                pdhTaken := true
+                pdhSweepAt := barEnd
+                pdhSweepStage := eventStage
+                pdhSweepC1 := eventC1
+            if not pdlTaken and bL < prev_PDL
+                pdlTaken := true
+                pdlSweepAt := barEnd
+                pdlSweepStage := eventStage
+                pdlSweepC1 := eventC1
+
+    // ---- M3B.2 INTEGRADO: PRIMERA BARRIDA M5 DE INSIDE BAR ----
+    // M5 cerrada [1]; solo despues del cierre H4 de C2.
+    // Se rastrean ambos extremos durante una MISMA H4 de manipulacion.
+    if not na(barT) and not na(bucketH4) and array.size(insideCandidates) > 0
+        for ic = 0 to array.size(insideCandidates) - 1
+            InsideCandidate cand = array.get(insideCandidates, ic)
+            if cand.state == "SEEKING" and barT >= cand.c2End
+                bool brokeLow = bL < cand.c2Low
+                bool brokeHigh = bH > cand.c2High
+                if brokeLow or brokeHigh
+                    cand.sweepAt := barEnd
+                    cand.sweepH4Start := bucketH4
+                    cand.sweptLow := brokeLow
+                    cand.sweptHigh := brokeHigh
+                    cand.sweepDir := brokeLow and not brokeHigh ? 1 : brokeHigh and not brokeLow ? -1 : 0
+                    cand.state := brokeLow and brokeHigh ? "AMBIGUOUS" : "SWEPT"
+                    // C1 y pivote son DEL Inside. Solo la primera M5
+                    // barrida congela un pivote M15 anterior y confirmado.
+                    bool freshInside15 = cand.sweepDir == 1 ? not na(lastHigh15At) and lastHigh15At < barT and barT - lastHigh15At <= maxPivotAge * 60000 : cand.sweepDir == -1 ? not na(lastLow15At) and lastLow15At < barT and barT - lastLow15At <= maxPivotAge * 60000 : false
+                    cand.pivot15 := freshInside15 ? (cand.sweepDir == 1 ? lastHigh15 : lastLow15) : na
+                    cand.pivot15At := freshInside15 ? (cand.sweepDir == 1 ? lastHigh15At : lastLow15At) : na
+                    cand.mss15At := na
+                    bool freshInside5 = cand.sweepDir == 1 ? not na(lastHigh5At) and not na(qaExtraM5SegmentStart) and lastHigh5At >= qaExtraM5SegmentStart and lastHigh5At < barT and barT - lastHigh5At <= maxPivotAge * 60000 : cand.sweepDir == -1 ? not na(lastLow5At) and not na(qaExtraM5SegmentStart) and lastLow5At >= qaExtraM5SegmentStart and lastLow5At < barT and barT - lastLow5At <= maxPivotAge * 60000 : false
+                    cand.pivot5 := freshInside5 ? (cand.sweepDir == 1 ? lastHigh5 : lastLow5) : na
+                    cand.pivot5At := freshInside5 ? (cand.sweepDir == 1 ? lastHigh5At : lastLow5At) : na
+                    cand.mss5At := na
+            else if cand.state == "SWEPT" and bucketH4 == cand.sweepH4Start
+                cand.sweptLow := cand.sweptLow or bL < cand.c2Low
+                cand.sweptHigh := cand.sweptHigh or bH > cand.c2High
+                if cand.sweptLow and cand.sweptHigh
+                    cand.sweepDir := 0
+                    cand.state := "AMBIGUOUS"
+                    cand.mss15At := na
+                    cand.pivot15 := na

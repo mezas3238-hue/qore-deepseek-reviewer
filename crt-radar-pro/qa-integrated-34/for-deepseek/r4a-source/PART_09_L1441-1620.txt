@@ -1,0 +1,180 @@
+                                            qaMultiNPivot5At := qaOwn.pivot5At
+                                            qaMultiNMss5At := qaOwn.mss5At
+                                            break
+                                break
+                    // Solo UNA razon por vela H4 terminal: el mismo cierre
+                    // puede cumplir varias N candidatas. No contar intentos
+                    // intrabar M5 ni la misma barra dos veces.
+                    if multiNAuditable and not multiNMatched
+                        if multiNSawDouble
+                            qaAuditMNDouble += 1
+                        else if multiNSawOutside
+                            qaAuditMNOutside += 1
+                        else if multiNSawNoTerminal
+                            qaAuditMNNoTerminal += 1
+            // Los candidatos pertenecen exclusivamente a la H4 que
+            // ACABA de cerrar; no se arrastran a un ciclo nuevo.
+            array.clear(qaMultiNMssCandidates)
+            // C3 solo se invalida por el CIERRE de su H4, NO por cierre M5.
+            // La mecha o un cierre intrabar M5 que atraviese el extremo de C2
+            // no revocan el CRT cuando la C3 H4 finalmente cierra recuperada.
+            if c3Active and c3Start == h4Bucket
+                bool validC3Close = fullH4
+                bool invalidAtC3Close = validC3Close and not na(c3Invalidation) and (c3Dir == 1 ? h4Close < c3Invalidation : h4Close > c3Invalidation)
+                if invalidAtC3Close or not validC3Close
+                    qaAuditC3Invalid += 1
+                else if validC3Close
+                    qaAudit3C += 1
+                    qaLastConfirmed3CAt := h4LastEnd
+                if (invalidAtC3Close or not validC3Close) and lastC1 == c1Start3
+                    lastConfirmedAt := na
+                    lastM5 := na
+                    lastM15 := na
+                    lastModelKind := "NONE"
+                    lastPatternValid := false
+                    lastModelC1 := na
+                c3Active := false
+                c3ModelKind := "NONE"
+                c3PatternValid := false
+                c3ModelC1 := na
+                c3C2Start := na
+
+            // M3B.2 INTEGRADO: clasificar solo al cierre H4 de la manipulacion.
+            // Una barrida M5 no equivale por si sola a un CRT ratificado.
+            if array.size(insideCandidates) > 0
+                for ic = 0 to array.size(insideCandidates) - 1
+                    InsideCandidate cand = array.get(insideCandidates, ic)
+                    bool closesSweepH4 = not na(cand.sweepH4Start) and cand.sweepH4Start == h4Bucket
+                    if closesSweepH4 and (cand.state == "SWEPT" or cand.state == "AMBIGUOUS")
+                        bool closedH4Complete = fullH4
+                        if not closedH4Complete
+                            qaAuditInsideData += 1
+                            cand.state := "DATA_GAP"
+                            cand.isPatternValid := false
+                        else if cand.state == "AMBIGUOUS" or (cand.sweptLow and cand.sweptHigh)
+                            qaAuditInsideDouble += 1
+                            cand.state := "AMBIGUOUS"
+                            cand.modelKind := "NONE"
+                            cand.isPatternValid := false
+                        else
+                            bool returnC2 = h4Close >= cand.c2Low and h4Close <= cand.c2High
+                            if returnC2
+                                qaAuditInside += 1
+                                qaLastInsideReturnAt := h4LastEnd
+                                cand.state := "RATIFIED"
+                                cand.modelKind := cand.sweepDir == 1 ? "INSIDE_RETURN_BULL" : "INSIDE_RETURN_BEAR"
+                                cand.isPatternValid := true
+                            else if h4Close < cand.c1Low or h4Close > cand.c1High
+                                qaAuditInsideOther += 1
+                                qaLastInsideContinuationAt := h4LastEnd
+                                cand.state := "CONTINUATION"
+                                cand.modelKind := h4Close < cand.c1Low ? "INSIDE_CONTINUATION_DOWN" : "INSIDE_CONTINUATION_UP"
+                                cand.isPatternValid := false // Experimental, sin entradas
+                            else
+                                // Cierra dentro de C1 pero fuera de C2.
+                                qaAuditInsideOther += 1
+                                cand.state := "UNRESOLVED"
+                                cand.modelKind := "NONE"
+                                cand.isPatternValid := false
+
+            // ---- M3B.3B: EXPIRACION Y GAPS (DESPUES de clasificar 3B.2) ----
+            // No confundir una pausa normal entre sesiones con un hueco M5
+            // interno. Contamos cierres H4 verificados, no tiempo UTC / 4h.
+            bool insideH4Closed = fullH4
+            if array.size(insideCandidates) > 0
+                for ageI = 0 to array.size(insideCandidates) - 1
+                    InsideCandidate ageCand = array.get(insideCandidates, ageI)
+                    bool awaiting = ageCand.state == "SEEKING" or ageCand.state == "SWEPT"
+                    bool eligibleH4 = h4Bucket >= ageCand.c2End
+                    if awaiting and eligibleH4
+                        if not h4Continuous
+                            // Hay velas M5 en esta H4 pero falta continuidad interna.
+                            qaAuditInsideData += 1
+                            ageCand.state := "DATA_GAP"
+                            ageCand.isPatternValid := false
+                        else if insideH4Closed
+                            if ageCand.state == "SEEKING" and (h4Close < ageCand.c1Low or h4Close > ageCand.c1High)
+                                qaAuditInsideOther += 1
+                                ageCand.state := "INVALIDATED"
+                                ageCand.isPatternValid := false
+                            else
+                                ageCand.h4Life += 1
+                                if ageCand.h4Life >= maxH4Life
+                                    qaAuditInsideExpire += 1
+                                    ageCand.state := "EXPIRED"
+                                    ageCand.isPatternValid := false
+            // Los estados RATIFIED/CONTINUATION/AMBIGUOUS/UNRESOLVED son
+            // terminales: no se reactivan ni consumen mas vida H4.
+
+            // C2 pasa a C3 solo cuando la H4 de C2 CIERRA dentro de C1.
+            bool c2Done = c2Active and c2Start == h4Bucket
+            if c2Done
+                bool inside = h4Close >= c1Low2 and h4Close <= c1High2
+                // El modulo 1 permanece OBLIGATORIO para cualquier clasificacion.
+                bool validC2Data = fullH4
+                // M3B.1: C2 estrictamente interior a C1 al cierre H4 real.
+                // No ratifica Inside, no altera C2-sweep, MSS ni dashboard.
+                bool strictH4Inside = validC2Data and h4High < c1High2 and h4Low > c1Low2
+                if strictH4Inside
+                    string insideId = syminfo.tickerid + "|" + str.tostring(c1Start2) + "|INSIDE"
+                    bool alreadyStored = false
+                    int candidateCount = array.size(insideCandidates)
+                    if candidateCount > 0
+                        for j = 0 to candidateCount - 1
+                            InsideCandidate existing = array.get(insideCandidates, j)
+                            if existing.id == insideId
+                                alreadyStored := true
+                                break
+                    if not alreadyStored
+                        InsideCandidate cand = InsideCandidate.new(insideId, c1Start2, c1High2, c1Low2, h4High, h4Low, bucketH4, na, na, 0, false, false, "SEEKING", "NONE", false, 0, na, na, na, na, na, na)
+                        // Una memoria llena descarta primero terminales sin
+                        // ratificacion, despues SEEKING, SWEPT y finalmente
+                        // el RATIFIED mas antiguo si todos son importantes.
+                        if array.size(insideCandidates) >= 10
+                            int dropIdx = na
+                            for tier = 0 to 3
+                                if na(dropIdx)
+                                    for mi = 0 to array.size(insideCandidates) - 1
+                                        string st = array.get(insideCandidates, mi).state
+                                        bool discardable = tier == 0 ? (st == "EXPIRED" or st == "INVALIDATED" or st == "DATA_GAP" or st == "AMBIGUOUS" or st == "UNRESOLVED" or st == "CONTINUATION") : tier == 1 ? st == "SEEKING" : tier == 2 ? st == "SWEPT" : st == "RATIFIED"
+                                        if discardable
+                                            dropIdx := mi
+                                            break
+                            array.remove(insideCandidates, na(dropIdx) ? 0 : dropIdx)
+                        array.push(insideCandidates, cand)
+                bool strictSingleSweep = c2Dir != 0 and c2StrictSweep and not c2Double
+                bool expansionBull = c2Dir == 1 and h4Close < c1Low2
+                bool expansionBear = c2Dir == -1 and h4Close > c1High2
+                string classified2C = "NONE"
+                if validC2Data and strictSingleSweep
+                    if inside and c2Returned
+                        classified2C := "CRT_2C_RETURN"
+                    else if expansionBull or expansionBear
+                        classified2C := "CRT_2C_EXPANSION"  // Solo diagnostico, NUNCA ratificado
+                last2CClassification := classified2C
+                last2CClassificationAt := bucketH4
+                if classified2C == "CRT_2C_EXPANSION"
+                    qaLastRejectedExpansionAt := h4LastEnd
+                bool validRange = classified2C == "CRT_2C_RETURN"
+                bool exactHour3 = hour(bucketH4, TZ) == ((hour(c1Start2, TZ) + 8) % 24)
+                // Una causa por cierre de C2; son descartes H4, no
+                // señales. Incluye BTC, FX e indices del feed actual.
+                if not validC2Data
+                    qaAuditC2Data += 1
+                else if c2Double
+                    qaAuditC2Double += 1
+                else if not strictSingleSweep
+                    qaAuditC2NoSweep += 1
+                else if not inside or not c2Returned
+                    qaAuditC2Outside += 1
+                else if not exactHour3
+                    qaAuditC2Hour += 1
+                if isBTC
+                    qaLastC2Gate := not validC2Data ? "C2 M5 NO 48" : c2Double ? "C2 DOBLE BARRIDA" : not strictSingleSweep ? "C2 SIN BARRIDA" : not inside ? "C2 CIERRE FUERA" : not c2Returned ? "C2 SIN RETORNO" : not exactHour3 ? "C3 HORA INVALIDA" : "CRT C2 RATIFICADO"
+                if validRange and exactHour3
+                    qaAudit2C += 1
+                    qaLastRatified2CAt := h4LastEnd
+                    if isBTC
+                        qaC2Ratified += 1
+                    // Registrar el CRT al CIERRE H4 de C2. M5/M15 se
+                    // conservan solo si ya se confirmaron en esa C2.

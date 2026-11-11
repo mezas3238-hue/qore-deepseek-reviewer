@@ -1,0 +1,180 @@
+
+// V34.11e: deterministic index H4 alignment on NY 02/06/10/14/18/22.
+// 00:00-01:59 NY belongs to yesterday's 22:00 H4.
+// A nonexistent NY 02:00 DST spring anchor cannot be made a valid C1
+// by relaxing the 48-M5-contiguous candle gate.
+f_index_crt_h4_ny(int t) =>
+    int hr = hour(t, TZ)
+    int bucketHr = hr >= 22 ? 22 : hr >= 18 ? 18 : hr >= 14 ? 14 : hr >= 10 ? 10 : hr >= 6 ? 6 : hr >= 2 ? 2 : 22
+    int dateRef = hr < 2 ? t - 12 * 3600000 : t
+    timestamp(TZ, year(dateRef, TZ), month(dateRef, TZ), dayofmonth(dateRef, TZ), bucketHr, 0)
+
+// Un campo = un estado de un solo CRT. Esta UDT elude el limite de 127
+// elementos que impediria empaquetar 34 tuplas grandes por separado.
+// One extra nested object in the security Signal. Its OHLC always
+// belongs to the selected family's own C1, never the unrelated 2C C1.
+type FamilyVisual
+    int c1Start
+    float c1High
+    float c1Low
+    int eventClosedAt
+    int direction
+    string kind
+    bool structuralQA
+
+type Signal
+    int phase        // 0 sin CRT, 1 C2 provisional, 2 C3 ratificado, 3 ultimo ratificado
+    int direction    // +1 bullish, -1 bearish
+    int c1Start
+    float crh
+    float crl
+    int sweepAt
+    int m5At
+    int m15At
+    float m5Level
+    float m15Level
+    int m5PivotAt
+    int m15PivotAt
+    string modelKind        // PENDING, CRT_2C_RETURN, CRT_2C_EXPANSION, NONE
+    bool isPatternValid    // Independiente de MSS M5/M15
+    // M4B: campos de liquidez calculados en el mismo feed M5.
+    string pdhStatus       // N/D / INTACTO / TAKEN
+    string pdlStatus
+    int pdhSweepAt        // Fin de la primera vela M5 que tomo la referencia
+    int pdlSweepAt
+    int pdhSweepStage     // 0=sin CRT asignable; 2=C2; 3=C3
+    int pdlSweepStage
+    int pdhSweepC1        // Identidad C1 congelada durante primera barrida
+    int pdlSweepC1
+    int crtC2Start        // Inicio real de C2 para distinguir PRE de C2
+    int crtRatifiedAt     // Inicio C3 cuando la C2 H4 fue ratificada; base temporal de alertas
+    int liquidityRefAt    // Timestamp de cierre de la sesion de referencia
+    bool pdhSweptDuringCRT
+    bool pdlSweptDuringCRT
+    // QA-only payload del ultimo FVG H1/H4.
+    int fvgH1Count
+    int fvgH1StateCode
+    float fvgH1Top
+    float fvgH1Bottom
+    float fvgH1Pen
+    int fvgH1FormAt
+    int fvgH1GapAt
+    int fvgH4Count
+    int fvgH4StateCode
+    float fvgH4Top
+    float fvgH4Bottom
+    float fvgH4Pen
+    int fvgH4FormAt
+    int fvgH4GapAt
+    // QA BTC: inicio UNIX del bloque NY y numero de M5 cerradas.
+    int nyH4Start
+    int nyH4M5Count
+    // Valores BTC NY de referencia, mismos M5 del proveedor.
+    float nyPDH
+    float nyPDL
+    int nyPDHReferenceAt
+    // Estado corriente del día del PROVEEDOR 1D a partir de M5 cerradas.
+    // Este es independiente de la sesión NY usada para CRT H4.
+    int chartDStart
+    float chartDayHighM5
+    float chartDayLowM5
+    bool chartDayContinuous
+    // Solo observabilidad BTC: no convierten una barrida en senal.
+    int qaC1Ready
+    int qaC2Ratified
+    string qaLastC2Gate
+    int qaCurrentH4Hour
+    // La ultima vela M15 COMPLETA y CERRADA, independiente del MSS M5.
+    int qaLastClosedM15At
+    // Modelo actual unicamente: diagnostico != entrada confirmada.
+    string entryFamily
+    string entryStage
+    int entryConfirmedAt
+    string insideFamilyDiag
+    string insideStageDiag
+    string multi4Kind
+    int multi4DetectedAt
+    string retest15State
+    int retest15At
+    float retest15High
+    float retest15Low
+    float retest15Close
+    float retest15Pivot
+    // QA: morfologias extra H4 cerradas; NO autoriza MSS ni alertas.
+    string extraFamilyKind
+    bool extraFamilyValid
+    int extraFamilyC1
+    int extraFamilyDirection
+    int extraFamilyRatifiedAt
+    string multiNKind
+    int multiNAt
+    // MSS15 propio de la familia seleccionada: no heredar 2C/3C.
+    int extraFamilySweepAt
+    float extraFamilyM15Pivot
+    int extraFamilyM15PivotAt
+    int extraFamilyM15At
+    int extraFamilyM15C1
+    // Conteos historicos por CONTEXTO del feed M5 realmente cargado,
+    // no 34 señales ni certificacion de todos los mercados.
+    int audit2C
+    int audit3C
+    int auditInside
+    int auditM4
+    int auditMN
+    int auditC2Data
+    int auditC2Double
+    int auditC2NoSweep
+    int auditC2Outside
+    int auditC2Hour
+    int auditC3Invalid
+    int auditInsideData
+    int auditInsideDouble
+    int auditInsideOther
+    int auditInsideExpire
+    int auditMNNoTerminal
+    int auditMNDouble
+    int auditMNOutside
+    int auditH4Incomplete
+    int auditH4DST
+    int auditH4Session
+    int auditH4Internal
+    // QA solo: un motivo excluyente por H4 que inicia a hora C1.
+    int auditC1H4Closed
+    int auditC1HourCandidates
+    int auditC1BadClock
+    int auditC1BadData
+    int auditC1BadRange
+    // V34.11Q: bit 1=TRUE 3C C3 sweep QA (not C2 sweep active C3); 2=2C provisional; 4=expansion rejected;
+    // 8=Inside Return QA; 16=Inside Continuation rejected; 32=Multi QA;
+    // 64=M15 Retest QA. Diagnostic only, not seven independently
+    // certified entry detectors; all use the SAME source M5 context.
+    int qaCatalogMask
+    // V34.11g additional evidence for the 33 non-BTC H4 blocks.
+    // Counts can overlap (one block may violate start and count), so
+    // these are NOT mutually exclusive and must not be summed as H4 BAD.
+    int qaH4BadStart
+    int qaH4BadEnd
+    int qaH4BadBars
+    int qaH4LastBars
+    int qaH4LastStartOffsetMin
+    int qaH4LastEndOffsetMin
+    int qaLastM5PhaseMin
+    int qaSourcePhaseMin
+    // V34.11L historical breadcrumbs from this SAME M5 source. These are
+    // last observed timestamps, not saved CRT/MSS event certificates.
+    int qaLastCandidate2CAt
+    int qaLastRatified2CAt
+    int qaLastRejectedExpansionAt
+    int qaLastConfirmed3CAt
+    int qaLastInsideReturnAt
+    int qaLastInsideContinuationAt
+    int qaLastMulti4At
+    int qaLastMultiNAt
+    int qaLastRetest15At
+    int qaLastCandidate2CCycle
+    // Signed last closed C3 H4: +eventAt bullish, -eventAt bearish.
+    // Last observed ONLY; not an MSS event or independently certified CRT.
+    int qaTrue3CSignedAt
+    FamilyVisual familyVisual
+    // Independent QA M5 proof of selected Inside/Multi-N ONLY.
+    // Multi4 / true3C remain N/V pending own swing evidence.

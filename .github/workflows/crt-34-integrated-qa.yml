@@ -1,0 +1,34 @@
+name: QORE CRT 34 integrated QA - no live
+
+on:
+  push:
+    branches:
+      - qa/crt-34-v34-12x-integration-ci-20261109
+    paths:
+      - "crt-radar-pro/qa-integrated-34/**"
+      - ".github/workflows/crt-34-integrated-qa.yml"
+  pull_request:
+    paths:
+      - "crt-radar-pro/qa-integrated-34/**"
+      - "crt-radar-pro/qa-mss-reasons/**"
+      - ".github/workflows/crt-34-integrated-qa.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  qa-static-and-ohlc-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Exact integrated Pine contract, all 34 feeds
+        run: python -m unittest discover -s crt-radar-pro/qa-integrated-34/tests -p 'test_*.py' -v
+      - name: Independent MSS raw OHLC QA, no alerts
+        run: python -m unittest discover -s crt-radar-pro/qa-mss-reasons/tests -p 'test_*.py' -v
+      - name: Explicit limitations
+        run: |
+          echo "PASS here means GitHub static/synthetic QA only."
+          echo "Pine Editor compilation, data-feed parity, real latency and 7-family market certification remain unverified."

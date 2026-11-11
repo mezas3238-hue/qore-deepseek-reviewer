@@ -1,0 +1,180 @@
+            // Es una familia experimental, NO sustituye la C2 unica del
+            // modelo soberano C1/C2/C3 y NUNCA produce un MSS confirmado.
+            if not fullH4
+                array.clear(qaFourH4)
+                qaMulti4Kind := "H4 INCOMPLETA"
+                qaMulti4At := na
+                qaMulti4C1 := na
+                qaMulti4SweepAt := na
+                qaMulti4Pivot5 := na
+                qaMulti4Pivot5At := na
+                qaMulti4Mss5At := na
+                qaMulti4Pivot15 := na
+                qaMulti4Pivot15At := na
+                qaMulti4Mss15At := na
+                array.clear(qaMulti4MssCandidates)
+            else
+                array.push(qaFourH4, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
+                if array.size(qaFourH4) > 4
+                    array.shift(qaFourH4)
+                if array.size(qaFourH4) == 4
+                    MultiH4 m1 = array.get(qaFourH4, 0)
+                    MultiH4 m2 = array.get(qaFourH4, 1)
+                    MultiH4 m3 = array.get(qaFourH4, 2)
+                    MultiH4 m4 = array.get(qaFourH4, 3)
+                    bool fourConsecutive = m1.endAt == m2.startAt and m2.endAt == m3.startAt and m3.endAt == m4.startAt
+                    bool allowedC1 = f_allowed(hour(m1.startAt, TZ), isIndex)
+                    bool sweptLow4 = m2.lo < m1.lo and m2.hi <= m1.hi and m3.hi <= m1.hi
+                    bool sweptHigh4 = m2.hi > m1.hi and m2.lo >= m1.lo and m3.lo >= m1.lo
+                    bool c2aReturn = m2.cl >= m1.lo and m2.cl <= m1.hi
+                    bool c2bReturn = m3.cl >= m1.lo and m3.cl <= m1.hi
+                    bool multiBull = sweptLow4 and c2aReturn and c2bReturn and m3.lo <= m1.lo and m4.cl > m3.cl and m4.cl >= m1.lo
+                    bool multiBear = sweptHigh4 and c2aReturn and c2bReturn and m3.hi >= m1.hi and m4.cl < m3.cl and m4.cl <= m1.hi
+                    if fourConsecutive and allowedC1 and (multiBull != multiBear)
+                        qaAuditM4 += 1
+                        qaLastMulti4At := m4.endAt
+                        qaMulti4Kind := multiBull ? "MULTI4 BULL QA" : "MULTI4 BEAR QA"
+                        qaMulti4At := m4.endAt
+                        qaMulti4C1 := m1.startAt
+                        qaMulti4SweepAt := na
+                        qaMulti4Pivot5 := na
+                        qaMulti4Pivot5At := na
+                        qaMulti4Mss5At := na
+                        qaMulti4Pivot15 := na
+                        qaMulti4Pivot15At := na
+                        qaMulti4Mss15At := na
+                        // Extraer MSS M5/M15 exclusivamente del mismo candidato
+                        // de C1/C2a/direccion. Nunca prestar pivotes de otra familia.
+                        if array.size(qaMulti4MssCandidates) > 0
+                            for idx4 = 0 to array.size(qaMulti4MssCandidates) - 1
+                                Multi4MssCandidate q4 = array.get(qaMulti4MssCandidates, idx4)
+                                int dir4 = multiBull ? 1 : -1
+                                if q4.c1Start == m1.startAt and q4.c2aStart == m2.startAt and q4.direction == dir4 and not q4.doubleSweep and not na(q4.sweepAt) and q4.sweepAt <= m2.endAt
+                                    qaMulti4SweepAt := q4.sweepAt
+                                    qaMulti4Pivot5 := q4.pivot5
+                                    qaMulti4Pivot5At := q4.pivot5At
+                                    qaMulti4Mss5At := q4.mss5At
+                                    qaMulti4Pivot15 := q4.pivot15
+                                    qaMulti4Pivot15At := q4.pivot15At
+                                    qaMulti4Mss15At := q4.mss15At
+                                    break
+                // Cada H4 completa elegible puede ser una C1 de futuro
+                // MULTI4; se mantienen hasta 4 candidatos por feed.
+                if f_allowed(hour(h4Bucket, TZ), isIndex)
+                    array.push(qaMulti4MssCandidates, Multi4MssCandidate.new(h4Bucket, bucketH4, h4High, h4Low, 0, na, na, na, na, na, na, na, false))
+                    if array.size(qaMulti4MssCandidates) > 4
+                        array.shift(qaMulti4MssCandidates)
+            // QA MULTI-N: no imponer el MULTI4 distribuido a modelos
+            // C1 + N interiores + barrida terminal. Conserva los dos
+            // detectores por separado; nunca crea MSS o alertas.
+            if not fullH4
+                array.clear(qaMultiNHistory)
+                qaMultiNKind := "H4 INCOMPLETA"
+                qaMultiNAt := na
+                qaMultiNC1 := na
+                qaMultiNDir := 0
+                qaTrue3CPending := na
+            else
+                array.push(qaMultiNHistory, MultiH4.new(h4Bucket, h4LastEnd, h4High, h4Low, h4Close, true))
+                if array.size(qaMultiNHistory) > 7
+                    array.shift(qaMultiNHistory)
+                int nHistory = array.size(qaMultiNHistory)
+                // TRUE 3-CANDLE STRUCTURE (Rowdy slide 8/20):
+                // C1 range; CLOSED C2 setup with NO C1 sweep;
+                // CLOSED C3 sweeps ONE C1 boundary and returns strictly inside.
+                // This is not the legacy 2C whose C3 simply distributes.
+                // Source is this symbol's 48-M5/closed-H4 bounded history.
+                // An Inside that only sweeps C2 is NOT a true C3 C1 sweep.
+                if nHistory >= 3
+                    MultiH4 trueC1 = array.get(qaMultiNHistory, nHistory - 3)
+                    MultiH4 trueC2 = array.get(qaMultiNHistory, nHistory - 2)
+                    MultiH4 trueC3 = array.get(qaMultiNHistory, nHistory - 1)
+                    bool threeClosed = trueC1.valid and trueC2.valid and trueC3.valid and trueC1.endAt == trueC2.startAt and trueC2.endAt == trueC3.startAt
+                    bool setupNoSweep = trueC2.hi <= trueC1.hi and trueC2.lo >= trueC1.lo and trueC2.cl > trueC1.lo and trueC2.cl < trueC1.hi
+                    bool c3LowRaid = trueC3.lo < trueC1.lo and trueC3.hi <= trueC1.hi
+                    bool c3HighRaid = trueC3.hi > trueC1.hi and trueC3.lo >= trueC1.lo
+                    bool c3ClosesBack = trueC3.cl > trueC1.lo and trueC3.cl < trueC1.hi
+                    bool allowedTrue3C = f_allowed(hour(trueC1.startAt, TZ), isIndex)
+                    if threeClosed and allowedTrue3C and setupNoSweep and (c3LowRaid != c3HighRaid) and c3ClosesBack
+                        // Signed timestamp conserves direction without adding
+                        // another field to the near-128-field Signal UDT.
+                        // Structural evidence only: MSS5/15 remain UNVERIFIED
+                        // until first sweep and pivots are recorded separately.
+                        qaTrue3CSignedAt := (c3LowRaid ? 1 : -1) * trueC3.endAt
+                        // Aceptar solo el mismo C1 y C3, tras evidencia M5
+                        // cerrada y sin barrida contraria; si falta, queda N/V.
+                        if not na(qaTrue3CPending)
+                            True3CMssCandidate owned3 = qaTrue3CPending
+                            int expectedDir3 = c3LowRaid ? 1 : -1
+                            if owned3.c1Start == trueC1.startAt and owned3.c3Start == trueC3.startAt and owned3.direction == expectedDir3 and not owned3.doubleSweep and not na(owned3.sweepAt)
+                                qaTrue3CConfirmed := owned3
+                // Preparar EL PROXIMO C3, solo con C1 y C2 completas,
+                // contiguas y sin barrida C1. No usar el MSS de Inside.
+                qaTrue3CPending := na
+                if nHistory >= 2
+                    MultiH4 preC1 = array.get(qaMultiNHistory, nHistory - 2)
+                    MultiH4 preC2 = array.get(qaMultiNHistory, nHistory - 1)
+                    bool preReady3 = preC1.valid and preC2.valid and preC1.endAt == preC2.startAt and preC2.endAt == bucketH4 and f_allowed(hour(preC1.startAt, TZ), isIndex) and preC2.hi <= preC1.hi and preC2.lo >= preC1.lo and preC2.cl > preC1.lo and preC2.cl < preC1.hi
+                    if preReady3
+                        qaTrue3CPending := True3CMssCandidate.new(preC1.startAt, bucketH4, preC1.hi, preC1.lo, 0, na, na, na, na, na, na, na, false)
+                if nHistory >= 4
+                    bool multiNAuditable = false
+                    bool multiNMatched = false
+                    bool multiNSawDouble = false
+                    bool multiNSawOutside = false
+                    bool multiNSawNoTerminal = false
+                    // Un mismo C1 puede producir varias interpretaciones.
+                    // Preferir la C1 mas reciente (N menor) y registrar
+                    // solo una observacion QA por vela terminal.
+                    for consolidationCount = 2 to 5
+                        int needed = consolidationCount + 2
+                        if needed <= nHistory
+                            int c1Idx = nHistory - needed
+                            MultiH4 beginH4 = array.get(qaMultiNHistory, c1Idx)
+                            MultiH4 endH4 = array.get(qaMultiNHistory, nHistory - 1)
+                            bool consecutive = true
+                            bool internalBars = true
+                            MultiH4 priorH4 = beginH4
+                            for j = c1Idx + 1 to nHistory - 1
+                                MultiH4 nextBar = array.get(qaMultiNHistory, j)
+                                consecutive := consecutive and priorH4.endAt == nextBar.startAt
+                                priorH4 := nextBar
+                            for j = c1Idx + 1 to nHistory - 2
+                                MultiH4 consolidate = array.get(qaMultiNHistory, j)
+                                internalBars := internalBars and consolidate.hi < beginH4.hi and consolidate.lo > beginH4.lo
+                            bool validTimeC1 = f_allowed(hour(beginH4.startAt, TZ), isIndex)
+                            bool sweepLowN = endH4.lo < beginH4.lo and endH4.hi <= beginH4.hi
+                            bool sweepHighN = endH4.hi > beginH4.hi and endH4.lo >= beginH4.lo
+                            bool returnN = endH4.cl >= beginH4.lo and endH4.cl <= beginH4.hi
+                            if consecutive and internalBars and validTimeC1
+                                multiNAuditable := true
+                                bool sweptBoth = endH4.lo < beginH4.lo and endH4.hi > beginH4.hi
+                                multiNSawDouble := multiNSawDouble or sweptBoth
+                                multiNSawOutside := multiNSawOutside or (sweepLowN != sweepHighN) and not returnN
+                                multiNSawNoTerminal := multiNSawNoTerminal or (not sweepLowN and not sweepHighN and not sweptBoth)
+                            if consecutive and internalBars and validTimeC1 and (sweepLowN != sweepHighN) and returnN
+                                multiNMatched := true
+                                qaAuditMN += 1
+                                qaLastMultiNAt := endH4.endAt
+                                qaMultiNKind := sweepLowN ? "MULTI-N BULL QA" : "MULTI-N BEAR QA"
+                                qaMultiNAt := endH4.endAt
+                                qaMultiNC1 := beginH4.startAt
+                                qaMultiNDir := sweepLowN ? 1 : -1
+                                // Solo extraer MSS del MISMO candidato C1
+                                // y H4 terminal, con barrida no ambigua.
+                                qaMultiNSweepAt := na
+                                qaMultiNPivot15 := na
+                                qaMultiNPivot15At := na
+                                qaMultiNMss15At := na
+                                qaMultiNMss5At := na
+                                qaMultiNPivot5 := na
+                                qaMultiNPivot5At := na
+                                if array.size(qaMultiNMssCandidates) > 0
+                                    for k = 0 to array.size(qaMultiNMssCandidates) - 1
+                                        MultiNMssCandidate qaOwn = array.get(qaMultiNMssCandidates, k)
+                                        if qaOwn.c1Start == qaMultiNC1 and qaOwn.terminalH4Start == h4Bucket and qaOwn.direction == qaMultiNDir and not qaOwn.doubleSweep
+                                            qaMultiNSweepAt := qaOwn.sweepAt
+                                            qaMultiNPivot15 := qaOwn.pivot15
+                                            qaMultiNPivot15At := qaOwn.pivot15At
+                                            qaMultiNMss15At := qaOwn.mss15At
+                                            qaMultiNPivot5 := qaOwn.pivot5

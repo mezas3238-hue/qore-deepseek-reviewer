@@ -1,0 +1,180 @@
+                bool eligibleRatifiedMulti = not na(qaMultiNAt) and not na(qaMultiNSweepAt) and not na(qaMultiNPivot15At) and not na(qaMultiNPivot15) and qaMultiNPivot15At < qaMultiNSweepAt and na(qaMultiNMss15At) and closed15At > qaMultiNSweepAt and closed15At <= qaMultiNAt + H4MS and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin) and prev15Continuous
+                bool crossedRatifiedMulti = qaMultiNDir == 1 ? m15Close > qaMultiNPivot15 and prev15Close <= qaMultiNPivot15 : qaMultiNDir == -1 ? m15Close < qaMultiNPivot15 and prev15Close >= qaMultiNPivot15 : false
+                if eligibleRatifiedMulti and crossedRatifiedMulti
+                    qaMultiNMss15At := closed15At
+                // 3C TRUE: pivote M15 PRE-barrida propio, cierre de TRES
+                // M5 del proveedor, nunca una confirmacion prestada del 2C.
+                if not na(qaTrue3CPending)
+                    True3CMssCandidate q3 = qaTrue3CPending
+                    bool eligible3M15 = q3.direction != 0 and not q3.doubleSweep and not na(q3.sweepAt) and not na(q3.pivot15) and not na(q3.pivot15At) and q3.pivot15At < q3.sweepAt and na(q3.mss15At) and closed15At > q3.sweepAt and closed15At <= q3.c3Start + H4MS and prev15Continuous and closed15At == bucket15 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool crossed3M15 = q3.direction == 1 ? m15Close > q3.pivot15 and prev15Close <= q3.pivot15 : q3.direction == -1 ? m15Close < q3.pivot15 and prev15Close >= q3.pivot15 : false
+                    if eligible3M15 and crossed3M15
+                        q3.mss15At := closed15At
+                // QA RETEST M15: nunca disparar en la misma barra MSS,
+                // ni por una M5, ni reusar el pivote de un CRT distinto.
+                int qaCycle = c3Active ? c1Start3 : c2Active ? c1Start2 : na
+                int qaMssAt = c3Active ? c3M15At : c2Active ? c2M15At : na
+                int qaDir = c3Active ? c3Dir : c2Active ? c2Dir : 0
+                float qaLevel = c3Active ? c3Pivot15 : c2Active ? c2Pivot15 : na
+                if na(qaCycle) or na(qaMssAt) or na(qaLevel)
+                    qaRetest15State := "SIN MSS15"
+                    qaRetest15At := na
+                    qaRetest15High := na
+                    qaRetest15Low := na
+                    qaRetest15Close := na
+                    qaRetest15Pivot := na
+                    qaRetestCycleC1 := na
+                    qaRetestSourceMssAt := na
+                else
+                    bool freshQaRetest = na(qaRetestCycleC1) or qaRetestCycleC1 != qaCycle or na(qaRetestSourceMssAt) or qaRetestSourceMssAt != qaMssAt
+                    if freshQaRetest
+                        qaRetestCycleC1 := qaCycle
+                        qaRetestSourceMssAt := qaMssAt
+                        qaRetest15At := na
+                        qaRetest15High := na
+                        qaRetest15Low := na
+                        qaRetest15Close := na
+                        qaRetest15Pivot := na
+                        qaRetest15State := "ESPERA RETEST"
+                    bool postMss15 = closed15At > qaMssAt and closed15At <= qaMssAt + 4 * 3600000 and f_m15_phase_ok(closed15At, qaNativeSourcePhaseMin)
+                    bool touchedRetest = qaDir == 1 ? m15Low <= qaLevel and m15Close > qaLevel : qaDir == -1 ? m15High >= qaLevel and m15Close < qaLevel : false
+                    if na(qaRetest15At) and postMss15 and prev15Continuous and touchedRetest
+                        qaRetest15At := closed15At
+                        qaRetest15High := m15High
+                        qaRetest15Low := m15Low
+                        qaRetest15Close := m15Close
+                        qaRetest15Pivot := qaLevel
+                        qaRetest15State := "RETEST M15 QA"
+                prev15Close := m15Close
+                prev15End := m15LastEnd
+            else
+                lastCompleteM15CloseAt := na
+                // Una M15 omitida o incompleta invalida pivotes construidos
+                // con muestras discontinuas, y el cierre previo del MSS.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
+
+            m15Bucket := bucket15
+            m15High := bH
+            m15Low := bL
+            m15Close := bC
+            m15Count := 1
+            m15LastEnd := barEnd
+            m15Start := bucket15
+        else if na(m15Bucket)
+            m15Bucket := bucket15
+            m15High := bH
+            m15Low := bL
+            m15Close := bC
+            m15Count := 1
+            m15LastEnd := barEnd
+            m15Start := bucket15
+        else
+            if barT != m15LastEnd
+                m15Count := -100 // M15 incompleta: no publicar MSS.
+                // No conservar swings ni el cierre de un M15 sin continuidad.
+                prev15Close := na
+                prev15End := na
+                array.clear(highs15)
+                array.clear(lows15)
+                array.clear(times15)
+                lastHigh15 := na
+                lastLow15 := na
+                lastHigh15At := na
+                lastLow15At := na
+            else if m15Count >= 0
+                m15Count += 1
+            m15High := math.max(m15High, bH)
+            m15Low := math.min(m15Low, bL)
+            m15Close := bC
+            m15LastEnd := barEnd
+
+    // ---- M5A: CIERRE H1, FVG SIN LOOKAHEAD ----
+    if not na(barT) and not na(bucketH1)
+        bool nextH1 = not na(h1Bucket) and bucketH1 != h1Bucket
+        if nextH1
+            bool fullH1 = h1Continuous and h1Count == 12 and h1FirstT == h1Bucket and h1LastEnd == h1Bucket + 3600000
+            if fullH1 and not na(h1Prev) and not na(h1Prev2)
+                bool chainH1 = h1Prev.valid and h1Prev2.valid and h1Prev2.endAt == h1Prev.startAt and h1Prev.endAt == h1Bucket
+                if chainH1
+                    if h1Low > h1Prev2.hi
+                        f_add_context_fvg(fvgsH1, "H1", 1, h1Low, h1Prev2.hi, h1LastEnd, previousBarEnd == h1LastEnd and previousSessionLast5)
+                    else if h1High < h1Prev2.lo
+                        f_add_context_fvg(fvgsH1, "H1", -1, h1Prev2.lo, h1High, h1LastEnd, previousBarEnd == h1LastEnd and previousSessionLast5)
+            h1Prev2 := h1Prev
+            h1Prev := FvgBar.new(h1Bucket, h1LastEnd, h1High, h1Low, fullH1)
+            h1Bucket := bucketH1
+            h1FirstT := barT
+            h1LastEnd := barEnd
+            h1High := bH
+            h1Low := bL
+            h1Count := 1
+            h1Continuous := true
+        else if na(h1Bucket)
+            h1Bucket := bucketH1
+            h1FirstT := barT
+            h1LastEnd := barEnd
+            h1High := bH
+            h1Low := bL
+            h1Count := 1
+            h1Continuous := true
+        else
+            h1Continuous := h1Continuous and barT == h1LastEnd
+            h1High := math.max(h1High, bH)
+            h1Low := math.min(h1Low, bL)
+            h1Count += 1
+            h1LastEnd := barEnd
+
+    // ---- CERRAR H4 ANTERIOR Y ABRIR NUEVA ----
+    if not na(barT) and not na(bucketH4)
+        bool nextH4 = not na(h4Bucket) and bucketH4 != h4Bucket
+        if nextH4
+            // QA: registrar cuántos bloques H4 del mismo feed se han
+            // observado; no confundir respuesta de request.security con
+            // presencia de C1 válida ni inventar formaciones CRT.
+            qaAuditC1H4Closed += 1
+            // Last H4 timestamp/candle evidence before opening the next.
+            // Time deltas are based on the same M5 feed, not chart M15/H4.
+            qaH4LastBars := h4Count
+            qaH4LastStartOffsetMin := na(h4FirstT) ? na : int((h4FirstT - h4Bucket) / 60000)
+            qaH4LastEndOffsetMin := na(h4LastEnd) ? na : int((h4LastEnd - (h4Bucket + H4MS)) / 60000)
+            if h4FirstT != h4Bucket
+                qaH4BadStart += 1
+            if h4LastEnd != h4Bucket + H4MS
+                qaH4BadEnd += 1
+            if h4Count != 48
+                qaH4BadBars += 1
+            // M5A: Tres H4 completas consecutivas, sin conectar gaps de mercado.
+            bool fullH4 = h4Continuous and h4Count == 48 and h4FirstT == h4Bucket and h4LastEnd == h4Bucket + H4MS
+            if not fullH4
+                qaAuditH4Incomplete += 1
+                int spanH4Ms = bucketH4 - h4Bucket
+                bool exactDSTBlock = (spanH4Ms == H4MS + 3600000 or spanH4Ms == H4MS - 3600000) and h4Continuous and h4FirstT == h4Bucket and h4LastEnd == bucketH4 and h4Count * 300000 == spanH4Ms
+                if exactDSTBlock
+                    // Completa en horario local NY, duración real 3/5h.
+                    qaAuditH4DST += 1
+                else if not h4Continuous
+                    // Hueco dentro de un bloque que sí tenía M5.
+                    qaAuditH4Internal += 1
+                else
+                    // Inicio/fin incompleto (historial o horario de
+                    // mercado); no atribuir a pérdida del proveedor.
+                    qaAuditH4Session += 1
+            if fullH4 and not na(h4Prev) and not na(h4Prev2)
+                bool chainH4 = h4Prev.valid and h4Prev2.valid and h4Prev2.endAt == h4Prev.startAt and h4Prev.endAt == h4Bucket
+                if chainH4
+                    if h4Low > h4Prev2.hi
+                        f_add_context_fvg(fvgsH4, "H4", 1, h4Low, h4Prev2.hi, h4LastEnd, previousBarEnd == h4LastEnd and previousSessionLast5)
+                    else if h4High < h4Prev2.lo
+                        f_add_context_fvg(fvgsH4, "H4", -1, h4Prev2.lo, h4High, h4LastEnd, previousBarEnd == h4LastEnd and previousSessionLast5)
+            h4Prev2 := h4Prev
+            h4Prev := FvgBar.new(h4Bucket, h4LastEnd, h4High, h4Low, fullH4)
+            // QA MULTI4: barrida y retorno se distribuyen en DOS H4
+            // consecutivas, luego una tercera H4 de distribucion.

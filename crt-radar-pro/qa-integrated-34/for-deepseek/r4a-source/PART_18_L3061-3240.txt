@@ -1,0 +1,180 @@
+    array<float> tops = array.new_float()
+    array<float> bottoms = array.new_float()
+    array<int> dirs = array.new_int()
+    array<int> times = array.new_int()
+    array<bool> partials = array.new_bool()
+    array<bool> used = array.new_bool()
+    float confirmedH4Atr = ta.atr(14)[1]
+    float referencePrice = close  // close en contexto H4; realtime puede estar ABIERTO, historico al cierre, preseleccion NO exacta del chart
+    for k = 1 to depth
+        bool consecutive = not na(time[k + 2]) and not na(time[k + 1]) and not na(time[k]) and time[k + 1] - time[k + 2] == H4MS and time[k] - time[k + 1] == H4MS
+        bool gapBull = consecutive and not na(low[k]) and not na(high[k + 2]) and low[k] - high[k + 2] >= syminfo.mintick
+        bool gapBear = consecutive and not na(high[k]) and not na(low[k + 2]) and low[k + 2] - high[k] >= syminfo.mintick
+        if gapBull or gapBear
+            float top = gapBull ? low[k] : low[k + 2]
+            float bottom = gapBull ? high[k + 2] : high[k]
+            bool fullyFilled = false
+            bool partlyFilled = false
+            // R3: bar H4 [0] tambien cuenta; su high/low es observable
+            // en tiempo real y definitivo tras su cierre. Sin future leak.
+            // Para k=1 se evalua j=0 (antes se omitia por completo).
+            for j = 0 to k - 1
+                if gapBull
+                    if low[j] <= bottom
+                        fullyFilled := true
+                    else if low[j] <= top
+                        partlyFilled := true
+                else
+                    if high[j] >= top
+                        fullyFilled := true
+                    else if high[j] >= bottom
+                        partlyFilled := true
+            if not fullyFilled and top > bottom and not na(time_close[k])
+                array.push(tops,top)
+                array.push(bottoms,bottom)
+                array.push(dirs,gapBull ? 1 : -1)
+                array.push(times,time_close[k])
+                array.push(partials,partlyFilled)
+                array.push(used,false)
+    float t1 = na
+    float b1 = na
+    int d1 = 0
+    int a1 = na
+    bool p1 = false
+    float t2 = na
+    float b2 = na
+    int d2 = 0
+    int a2 = na
+    bool p2 = false
+    float t3 = na
+    float b3 = na
+    int d3 = 0
+    int a3 = na
+    bool p3 = false
+    // Elegir TRES zonas mas proximas; en empate prioriza la
+    // mas reciente porque el vector se creo k=1..depth.
+    if array.size(tops) > 0 and not na(referencePrice)
+        for rank = 0 to 2
+            int best = na
+            float bestDistance = na
+            for idx = 0 to array.size(tops) - 1
+                if not array.get(used,idx)
+                    float top = array.get(tops,idx)
+                    float bottom = array.get(bottoms,idx)
+                    float dist = referencePrice > top ? referencePrice - top : referencePrice < bottom ? bottom - referencePrice : 0.0
+                    if na(bestDistance) or dist < bestDistance
+                        bestDistance := dist
+                        best := idx
+            if not na(best)
+                array.set(used,best,true)
+                if rank == 0
+                    t1 := array.get(tops,best)
+                    b1 := array.get(bottoms,best)
+                    d1 := array.get(dirs,best)
+                    a1 := array.get(times,best)
+                    p1 := array.get(partials,best)
+                else if rank == 1
+                    t2 := array.get(tops,best)
+                    b2 := array.get(bottoms,best)
+                    d2 := array.get(dirs,best)
+                    a2 := array.get(times,best)
+                    p2 := array.get(partials,best)
+                else
+                    t3 := array.get(tops,best)
+                    b3 := array.get(bottoms,best)
+                    d3 := array.get(dirs,best)
+                    a3 := array.get(times,best)
+                    p3 := array.get(partials,best)
+    [t1,b1,d1,a1,p1,t2,b2,d2,a2,p2,t3,b3,d3,a3,p3,confirmedH4Atr]
+
+// El mismo simbolo abierto (IC:US30 no es OANDA:US30).
+// +1 solicitud unica 240m: 34 M5 + 1 Daily + 1 H4 = 36.
+[fvg1Top,fvg1Bottom,fvg1Dir,fvg1At,fvg1PartialHist,fvg2Top,fvg2Bottom,fvg2Dir,fvg2At,fvg2PartialHist,fvg3Top,fvg3Bottom,fvg3Dir,fvg3At,fvg3PartialHist,fvgConfirmedAtr] = request.security(syminfo.tickerid, "240", f_chartH4Fvgs(chartFvgLookbackH4), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=60)
+
+// En la H4 actual, monitorizar solo la mecha OBSERVADA, sin leer
+// del futuro la high/low de una H4 que todavia no ha cerrado.
+int openNativeH4 = time("240")
+var int chartH4OpenSeen = na
+var float currentH4HighSeen = na
+var float currentH4LowSeen = na
+if not na(openNativeH4)
+    if na(chartH4OpenSeen) or openNativeH4 != chartH4OpenSeen
+        chartH4OpenSeen := openNativeH4
+        currentH4HighSeen := high
+        currentH4LowSeen := low
+    else
+        currentH4HighSeen := math.max(currentH4HighSeen, high)
+        currentH4LowSeen := math.min(currentH4LowSeen, low)
+
+
+// La funcion gestiona SOLO objetos visuales del grafico; NO actualiza
+// el detector CRT ni los calculos MSS, ni crea alertas.
+f_drawChartFvg(box existingBox, label existingLabel, bool enabled, float zoneTop, float zoneBottom, int bornAt, int dir, bool partial, int endAt) =>
+    box b = existingBox
+    label l = existingLabel
+    if enabled and not na(bornAt) and endAt > bornAt
+        color ink = dir == 1 ? chartFvgBullColor : chartFvgBearColor
+        color fillInk = color.new(ink, partial ? math.min(100,chartFvgFillOpacity + 5) : chartFvgFillOpacity)
+        string titleText = "FVG H4 " + (dir == 1 ? "ALC " : "BAJ ") + (partial ? "PARCIAL" : "INTACTO")
+        if na(b)
+            b := box.new(left=bornAt,top=zoneTop,right=endAt,bottom=zoneBottom,xloc=xloc.bar_time,border_color=color.new(ink,35),bgcolor=fillInk)
+        if na(l)
+            l := label.new(endAt,zoneTop,titleText,xloc=xloc.bar_time,style=label.style_label_left,textcolor=ink,color=color.new(ink,100),size=size.tiny)
+        box.set_lefttop(b,bornAt,zoneTop)
+        box.set_rightbottom(b,endAt,zoneBottom)
+        box.set_bgcolor(b,fillInk)
+        box.set_border_color(b,color.new(ink,35))
+        label.set_xy(l,endAt,zoneTop)
+        label.set_text(l,titleText)
+        label.set_textcolor(l,ink)
+    else
+        if not na(b)
+            box.delete(b)
+            b := na
+        if not na(l)
+            label.delete(l)
+            l := na
+    [b,l]
+
+// V34.12K: Chart B VISUAL SOLO del feed ya solicitado por Radar A.
+// No solicitar un feed #35; la misma UDT y el mismo f_engine() se reutilizan.
+// Los niveles de un broker diferente nunca se dibujan contra este grafico.
+// V34.12X R3: Chart EXTERNO IC sin alterar Radar34.
+// MAX 1 request M5 adicional SOLO cuando el ticker IC abierto NO
+// coincide con ninguno de los 34. No sustituye ni muta scanSymbols.
+// El engine es el mismo, pero esta fuente NUEVA es QA NO CERT.
+// dynamic_requests=true permite solicitar condicionalmente en Pine v6.
+bool chartExternalQA = chartIsIC and chartStaticSlot < 0
+if chartExternalQA
+    Signal outsideM5 = request.security(syminfo.tickerid, "5", f_engine_snapshot(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=400)
+    if not na(outsideM5) and not na(outsideM5.phase)
+        integratedOwn := outsideM5
+        integratedSlot := 34  // SENTINEL, nunca usar para array.get(scanSymbols,...): indices SOLO 0..33
+
+Signal own = integratedOwn
+bool chartBtcSymbol = str.upper(syminfo.ticker) == "BTCUSD"
+bool chartAvailable = chartIsIC and integratedSlot >= 0 and not na(own) and not na(own.phase)
+// H4 chart puede iniciar en hora distinta al bloque H4 reconstruido por
+// el feed M5 exacto (+1/+2 min o calendario del proveedor). Requerir
+// exigir igualdad exacta con time suprimia dibujos validos EN H4. El dibujo usa
+// xloc.bar_time, C1/C2 y OHLC del mismo slot, no H4 del chart mezclada.
+bool visualChartAligned = timeframe.isintraday and (timeframe.multiplier == 5 or timeframe.multiplier == 15 or timeframe.multiplier == 240)
+// Nunca dibujar una C2 provisional o un bit de mascara sin C1 y OHLC verificados.
+// Retener un 2C verificado hasta su ventana de MEMORIA sin presentarlo
+// como CRT EN CURSO. El modelo marca phase=3 para este estado.
+bool chartCoreActive = chartAvailable and own.phase == 2 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crtRatifiedAt) and own.crtRatifiedAt >= own.crtC2Start + H4MS and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+bool chartCoreHistorical = chartAvailable and own.phase == 3 and own.isPatternValid and own.modelKind == "CRT_2C_RETURN" and not na(own.c1Start) and not na(own.crtC2Start) and not na(own.crh) and not na(own.crl) and own.crh > own.crl
+bool chartCoreC1 = chartCoreActive or chartCoreHistorical
+bool chartExtraC1 = chartAvailable and not chartCoreC1 and not na(own.familyVisual) and own.familyVisual.structuralQA and not na(own.familyVisual.c1Start) and not na(own.familyVisual.eventClosedAt) and not na(own.familyVisual.c1High) and not na(own.familyVisual.c1Low) and own.familyVisual.c1High > own.familyVisual.c1Low
+int displayC1 = chartCoreC1 ? own.c1Start : chartExtraC1 ? own.familyVisual.c1Start : na
+float displayCRH = chartCoreC1 ? own.crh : chartExtraC1 ? own.familyVisual.c1High : na
+float displayCRL = chartCoreC1 ? own.crl : chartExtraC1 ? own.familyVisual.c1Low : na
+string displayFamily = chartCoreHistorical ? "2C HIST QA" : chartCoreActive ? (chartExternalQA ? "2C QA EXT IC" : chartBtcSymbol ? "2C RAT" : "2C QA") : chartExtraC1 ? (chartExternalQA ? "EXTERNO QA " + own.familyVisual.kind : own.familyVisual.kind) : "NONE"
+int displayEnd = chartCoreC1 ? own.c1Start + 3 * H4MS : chartExtraC1 ? own.familyVisual.eventClosedAt + H4MS : na
+bool visible = visualChartAligned and (chartCoreC1 or chartExtraC1) and not na(displayC1) and not na(displayCRH) and not na(displayCRL) and not na(displayEnd) and displayCRH > displayCRL and displayEnd > displayC1 and time_close >= displayC1
+
+// Variables chartAvailable y visible estan declaradas ANTES de los
+// estados FVG: Pine no admite referencias hacia una declaracion posterior.
+bool fvgChartOK = chartIsIC and showChartH4Fvg and timeframe.isintraday and timeframe.in_seconds(timeframe.period) <= H4MS / 1000 and not na(openNativeH4)
+// ATR confirmado, nunca la ATR de la barra H4 aun abierta.
+f_chartZoneDistance(float px, float top, float bottom) =>
