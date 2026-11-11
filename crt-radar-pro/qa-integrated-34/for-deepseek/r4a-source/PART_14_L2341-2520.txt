@@ -1,0 +1,180 @@
+s26 = "IC:EURCHF"
+s27 = "IC:EURGBP"
+s28 = "IC:EURJPY"
+s29 = "IC:EURNZD"
+s30 = "IC:GBPAUD"
+s31 = "IC:GBPCAD"
+s32 = "IC:GBPCHF"
+s33 = "IC:GBPNZD"
+s34 = "IC:NZDCAD"
+var string[] scanSymbols = array.from(s01, s02, s03, s04, s05, s06, s07, s08, s09, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32, s33, s34)
+// PROVEEDOR SOBERANO: IC MARKETS en los 34 slots.
+// NO sobrescribir BTC con COINBASE, OANDA ni el ticker abierto.
+// Ningún input permite modificar estos feeds sin versionar código.
+// Labels legibles del inventario FIJO, sin selección de proveedor en ajustes.
+f_name(string sym) =>
+    int pos = str.pos(sym, ":")
+    pos >= 0 ? str.substring(sym, pos + 1) : sym
+
+var string[] scanNames = array.from(f_name(s01), f_name(s02), f_name(s03), f_name(s04), "NDX100", f_name(s06), f_name(s07), f_name(s08), f_name(s09), f_name(s10), f_name(s11), f_name(s12), f_name(s13), f_name(s14), f_name(s15), f_name(s16), f_name(s17), f_name(s18), f_name(s19), f_name(s20), f_name(s21), f_name(s22), f_name(s23), f_name(s24), f_name(s25), f_name(s26), f_name(s27), f_name(s28), f_name(s29), f_name(s30), f_name(s31), f_name(s32), f_name(s33), f_name(s34))
+
+// V34.12L QA: default fase M5 por proveedor solo para diagnostico de 34 feeds.
+// 26 fuentes +1/+2m siguen siendo CRT QA, NO H4 NY :00 certificadas.
+// V34.12K QA: no se hace request.security() adicional para el grafico.
+// Reutilizar el Signal completo del SLOT que coincide exactamente con ticker.standard.
+// No se dibujan niveles si el proveedor del grafico NO coincide con ninguno de los 34.
+Signal integratedOwn = na
+int integratedSlot = -1
+// El chart tiene un slot propio basado SOLO en ticker+proveedor;
+// el valor na de una respuesta Signal no borra Daily ni FVG.
+int chartStaticSlot = -1
+string integratedChartBroker = ticker.standard(syminfo.tickerid)
+// TradingView identifica los graficos oficiales IC Markets con IC:.
+// Pine NO puede cambiar el simbolo abierto por el usuario: en otros
+// brokers se bloquea el dibujo, con aviso visible. No mezclar precios.
+bool chartIsIC = str.upper(syminfo.prefix) == "IC"
+
+// One independent seven-category snapshot per provider/slot. Does NOT
+// merge sub-model identities or promote QA state to operational CRT.
+var array<int> qaCatalogPerFeed = array.new_int(34, 0)
+// V34.11b QA: same-source per-slot causal fields from the EXISTING
+// security() result. The last snapshot is not a historical event stream.
+var array<int> qaC1BySlot = array.new_int(34, na)
+var array<int> qaC2BySlot = array.new_int(34, na)
+var array<int> qaSweepBySlot = array.new_int(34, na)
+var array<int> qaRatBySlot = array.new_int(34, na)
+var array<int> qaPivot15AtBySlot = array.new_int(34, na)
+var array<float> qaPivot15PriceBySlot = array.new_float(34, na)
+var array<int> qaBreak15BySlot = array.new_int(34, na)
+var array<int> qaClosed15BySlot = array.new_int(34, na)
+var array<string> qaExtraKindBySlot = array.new_string(34, "NONE")
+var array<int> qaExtraC1BySlot = array.new_int(34, na)
+var array<int> qaExtraSweepBySlot = array.new_int(34, na)
+var array<int> qaExtraPivot15AtBySlot = array.new_int(34, na)
+var array<int> qaExtraPivot5AtBySlot = array.new_int(34, na)
+var array<float> qaExtraPivot15PriceBySlot = array.new_float(34, na)
+var array<int> qaExtraBreak15BySlot = array.new_int(34, na)
+var array<int> qaExtraBreak5BySlot = array.new_int(34, na)
+var array<int> qaExtraRatBySlot = array.new_int(34, na)
+var array<int> qaHistCandidate2CBySlot = array.new_int(34, na)
+var array<int> qaHistRatified2CBySlot = array.new_int(34, na)
+var array<int> qaHistRejectedExpansionBySlot = array.new_int(34, na)
+var array<int> qaHistConfirmed3CBySlot = array.new_int(34, na)
+var array<int> qaTrue3CSignedBySlot = array.new_int(34, na)
+// Graph-readiness audit from the SAME per-market Signal, never from mask>0.
+// A displayed QA role can be valid while its bounded C1 history is absent.
+var array<bool> qaCoreC1ReadyBySlot = array.new_bool(34, false)
+var array<bool> qaOtherC1ReadyBySlot = array.new_bool(34, false)
+var array<string> qaOtherC1KindBySlot = array.new_string(34, "NONE")
+var array<int> qaHistInsideReturnBySlot = array.new_int(34, na)
+var array<int> qaHistInsideContinuationBySlot = array.new_int(34, na)
+var array<int> qaHistMulti4BySlot = array.new_int(34, na)
+var array<int> qaHistMultiNBySlot = array.new_int(34, na)
+var array<int> qaHistRetest15BySlot = array.new_int(34, na)
+var array<int> statuses = array.new_int(34, -1)
+// Estado independiente: fase 2 confirmada + identidad y modelo estructural valido.
+// Las fases 1 (provisional) y 3 (historica) nunca entran en Solo CRT.
+var array<bool> validCrtFlags = array.new_bool(34, false)
+var array<bool> validCoreFlags = array.new_bool(34, false)
+// 33 non-BTC feed-phase candidates are observed separately; NOT certified.
+var array<bool> qaCoreObservedFlags = array.new_bool(34, false)
+var array<string> familyLabels = array.new_string(34, "NONE")
+var array<int> directions = array.new_int(34, 0)
+var array<int> m5Flags = array.new_int(34, 0)
+var array<int> m15Flags = array.new_int(34, 0)
+var array<int> extraM15Flags = array.new_int(34, 0)
+var array<int> extraM5Flags = array.new_int(34, 0)
+var array<int> c1IDs = array.new_int(34, 0)
+var array<int> m5Times = array.new_int(34, 0)
+var array<int> m5PivotTimes = array.new_int(34, na)
+var array<int> qaObservedDirectionBySlot = array.new_int(34, 0)
+var array<int> qaSourcePhaseBySlot = array.new_int(34, na)
+var array<int> m15Times = array.new_int(34, 0)
+// V34.10u — Telemetria por feed usando el MISMO Signal del
+// escaner. Solo se ve en la vista opt-in; no entra en alertas.
+var array<int> auditFeedAvailable = array.new_int(34, 0)
+var array<int> auditFeedC1 = array.new_int(34, 0)
+var array<int> auditFeedH4Closed = array.new_int(34, 0)
+var array<int> auditFeedC1Hours = array.new_int(34, 0)
+var array<int> auditFeedC1Clock = array.new_int(34, 0)
+var array<int> auditFeedC1Data = array.new_int(34, 0)
+var array<int> auditFeedC1Range = array.new_int(34, 0)
+var array<int> auditFeed2C = array.new_int(34, 0)
+var array<int> auditFeed3C = array.new_int(34, 0)
+var array<int> auditFeedInside = array.new_int(34, 0)
+var array<int> auditFeedM4 = array.new_int(34, 0)
+var array<int> auditFeedMN = array.new_int(34, 0)
+var array<int> auditFeedH4StartMis = array.new_int(34, 0)
+var array<int> auditFeedH4EndMis = array.new_int(34, 0)
+var array<int> auditFeedH4BarsMis = array.new_int(34, 0)
+var array<int> auditFeedPhaseMin = array.new_int(34, na)
+var array<int> auditFeedH4LastBars = array.new_int(34, na)
+var array<int> auditFeedH4StartShift = array.new_int(34, na)
+var array<int> auditFeedH4EndShift = array.new_int(34, na)
+var array<int> auditFeedH4Gap = array.new_int(34, 0)
+var array<int> auditFeedH4DST = array.new_int(34, 0)
+var array<int> auditFeedH4Session = array.new_int(34, 0)
+var array<int> auditFeedH4Internal = array.new_int(34, 0)
+var array<int> auditFeedC2Rejected = array.new_int(34, 0)
+var array<int> auditFeedM15QA = array.new_int(34, 0)
+var array<string> pdhTexts = array.new_string(34, "N/D")
+var array<string> pdlTexts = array.new_string(34, "N/D")
+var array<int> pdhFlags = array.new_int(34, -1)
+var array<int> pdlFlags = array.new_int(34, -1)
+int found = 0
+int foundQA = 0
+int with5 = 0
+int with15 = 0
+int missing = 0
+int checked = 0
+// Conteos historicos agregados de los feeds M5 realmente consultados.
+int hist2C34 = 0
+int hist3C34 = 0
+int histInside34 = 0
+int histM434 = 0
+int histMN34 = 0
+int withHistory34 = 0
+int familyQA15Count = 0
+
+for i = 0 to 33
+    string candidateSymbol = array.get(scanSymbols, i)
+    if chartIsIC and ticker.standard(candidateSymbol) == integratedChartBroker
+        chartStaticSlot := i
+    if scanAll or i == 7
+        string symbol = candidateSymbol
+        // El UDT cuenta como un campo de retorno, evita 34*12 campos de tupla.
+        Signal s = request.security(symbol, "5", f_engine_snapshot(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true, calc_bars_count=400)
+        bool available = not na(s) and not na(s.phase)
+        if available and chartIsIC and ticker.standard(symbol) == integratedChartBroker
+            integratedOwn := s
+            integratedSlot := i
+        int st = available ? s.phase : 0
+        int dr = available ? s.direction : 0
+        int id = available and not na(s.c1Start) ? s.c1Start : 0
+        int m5t = available and not na(s.m5At) ? s.m5At : 0
+        int m15t = available and not na(s.m15At) ? s.m15At : 0
+        bool structuralCoreObserved = available and st == 2 and s.isPatternValid and s.modelKind == "CRT_2C_RETURN" and id > 0 and (dr == 1 or dr == -1) and not na(s.sweepAt) and s.sweepAt > s.crtC2Start and not na(s.crtC2Start) and not na(s.crtRatifiedAt) and s.crtRatifiedAt >= s.crtC2Start + H4MS
+        // Preserve prior validation gate. Only non-core, exact H4 ratified
+        // sources are eligible to have their own MSS evidence shown as QA.
+        // R2: QA phase selector is NOT an Owner authorization to certify
+        // non-BTC markets. Preserve structural observations for all 33;
+        // only the unchanged BTC engine retains its prior certified class.
+        bool scanCrtValid = structuralCoreObserved and i == 7
+        bool observedCoreQA = structuralCoreObserved and i != 7
+        bool ownCoreC1Ready = structuralCoreObserved and not na(s.crh) and not na(s.crl) and s.crh > s.crl
+        bool ownOtherC1Ready = available and not na(s.familyVisual) and s.familyVisual.structuralQA and not na(s.familyVisual.c1Start) and not na(s.familyVisual.c1High) and not na(s.familyVisual.c1Low) and s.familyVisual.c1High > s.familyVisual.c1Low and not na(s.familyVisual.eventClosedAt) and s.familyVisual.eventClosedAt >= s.familyVisual.c1Start and s.familyVisual.direction != 0
+        array.set(qaCoreC1ReadyBySlot,i,ownCoreC1Ready)
+        array.set(qaOtherC1ReadyBySlot,i,ownOtherC1Ready)
+        array.set(qaOtherC1KindBySlot,i,ownOtherC1Ready ? s.familyVisual.kind : "NONE")
+        array.set(qaCatalogPerFeed, i, available ? nz(s.qaCatalogMask, 0) : 0)
+        array.set(qaC1BySlot, i, available ? s.c1Start : na)
+        array.set(qaC2BySlot, i, available ? s.crtC2Start : na)
+        array.set(qaSweepBySlot, i, available ? s.sweepAt : na)
+        array.set(qaRatBySlot, i, available ? s.crtRatifiedAt : na)
+        array.set(qaPivot15AtBySlot, i, available ? s.m15PivotAt : na)
+        array.set(qaPivot15PriceBySlot, i, available ? s.m15Level : na)
+        array.set(qaBreak15BySlot, i, available ? s.m15At : na)
+        array.set(qaClosed15BySlot, i, available ? s.qaLastClosedM15At : na)
+        array.set(qaExtraKindBySlot, i, available ? s.extraFamilyKind : "NONE")
+        array.set(qaExtraC1BySlot, i, available ? s.extraFamilyC1 : na)
+        array.set(qaExtraSweepBySlot, i, available ? s.extraFamilySweepAt : na)
